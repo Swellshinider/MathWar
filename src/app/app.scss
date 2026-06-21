@@ -1,0 +1,51 @@
+:host {
+  display: block;
+  min-height: 100%;
+}
+main {
+  width: min(72rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+h1 {
+  margin: 0;
+  color: #f7f9fc;
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 0.95;
+}
+.eyebrow {
+  margin: 0 0 0.4rem;
+  color: #f8c15c;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.objective {
+  max-width: 28rem;
+  margin: 0;
+  color: #9fb1c4;
+  text-align: right;
+}
+.hint {
+  color: #8295aa;
+  font-size: 0.9rem;
+}
+code {
+  color: #f8c15c;
+}
+@media (max-width: 600px) {
+  header {
+    display: block;
+  }
+  .objective {
+    margin-top: 0.75rem;
+    text-align: left;
+  }
+}

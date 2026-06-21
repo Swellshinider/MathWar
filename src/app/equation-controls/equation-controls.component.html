@@ -1,0 +1,15 @@
+<form (submit)="submit($event)">
+  <label for="equation">Trajectory equation</label>
+  <div class="entry-row">
+    <span aria-hidden="true">f(x) =</span>
+    <input id="equation" [formControl]="equation" autocomplete="off" spellcheck="false" />
+    <button type="submit" [disabled]="active() || equation.invalid || roundComplete()">Fire</button>
+    @if (roundComplete()) {
+      <button type="button" class="secondary" (click)="newRound.emit()">New Round</button>
+    }
+  </div>
+</form>
+<p class="status" aria-live="polite">{{ status() }}</p>
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}

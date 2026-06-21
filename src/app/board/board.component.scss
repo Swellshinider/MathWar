@@ -1,0 +1,14 @@
+:host {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 5;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid #29435f;
+  border-radius: 0.75rem;
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 25%);
+}

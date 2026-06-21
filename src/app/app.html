@@ -1,0 +1,25 @@
+<main>
+  <header>
+    <div>
+      <p class="eyebrow">Equation artillery</p>
+      <h1>Math War</h1>
+    </div>
+    <p class="objective">Shape a function to guide the shot through every target.</p>
+  </header>
+
+  <app-board [player]="player()" [targets]="targets()" [bullet]="bullet()" [trail]="trail()" />
+
+  <app-equation-controls
+    [active]="active()"
+    [roundComplete]="roundComplete()"
+    [error]="error()"
+    [status]="status()"
+    (fire)="fire($event)"
+    (newRound)="newRound()"
+  />
+
+  <p class="hint">
+    The curve starts at the player. Try <code>0.35x</code>, <code>sin(x)</code>, or
+    <code>0.08x^2</code>.
+  </p>
+</main>

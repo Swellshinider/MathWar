@@ -1,0 +1,17 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  min-height: 100%;
+}
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #12253a 0, #07111f 60%);
+  color: #e6edf5;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+button,
+input {
+  font-family: inherit;
+}
