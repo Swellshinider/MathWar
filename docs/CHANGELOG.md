@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed - 2026-06-22
 
+- Increased each round from two to four randomly generated walls.
 - Reduced wall impact blast radius so shots remove a smaller local area.
 
 ### Changed - 2026-06-21
