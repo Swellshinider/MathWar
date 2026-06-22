@@ -5,8 +5,13 @@
       <label for="equation">Trajectory equation</label>
       <div class="entry-row">
         <span aria-hidden="true">f(x) =</span>
-        <input id="equation" [formControl]="equation" autocomplete="off" spellcheck="false" />
-        <button type="submit" [disabled]="active() || equation.invalid || roundComplete()">
+        <input
+          id="equation"
+          [formControl]="equationControl"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="submit" [disabled]="active() || equationControl.invalid || roundComplete()">
           Fire
         </button>
         @if (roundComplete()) {

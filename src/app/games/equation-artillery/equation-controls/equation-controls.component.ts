@@ -1,5 +1,5 @@
-import { Component, input, output } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, effect, input, model, output } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FunctionPreviewComponent } from '../function-preview/function-preview.component';
 
@@ -16,16 +16,31 @@ export class EquationControlsComponent {
   readonly status = input('Ready');
   readonly fire = output<string>();
   readonly newRound = output<void>();
-  readonly equation = new FormControl('0.35x', {
+  readonly equation = model('0.35x');
+  readonly equationControl = new FormControl(this.equation(), {
     nonNullable: true,
     validators: [Validators.required],
   });
-  readonly equationValue = toSignal(this.equation.valueChanges, {
-    initialValue: this.equation.value,
+  readonly equationValue = toSignal(this.equationControl.valueChanges, {
+    initialValue: this.equationControl.value,
   });
+
+  constructor() {
+    effect(() => {
+      const equation = this.equation();
+      if (this.equationControl.value !== equation) {
+        this.equationControl.setValue(equation);
+      }
+    });
+    this.equationControl.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((equation) => this.equation.set(equation));
+  }
 
   submit(event: SubmitEvent): void {
     event.preventDefault();
-    if (!this.active() && this.equation.valid) this.fire.emit(this.equation.value);
+    if (!this.active() && this.equationControl.valid) {
+      this.fire.emit(this.equationControl.value);
+    }
   }
 }

@@ -4,35 +4,41 @@
   objective="Shape a function to guide the shot through every target."
   [wide]="true"
 >
-  <div class="playfield">
-    <app-board
-      [player]="player()"
-      [targets]="targets()"
-      [walls]="walls()"
-      [bullet]="bullet()"
-      [trail]="trail()"
-    />
-    <app-function-reference
-      class="reference-left"
-      title="Trigonometry"
-      [functions]="trigonometryFunctions"
-    />
-    <app-function-reference
-      class="reference-right"
-      title="Numbers and logs"
-      [functions]="numericFunctions"
-      [showSyntax]="true"
-    />
+  <button
+    gameActions
+    type="button"
+    class="help-button"
+    aria-haspopup="dialog"
+    (click)="helpDialog.open()"
+  >
+    Help
+  </button>
+
+  <div class="game-layout">
+    <div class="game-column">
+      <app-board
+        [player]="player()"
+        [targets]="targets()"
+        [walls]="walls()"
+        [bullet]="bullet()"
+        [trail]="trail()"
+      />
+
+      <app-equation-controls
+        [(equation)]="equation"
+        [active]="active()"
+        [roundComplete]="roundComplete()"
+        [error]="error()"
+        [status]="status()"
+        (fire)="fire($event)"
+        (newRound)="newRound()"
+      />
+    </div>
+
+    <app-equation-history [equations]="equationHistory()" (selectEquation)="equation.set($event)" />
   </div>
 
-  <app-equation-controls
-    [active]="active()"
-    [roundComplete]="roundComplete()"
-    [error]="error()"
-    [status]="status()"
-    (fire)="fire($event)"
-    (newRound)="newRound()"
-  />
+  <app-equation-help-dialog #helpDialog />
 
   <p gameHint>
     The curve starts at the player. Walls stop shots but lose pieces around an impact. Try

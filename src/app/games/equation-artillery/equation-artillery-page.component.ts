@@ -12,15 +12,16 @@ import { Point } from './models/point';
 import { Target } from './models/target';
 import { Wall } from './models/wall';
 import { WORLD_BOUNDS } from './models/world-bounds';
-import { FunctionReferenceComponent } from './function-reference/function-reference.component';
-import { FUNCTION_REFERENCES } from './game/expression-catalog';
+import { EquationHelpDialogComponent } from './equation-help-dialog/equation-help-dialog.component';
+import { EquationHistoryComponent } from './equation-history/equation-history.component';
 
 @Component({
   selector: 'app-equation-artillery-page',
   imports: [
     BoardComponent,
     EquationControlsComponent,
-    FunctionReferenceComponent,
+    EquationHelpDialogComponent,
+    EquationHistoryComponent,
     GameFrameComponent,
   ],
   providers: [AnimationService],
@@ -37,12 +38,8 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly trail = signal<readonly Point[]>([]);
   readonly active = signal(false);
   readonly error = signal<string | null>(null);
-  readonly trigonometryFunctions = FUNCTION_REFERENCES.filter(
-    (reference) => reference.category === 'trigonometry',
-  );
-  readonly numericFunctions = FUNCTION_REFERENCES.filter(
-    (reference) => reference.category === 'numeric',
-  );
+  readonly equation = signal('0.35x');
+  readonly equationHistory = signal<readonly string[]>([]);
   readonly roundComplete = computed(() => this.targets().length === 0);
   readonly status = computed(() => {
     if (this.roundComplete()) return 'All targets destroyed.';
@@ -63,6 +60,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       );
       return;
     }
+    this.equationHistory.update((history) => [...history, equation]);
     let shot = createShot(this.player(), this.targets(), this.walls());
     this.active.set(true);
     this.bullet.set(shot.bullet);

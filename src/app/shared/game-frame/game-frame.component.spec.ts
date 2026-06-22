@@ -1,5 +1,16 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { GameFrameComponent } from './game-frame.component';
+
+@Component({
+  imports: [GameFrameComponent],
+  template: `
+    <app-game-frame eyebrow="Topic" title="Game" objective="Objective">
+      <button gameActions type="button">Help</button>
+    </app-game-frame>
+  `,
+})
+class GameFrameHostComponent {}
 
 describe('GameFrameComponent', () => {
   beforeEach(async () => {
@@ -32,5 +43,14 @@ describe('GameFrameComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('article').classList).toContain('wide');
+  });
+
+  it('projects game actions into the introduction', () => {
+    const fixture = TestBed.createComponent(GameFrameHostComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.intro-actions button').textContent).toContain(
+      'Help',
+    );
   });
 });

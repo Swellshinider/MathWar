@@ -13,7 +13,7 @@ describe('EquationControlsComponent', () => {
     const emitted = vi.fn();
     fixture.componentInstance.fire.subscribe(emitted);
     fixture.detectChanges();
-    fixture.componentInstance.equation.setValue('sin(x)');
+    fixture.componentInstance.equationControl.setValue('sin(x)');
     fixture.detectChanges();
     const event = new SubmitEvent('submit', { bubbles: true, cancelable: true });
     const allowed = fixture.nativeElement.querySelector('form').dispatchEvent(event);
@@ -51,7 +51,7 @@ describe('EquationControlsComponent', () => {
       .querySelector('app-function-preview path')
       .getAttribute('d');
 
-    fixture.componentInstance.equation.setValue('x^2');
+    fixture.componentInstance.equationControl.setValue('x^2');
     fixture.detectChanges();
 
     const updatedPath = fixture.nativeElement
@@ -67,10 +67,26 @@ describe('EquationControlsComponent', () => {
 
   it('clears the preview for an incomplete expression', () => {
     const fixture = TestBed.createComponent(EquationControlsComponent);
-    fixture.componentInstance.equation.setValue('x+(');
+    fixture.componentInstance.equationControl.setValue('x+(');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-function-preview svg')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Complete the function');
+  });
+
+  it('loads a selected history equation into the form and preview', () => {
+    const fixture = TestBed.createComponent(EquationControlsComponent);
+    fixture.detectChanges();
+    const initialPath = fixture.nativeElement
+      .querySelector('app-function-preview path')
+      .getAttribute('d');
+
+    fixture.componentRef.setInput('equation', 'cos(x)');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.equationControl.value).toBe('cos(x)');
+    expect(
+      fixture.nativeElement.querySelector('app-function-preview path').getAttribute('d'),
+    ).not.toBe(initialPath);
   });
 });

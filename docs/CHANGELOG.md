@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added - 2026-06-22
 
+- Added an equation help modal and a reusable, chat-style history of fired equations.
 - Added a compact square function silhouette preview beside the equation controls that hides the
   game board's position and scale.
 
