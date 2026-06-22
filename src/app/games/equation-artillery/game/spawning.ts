@@ -17,6 +17,7 @@ export interface RoundEntities {
 }
 
 export const WALL_PIECE_SIZE = 0.5;
+const WALL_COUNT = 4;
 const WALL_SHAPES: readonly WallShape[] = ['vertical', 'circle', 'square', 'triangle'];
 
 const integerBetween = (random: () => number, minimum: number, maximum: number): number =>
@@ -77,9 +78,12 @@ function createLocalPieces(shape: WallShape, random: () => number): readonly Poi
 }
 
 function selectWallShapes(random: () => number): readonly WallShape[] {
-  const firstIndex = integerBetween(random, 0, WALL_SHAPES.length - 1);
-  const remaining = WALL_SHAPES.filter((_, index) => index !== firstIndex);
-  return [WALL_SHAPES[firstIndex], remaining[integerBetween(random, 0, remaining.length - 1)]];
+  const shapes = [...WALL_SHAPES];
+  for (let index = shapes.length - 1; index > 0; index -= 1) {
+    const swapIndex = integerBetween(random, 0, index);
+    [shapes[index], shapes[swapIndex]] = [shapes[swapIndex], shapes[index]];
+  }
+  return shapes;
 }
 
 function piecesFitBounds(pieces: readonly WallPiece[]): boolean {
@@ -107,7 +111,7 @@ function spawnWalls(player: Player, random: () => number): readonly Wall[] {
     const localPieces = createLocalPieces(shape, random);
     for (let attempts = 0; attempts < 500; attempts += 1) {
       const center = {
-        x: halfStepBetween(random, -4, 2),
+        x: halfStepBetween(random, -4, 6),
         y: halfStepBetween(random, -5, 5),
       };
       const pieces = localPieces.map((point, pieceIndex) => ({
@@ -125,7 +129,9 @@ function spawnWalls(player: Player, random: () => number): readonly Wall[] {
     }
   });
 
-  if (walls.length !== 2) throw new Error('Unable to place two walls without overlap.');
+  if (walls.length !== WALL_COUNT) {
+    throw new Error(`Unable to place ${WALL_COUNT} walls without overlap.`);
+  }
   return walls;
 }
 

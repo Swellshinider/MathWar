@@ -31,7 +31,7 @@ rtk npm run build
 ## Controls and equations
 
 Enter a function in the `f(x)` field and select **Fire**. The Fire control remains disabled until
-the shot ends. Destroy all three red targets to expose **New Round**. Each round also contains two
+the shot ends. Destroy all three red targets to expose **New Round**. Each round also contains four
 filled geometric walls. A wall stops the shot, but the impact destroys nearby wall pieces and opens
 a path for later shots.
 

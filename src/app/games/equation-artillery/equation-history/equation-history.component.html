@@ -1,0 +1,20 @@
+<section aria-labelledby="equation-history-title">
+  <h2 id="equation-history-title">Equation history</h2>
+  @if (equations().length === 0) {
+    <p class="empty">Fired equations will appear here.</p>
+  } @else {
+    <ol #list role="log" aria-live="polite" aria-relevant="additions">
+      @for (equation of equations(); track $index) {
+        <li>
+          <button
+            type="button"
+            [attr.aria-label]="'Use equation ' + equation"
+            (click)="selectEquation.emit(equation)"
+          >
+            <code>f(x) = {{ equation }}</code>
+          </button>
+        </li>
+      }
+    </ol>
+  }
+</section>

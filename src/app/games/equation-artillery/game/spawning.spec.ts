@@ -15,12 +15,15 @@ describe('spawnRound', () => {
 
   it('generates valid rounds across a range of seeded random sources', () => {
     const shapes = new Set<string>();
-    for (let seed = 1; seed <= 100; seed += 1) {
+    const shapeSequences = new Set<string>();
+    for (let seed = 1; seed <= 500; seed += 1) {
       const round = spawnRound(seededRandom(seed));
-      expect(round.walls).toHaveLength(2);
+      expect(round.walls).toHaveLength(4);
       round.walls.forEach((wall) => shapes.add(wall.shape));
+      shapeSequences.add(round.walls.map((wall) => wall.shape).join(','));
     }
     expect(shapes).toEqual(new Set(['vertical', 'circle', 'square', 'triangle']));
+    expect(shapeSequences.size).toBeGreaterThan(1);
   });
 
   it('places bounded integer entities on the correct halves', () => {
@@ -29,8 +32,8 @@ describe('spawnRound', () => {
     expect(round.player.position.x).toBeLessThanOrEqual(-6);
     expect(Number.isInteger(round.player.position.y)).toBe(true);
     expect(round.targets).toHaveLength(3);
-    expect(round.walls).toHaveLength(2);
-    expect(new Set(round.walls.map((wall) => wall.shape)).size).toBe(2);
+    expect(round.walls).toHaveLength(4);
+    expect(new Set(round.walls.map((wall) => wall.shape)).size).toBe(4);
     round.targets.forEach((target) => {
       expect(target.center.x).toBeGreaterThanOrEqual(3);
       expect(target.center.x).toBeLessThanOrEqual(10);
@@ -55,11 +58,15 @@ describe('spawnRound', () => {
         );
       });
     });
-    expect(
-      round.walls[0].pieces.some((first) =>
-        round.walls[1].pieces.some((second) => wallPiecesOverlap(first, second, 0.25)),
-      ),
-    ).toBe(false);
+    for (let firstWall = 0; firstWall < round.walls.length; firstWall += 1) {
+      for (let secondWall = firstWall + 1; secondWall < round.walls.length; secondWall += 1) {
+        expect(
+          round.walls[firstWall].pieces.some((first) =>
+            round.walls[secondWall].pieces.some((second) => wallPiecesOverlap(first, second, 0.25)),
+          ),
+        ).toBe(false);
+      }
+    }
   });
 
   it('prevents target overlap', () => {
