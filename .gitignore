@@ -2,6 +2,8 @@
 
 # Compiled output
 /dist
+packages/*/dist
+server/dist
 /tmp
 /out-tsc
 /bazel-out
@@ -30,6 +32,7 @@ yarn-error.log
 /connect.lock
 /coverage
 /libpeerconnection.log
+supabase/.temp/
 testem.log
 /typings
 __screenshots__/
@@ -39,3 +42,7 @@ CLAUDE.md
 # System files
 .DS_Store
 Thumbs.db
+
+# Env
+**/*.env
+public/config.js

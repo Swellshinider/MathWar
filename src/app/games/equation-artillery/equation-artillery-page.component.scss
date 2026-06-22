@@ -17,7 +17,8 @@ code {
   min-width: 0;
 }
 
-.help-button {
+.help-button,
+.multiplayer-link {
   padding: 0.55rem 1rem;
   border: 1px solid #f8c15c;
   border-radius: 0.45rem;
@@ -26,10 +27,13 @@ code {
   font: inherit;
   font-weight: 800;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .help-button:hover,
-.help-button:focus-visible {
+.help-button:focus-visible,
+.multiplayer-link:hover,
+.multiplayer-link:focus-visible {
   background: rgb(248 193 92 / 12%);
 }
 

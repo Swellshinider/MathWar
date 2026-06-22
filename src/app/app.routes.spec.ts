@@ -33,6 +33,14 @@ describe('application routes', () => {
     expect(harness.routeNativeElement?.textContent).not.toContain('Focus on game');
   });
 
+  it('opens the separate multiplayer route', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/games/equation-artillery/multiplayer');
+
+    expect(harness.routeNativeElement?.textContent).toContain('Equation Artillery Multiplayer');
+    expect(harness.routeNativeElement?.textContent).toContain('Supabase is not configured');
+  });
+
   it('redirects unknown paths to the catalog', async () => {
     const harness = await RouterTestingHarness.create();
     const router = TestBed.inject(Router);

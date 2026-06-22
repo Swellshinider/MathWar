@@ -4,11 +4,20 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "npm run build:engine && ng build",
+    "build:production": "npm run build && npm run server:build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:server": "vitest run --config server/vitest.config.ts",
+    "server:dev": "tsx watch server/src/main.ts",
+    "build:engine": "tsc -p packages/game-engine/tsconfig.json",
+    "server:build": "npm run build:engine && tsc -p server/tsconfig.json",
+    "server:start": "node server/dist/main.js"
   },
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "packageManager": "npm@11.16.0",
   "dependencies": {
     "@angular/common": "^22.0.0",
@@ -17,16 +26,28 @@
     "@angular/forms": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/static": "^9.1.3",
+    "@math-war/game-engine": "*",
+    "@supabase/supabase-js": "^2.57.4",
+    "fastify": "^5.6.0",
+    "jose": "^6.1.0",
     "mathjs": "15.2.0",
+    "pg": "^8.16.3",
     "rxjs": "~7.8.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
     "@angular/build": "^22.0.0",
     "@angular/cli": "^22.0.0",
     "@angular/compiler-cli": "^22.0.0",
+    "@types/node": "^24.3.1",
+    "@types/pg": "^8.15.5",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
+    "tsx": "^4.20.5",
     "typescript": "~6.0.2",
     "vitest": "^4.0.8"
   }

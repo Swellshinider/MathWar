@@ -2,16 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
+
+### Fixed - 2026-06-22
+
+- Prevented multiplayer wall damage, turn changes, match results, and equation history from
+  appearing before the shot animation reaches its impact.
+- Restored Equation history and Help to multiplayer, removed internal server and version messages,
+  and made equation history persist across reconnects.
+- Changed the favicon reference to a root-absolute cache-busted URL for Railway deployments.
 
 ### Added - 2026-06-22
 
+- Added a system architecture guide covering browser, server, shared engine, Supabase, Railway,
+  security, persistence, deployment, and scaling boundaries.
+- Added a private, Google-authenticated Equation Artillery 1v1 mode with short room codes.
+- Added an authoritative Fastify and Socket.IO server with PostgreSQL persistence, command
+  idempotency, optimistic version checks, and Supabase JWT validation.
+- Added a deterministic shared game engine for bilateral shots, opponent collisions, and seeded
+  multiplayer boards.
+- Added 60-second reconnection recovery, abandonment wins, and automatic removal of finished
+  matches after 24 hours.
 - Added an equation help modal and a reusable, chat-style history of fired equations.
 - Added a compact square function silhouette preview beside the equation controls that hides the
   game board's position and scale.
 
 ### Changed - 2026-06-22
 
+- Combined the Angular application and Fastify server into one Railway deployment in US East.
+- Moved multiplayer persistence into a client-inaccessible `private` Supabase schema managed by a
+  committed migration, with startup now failing fast when the schema is missing.
+- Replaced build-time browser configuration with a runtime `/config.js` containing only public
+  endpoints and the Supabase publishable key.
 - Added the Math War logo to the site header and replaced the browser favicon.
 - Increased each round from two to four randomly generated walls.
 - Reduced wall impact blast radius so shots remove a smaller local area.
@@ -42,5 +67,3 @@ All notable changes to this project will be documented in this file.
 - Safe number-only equation parsing with documented implicit multiplication.
 - Fixed-step curve-based shots, target collisions, trails, and randomized rounds.
 - Vitest coverage for domain logic and Angular components.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
