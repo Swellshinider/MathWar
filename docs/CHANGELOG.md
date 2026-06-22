@@ -1,9 +1,19 @@
 # Changelog
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
+
+### Fixed - 2026-06-22
+
+- Prevented multiplayer wall damage, turn changes, match results, and equation history from
+  appearing before the shot animation reaches its impact.
+- Restored Equation history and Help to multiplayer, removed internal server and version messages,
+  and made equation history persist across reconnects.
+- Changed the favicon reference to a root-absolute cache-busted URL for Railway deployments.
 
 ### Added - 2026-06-22
 
@@ -16,9 +26,6 @@ All notable changes to this project will be documented in this file.
   multiplayer boards.
 - Added 60-second reconnection recovery, abandonment wins, and automatic removal of finished
   matches after 24 hours.
-
-### Added - 2026-06-22
-
 - Added an equation help modal and a reusable, chat-style history of fired equations.
 - Added a compact square function silhouette preview beside the equation controls that hides the
   game board's position and scale.

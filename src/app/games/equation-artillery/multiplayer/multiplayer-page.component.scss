@@ -1,6 +1,17 @@
 :host {
   display: block;
 }
+
+.game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.game-column {
+  min-width: 0;
+}
 .panel,
 .match-meta,
 .controls,
@@ -61,6 +72,16 @@ button.secondary {
   background: transparent;
   color: #e6edf5;
 }
+.help-button {
+  padding: 0.55rem 1rem;
+  border: 1px solid #f8c15c;
+  background: transparent;
+  color: #f8c15c;
+}
+.help-button:hover,
+.help-button:focus-visible {
+  background: rgb(248 193 92 / 12%);
+}
 .status {
   color: #f8c15c;
   font-weight: 700;
@@ -71,4 +92,14 @@ button.secondary {
 }
 .error {
   color: #ff8d8d;
+}
+
+@media (max-width: 56rem) {
+  .game-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  app-equation-history {
+    max-height: 18rem;
+  }
 }

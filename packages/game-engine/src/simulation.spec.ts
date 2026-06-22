@@ -50,4 +50,40 @@ describe('shared multiplayer simulation', () => {
     expect(shot.state.status).toBe('ended');
     expect(shot.state.winnerUserId).toBe('left');
   });
+
+  it('keeps both players valid equations in firing order', () => {
+    const created = createMatchState(
+      '00000000-0000-4000-8000-000000000001',
+      'ABC123',
+      'history',
+      { userId: 'left', displayName: 'Left' },
+      { userId: 'right', displayName: 'Right' },
+    );
+    const withoutWalls = { ...created, walls: [] };
+    const first = resolveShot(withoutWalls, 'left', 'left-command', 'x+1');
+    const second = resolveShot(first.state, 'right', 'right-command', 'sin(x)');
+
+    expect(second.state.equationHistory).toEqual([
+      { commandId: 'left-command', shooterUserId: 'left', equation: 'x+1' },
+      { commandId: 'right-command', shooterUserId: 'right', equation: 'sin(x)' },
+    ]);
+  });
+
+  it('does not record invalid equations and accepts legacy states without history', () => {
+    const created = createMatchState(
+      '00000000-0000-4000-8000-000000000001',
+      'ABC123',
+      'legacy-history',
+      { userId: 'left', displayName: 'Left' },
+      { userId: 'right', displayName: 'Right' },
+    );
+    const legacy = { ...created, equationHistory: undefined } as unknown as typeof created;
+    const invalid = resolveShot(legacy, 'left', 'invalid-command', 'x+(');
+    const valid = resolveShot(legacy, 'left', 'valid-command', '0');
+
+    expect(invalid.state.equationHistory).toBeUndefined();
+    expect(valid.state.equationHistory).toEqual([
+      { commandId: 'valid-command', shooterUserId: 'left', equation: '0' },
+    ]);
+  });
 });

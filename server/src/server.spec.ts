@@ -63,6 +63,7 @@ describe('multiplayer socket server', () => {
     const staticRoot = await mkdtemp(join(tmpdir(), 'math-war-static-'));
     await writeFile(join(staticRoot, 'index.html'), '<html>Math War</html>');
     await writeFile(join(staticRoot, 'main.js'), 'console.log("asset");');
+    await writeFile(join(staticRoot, 'favicon.ico'), 'icon');
     await writeFile(join(staticRoot, 'config.js'), 'window.MATH_WAR_CONFIG = { legacy: true };');
     const repository = new InMemoryMatchRepository();
     const server = await createMultiplayerServer({
@@ -90,6 +91,10 @@ describe('multiplayer socket server', () => {
       const asset = await server.fastify.inject({ method: 'GET', url: '/main.js' });
       expect(asset.statusCode).toBe(200);
       expect(asset.body).toContain('asset');
+
+      const favicon = await server.fastify.inject({ method: 'GET', url: '/favicon.ico' });
+      expect(favicon.statusCode).toBe(200);
+      expect(favicon.headers['content-type']).toContain('image/vnd.microsoft.icon');
 
       const route = await server.fastify.inject({
         method: 'GET',

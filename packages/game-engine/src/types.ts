@@ -36,6 +36,12 @@ export interface Wall {
 export type MatchStatus = 'waiting' | 'active' | 'paused' | 'ended';
 export type MatchEndReason = 'hit' | 'abandonment' | 'left';
 
+export interface ShotHistoryEntry {
+  readonly commandId: string;
+  readonly shooterUserId: string;
+  readonly equation: string;
+}
+
 export interface MatchState {
   readonly id: string;
   readonly roomCode: string;
@@ -44,6 +50,7 @@ export interface MatchState {
   readonly status: MatchStatus;
   readonly players: readonly PlayerState[];
   readonly walls: readonly Wall[];
+  readonly equationHistory: readonly ShotHistoryEntry[];
   readonly turnUserId: string | null;
   readonly winnerUserId: string | null;
   readonly endReason: MatchEndReason | null;

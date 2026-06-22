@@ -84,6 +84,7 @@ export function createMatchState(
     status: second ? 'active' : 'waiting',
     players,
     walls: second ? spawnWalls(random, players) : [],
+    equationHistory: [],
     turnUserId: second ? first.userId : null,
     winnerUserId: null,
     endReason: null,
@@ -190,6 +191,10 @@ export function resolveShot(
   const nextState: MatchState = {
     ...state,
     walls,
+    equationHistory: [
+      ...(state.equationHistory ?? []),
+      { commandId, shooterUserId, equation: expression.source },
+    ],
     version: state.version + 1,
     updatedAt: now.toISOString(),
     status: winnerUserId ? 'ended' : 'active',

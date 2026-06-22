@@ -138,8 +138,10 @@ When an access token becomes available, `MultiplayerPageComponent` asks
 the socket disconnects and browser match state is cleared.
 
 The page stores server-provided `MatchState` in an Angular signal. Computed signals derive the local
-player, opponent, turn ownership, targets, and status text. Shot results contain an authoritative
-trail, which the browser animates without recalculating game outcomes.
+player, opponent, turn ownership, targets, equation history, and status text. Shot results contain
+an authoritative trail, which the browser animates without recalculating game outcomes. While a
+shot is animated, newer authoritative states are buffered so wall damage, turn ownership, history,
+and match results appear only when the trail reaches its impact.
 
 ## Shared multiplayer engine
 
@@ -160,8 +162,9 @@ a finite number.
 
 Multiplayer boards are deterministic from the persisted match seed. A shot advances in fixed world
 steps, tests bounds, opponent collision, and wall collision, then returns the complete trail and
-next state. Invalid expressions leave match state unchanged. A successful opponent hit ends the
-match; otherwise the turn moves to the opponent.
+next state. Valid equations are appended to the persisted history with their command and shooter
+IDs. Invalid expressions leave match state and history unchanged. A successful opponent hit ends
+the match; otherwise the turn moves to the opponent.
 
 The browser imports event and state types for rendering. The server is the only caller trusted to
 apply simulation results to persistent state.

@@ -4,6 +4,16 @@
   objective="Hit the opposing player with a function before they hit you."
   [wide]="true"
 >
+  <button
+    gameActions
+    type="button"
+    class="help-button"
+    aria-haspopup="dialog"
+    (click)="helpDialog.open()"
+  >
+    Help
+  </button>
+
   @if (!auth.ready()) {
     <p>Loading authentication...</p>
   } @else if (!auth.session()) {
@@ -30,29 +40,40 @@
         <button type="button" (click)="joinRoom()">Join room</button>
       </section>
     } @else {
-      <section class="match-meta">
-        <strong>Room {{ state()?.roomCode }}</strong>
-        <span>Version {{ state()?.version }}</span>
-        <button type="button" class="secondary" (click)="leave()">Leave match</button>
-      </section>
-      <app-board
-        [player]="playerForBoard()"
-        [targets]="opponentTarget()"
-        [walls]="state()?.walls ?? []"
-        [bullet]="bullet()"
-        [trail]="trail()"
-      />
-      <form class="controls" (submit)="$event.preventDefault(); fire()">
-        <label>f(x) <input name="equation" maxlength="180" [(ngModel)]="equation" /></label>
-        <button type="submit" [disabled]="!isMyTurn() || activeShot()">Fire</button>
-      </form>
-      <p class="status" aria-live="polite">{{ status() }}</p>
-      <div class="players">
-        @for (player of state()?.players ?? []; track player.userId) {
-          <span
-            >{{ player.displayName }} · {{ player.connected ? 'connected' : 'reconnecting' }}</span
-          >
-        }
+      <div class="game-layout">
+        <div class="game-column">
+          <section class="match-meta">
+            <strong>Room {{ state()?.roomCode }}</strong>
+            <button type="button" class="secondary" [disabled]="activeShot()" (click)="leave()">
+              Leave match
+            </button>
+          </section>
+          <app-board
+            [player]="playerForBoard()"
+            [targets]="opponentTarget()"
+            [walls]="state()?.walls ?? []"
+            [bullet]="bullet()"
+            [trail]="trail()"
+          />
+          <form class="controls" (submit)="$event.preventDefault(); fire()">
+            <label>f(x) <input name="equation" maxlength="180" [(ngModel)]="equation" /></label>
+            <button type="submit" [disabled]="!isMyTurn() || activeShot()">Fire</button>
+          </form>
+          <p class="status" aria-live="polite">{{ status() }}</p>
+          <div class="players">
+            @for (player of state()?.players ?? []; track player.userId) {
+              <span
+                >{{ player.displayName }} ·
+                {{ player.connected ? 'connected' : 'reconnecting' }}</span
+              >
+            }
+          </div>
+        </div>
+
+        <app-equation-history
+          [equations]="equationHistory()"
+          (selectEquation)="equation.set($event)"
+        />
       </div>
     }
     @if (error()) {
@@ -60,5 +81,5 @@
     }
   }
 
-  <p gameHint>Shots are resolved by the server. A disconnected player has 60 seconds to return.</p>
+  <app-equation-help-dialog #helpDialog />
 </app-game-frame>
