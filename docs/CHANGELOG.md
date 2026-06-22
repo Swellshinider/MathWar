@@ -10,6 +10,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added - 2026-06-21
 
+- Routed minigame catalog and reusable application shell for future games.
+- Responsive site header and footer components.
+- In-page game focus mode with persistent exit guidance and Escape-key support.
 - Angular 22 Math War prototype with a responsive coordinate-plane canvas.
 - Safe number-only equation parsing with documented implicit multiplication.
 - Fixed-step curve-based shots, target collisions, trails, and randomized rounds.

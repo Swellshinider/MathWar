@@ -1,0 +1,30 @@
+<article [class.game-frame--focused]="focusMode.active()">
+  @if (focusMode.active()) {
+    <header class="focus-bar">
+      <strong>{{ title() }}</strong>
+      <span id="focus-instructions">Press Esc or choose Exit focus to return.</span>
+      <button #exitButton type="button" aria-describedby="focus-instructions" (click)="exitFocus()">
+        Exit focus
+      </button>
+    </header>
+  } @else {
+    <header class="game-intro">
+      <div>
+        <p class="eyebrow">{{ eyebrow() }}</p>
+        <h1>{{ title() }}</h1>
+      </div>
+      <div class="intro-actions">
+        <p>{{ objective() }}</p>
+        <button #enterButton type="button" (click)="enterFocus()">Focus on game</button>
+      </div>
+    </header>
+  }
+
+  <div class="game-content">
+    <ng-content />
+  </div>
+
+  <div class="game-hint">
+    <ng-content select="[gameHint]" />
+  </div>
+</article>

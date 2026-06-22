@@ -1,0 +1,21 @@
+<app-game-frame
+  eyebrow="Functions and graphs"
+  title="Equation Artillery"
+  objective="Shape a function to guide the shot through every target."
+>
+  <app-board [player]="player()" [targets]="targets()" [bullet]="bullet()" [trail]="trail()" />
+
+  <app-equation-controls
+    [active]="active()"
+    [roundComplete]="roundComplete()"
+    [error]="error()"
+    [status]="status()"
+    (fire)="fire($event)"
+    (newRound)="newRound()"
+  />
+
+  <p gameHint>
+    The curve starts at the player. Try <code>0.35x</code>, <code>sin(x)</code>, or
+    <code>0.08x^2</code>.
+  </p>
+</app-game-frame>

@@ -1,0 +1,20 @@
+<section class="catalog">
+  <header>
+    <p class="eyebrow">Math minigames</p>
+    <h1>Choose your challenge</h1>
+    <p>Practice mathematical ideas through short, focused games.</p>
+  </header>
+
+  <div class="game-grid">
+    @for (game of games; track game.id) {
+      <article class="game-card">
+        <p class="game-topic">{{ game.eyebrow }}</p>
+        <h2>{{ game.title }}</h2>
+        <p>{{ game.summary }}</p>
+        <a [routerLink]="game.route">Play {{ game.title }}</a>
+      </article>
+    }
+  </div>
+
+  <p class="more-games">More math games are coming.</p>
+</section>

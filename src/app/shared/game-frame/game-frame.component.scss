@@ -1,0 +1,135 @@
+:host {
+  display: block;
+}
+
+article {
+  width: min(72rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.game-intro,
+.focus-bar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.game-intro {
+  margin-bottom: 1rem;
+}
+
+h1 {
+  margin: 0;
+  color: #f7f9fc;
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 0.95;
+}
+
+.eyebrow {
+  margin: 0 0 0.4rem;
+  color: #f8c15c;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.intro-actions {
+  display: grid;
+  max-width: 29rem;
+  justify-items: end;
+  gap: 0.75rem;
+}
+
+.intro-actions p {
+  margin: 0;
+  color: #9fb1c4;
+  text-align: right;
+}
+
+button {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #38516b;
+  border-radius: 0.45rem;
+  background: #0b1725;
+  color: #e6edf5;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button:hover,
+button:focus-visible {
+  border-color: #f8c15c;
+  color: #f8c15c;
+}
+
+.game-hint {
+  color: #8295aa;
+  font-size: 0.9rem;
+}
+
+.game-frame--focused {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  padding: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: auto;
+  background: radial-gradient(circle at top, #12253a 0, #07111f 60%);
+}
+
+.game-frame--focused .focus-bar {
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #29435f;
+  background: #07111f;
+}
+
+.focus-bar span {
+  margin-left: auto;
+  color: #9fb1c4;
+  font-size: 0.9rem;
+}
+
+.game-frame--focused .game-content {
+  display: grid;
+  min-height: 0;
+  padding: 1rem;
+  grid-template-rows: minmax(16rem, 1fr) auto;
+  gap: 1rem;
+}
+
+.game-frame--focused .game-hint {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .game-intro {
+    display: grid;
+  }
+
+  .intro-actions {
+    justify-items: start;
+  }
+
+  .intro-actions p {
+    text-align: left;
+  }
+
+  .focus-bar {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+
+  .focus-bar span {
+    order: 3;
+    width: 100%;
+    margin: 0;
+  }
+}

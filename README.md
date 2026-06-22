@@ -1,6 +1,8 @@
 # Math War
 
-Math War is an Angular 22 browser prototype in which a player fires a bullet along a mathematical curve to destroy targets on a coordinate plane.
+Math War is an Angular 22 collection of browser-based math minigames. The first game,
+Equation Artillery, asks the player to fire a bullet along a mathematical curve to destroy
+targets on a coordinate plane.
 
 ## Requirements
 
@@ -10,20 +12,27 @@ Math War is an Angular 22 browser prototype in which a player fires a bullet alo
 ## Install and run
 
 ```bash
-npm install
-npm start
+rtk npm install
+rtk npm start
 ```
 
-Open the local URL printed by the Angular development server.
+Open the local URL printed by the Angular development server. The home page lists the available
+games. Equation Artillery is also available directly at `/games/equation-artillery`.
 
 ## Development commands
 
 ```bash
-npm test
-npm run build
+rtk npm test -- --watch=false
+rtk npm run build
 ```
 
 `npm test` runs the Vitest unit suite. `npm run build` creates an optimized production build in `dist/`.
+
+## Focus mode
+
+Select **Focus on game** to hide the site header, footer, and nonessential game copy while keeping
+the board and controls available. Select **Exit focus** or press **Escape** to return to the normal
+site layout. Focus mode does not use browser fullscreen and is not saved across page reloads.
 
 ## Controls and equations
 
@@ -45,6 +54,7 @@ This means every valid curve begins at the player even when `f(0)` is not zero.
 
 ## Prototype limitations
 
+- Equation Artillery is currently the only available minigame.
 - Rounds are local and are not persisted.
 - The player and targets are randomly placed on integer coordinates.
 - Equations are limited to 180 normalized characters and the documented syntax.

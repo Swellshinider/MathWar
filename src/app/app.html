@@ -1,25 +1,16 @@
-<main>
-  <header>
-    <div>
-      <p class="eyebrow">Equation artillery</p>
-      <h1>Math War</h1>
-    </div>
-    <p class="objective">Shape a function to guide the shot through every target.</p>
-  </header>
+@if (!focusMode.active()) {
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+}
+<div class="site-shell" [class.site-shell--focused]="focusMode.active()">
+  @if (!focusMode.active()) {
+    <app-site-header />
+  }
 
-  <app-board [player]="player()" [targets]="targets()" [bullet]="bullet()" [trail]="trail()" />
+  <main id="main-content">
+    <router-outlet />
+  </main>
 
-  <app-equation-controls
-    [active]="active()"
-    [roundComplete]="roundComplete()"
-    [error]="error()"
-    [status]="status()"
-    (fire)="fire($event)"
-    (newRound)="newRound()"
-  />
-
-  <p class="hint">
-    The curve starts at the player. Try <code>0.35x</code>, <code>sin(x)</code>, or
-    <code>0.08x^2</code>.
-  </p>
-</main>
+  @if (!focusMode.active()) {
+    <app-site-footer />
+  }
+</div>
