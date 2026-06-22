@@ -3,6 +3,13 @@
   margin-top: 1rem;
 }
 
+.controls-layout {
+  display: grid;
+  grid-template-columns: minmax(8rem, 10rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
 form,
 .entry-row {
   display: grid;
@@ -63,6 +70,14 @@ button:disabled {
 }
 
 @media (max-width: 600px) {
+  .controls-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  app-function-preview {
+    width: min(10rem, 100%);
+  }
+
   .entry-row {
     grid-template-columns: auto 1fr auto;
   }

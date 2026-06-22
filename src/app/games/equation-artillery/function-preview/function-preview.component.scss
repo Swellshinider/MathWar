@@ -1,0 +1,67 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+section {
+  box-sizing: border-box;
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 0.7rem;
+  border: 1px solid #29435f;
+  border-radius: 0.65rem;
+  background: #091522;
+}
+
+header {
+  margin-bottom: 0.45rem;
+}
+
+h2 {
+  margin: 0;
+  color: #b7c8da;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.preview-frame {
+  display: grid;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.4rem;
+  background: #07111f;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+path {
+  fill: none;
+  stroke: #8295aa;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  opacity: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+
+path.shadow {
+  stroke: #9db1c5;
+  stroke-width: 7;
+  opacity: 0.12;
+}
+
+p {
+  margin: 0;
+  padding: 0.75rem;
+  color: #708398;
+  font-size: 0.8rem;
+  text-align: center;
+}
