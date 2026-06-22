@@ -40,21 +40,47 @@ The multiplayer implementation has three parts:
 - `src/app/games/equation-artillery/multiplayer`: Angular lobby and match client.
 
 Copy the values from `public/config.example.js` into `public/config.js`, then configure Google OAuth
-in Supabase. Start PostgreSQL and use `server/.env.example` as the server environment template.
+in Supabase. Start PostgreSQL, apply the migration under `supabase/migrations`, and use
+`server/.env.example` as the server environment template.
 
 ```bash
 rtk npm run server:dev
 rtk npm start
 ```
 
-The server creates the `multiplayer_matches` and `multiplayer_commands` tables on startup. It
-validates Supabase JWTs against the project's JWKS endpoint. `DATABASE_URL`, `SUPABASE_URL`, and
-`CLIENT_ORIGIN` are mandatory server variables. The browser receives only the Supabase URL and
-publishable anonymous key. Never place a service-role key in `public/config.js`.
+The server checks that `private.multiplayer_matches` and `private.multiplayer_commands` exist at
+startup and fails fast when the migration has not been applied. It validates Supabase JWTs against
+the project's JWKS endpoint. `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and
+`CLIENT_ORIGIN` are mandatory server variables. The browser receives only the server URL,
+Supabase URL, and publishable key. Never place a secret or service-role key in browser config.
 
-For production, deploy the Angular output to Cloudflare Pages and replace `public/config.js` during
-the build with the production endpoints. Deploy the repository to one Railway service using
-`server/railway.json`, attach PostgreSQL, and keep the service in the same region as Supabase.
+## Production deployment
+
+The root `railway.json` builds Angular and Fastify as one Railway service. Fastify serves the
+production browser bundle, generates `/config.js` from runtime variables, and handles Angular route
+fallbacks. The initial deployment is limited to one replica because Socket.IO connection state is
+process-local.
+
+Apply the committed migration to Supabase project `gsctbzyfslrofvmhpuoi`, then run both advisor
+categories from the Supabase Database Advisors page:
+
+```bash
+rtk npx supabase link --project-ref gsctbzyfslrofvmhpuoi
+rtk npx supabase db push
+```
+
+Configure one Railway service in US East with `NODE_ENV=production`, `DATABASE_URL` (the Supabase
+session-pooler connection string), `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `CLIENT_ORIGIN`.
+Set `CLIENT_ORIGIN` to the generated Railway HTTPS origin. Enter `DATABASE_URL` through stdin so it
+does not enter shell history.
+
+In Supabase Auth, set the Site URL to the Railway origin and allow
+`<railway-origin>/games/equation-artillery/multiplayer`. The Google Web OAuth client needs the
+Railway origin as an authorized JavaScript origin and this callback URL:
+
+```text
+https://gsctbzyfslrofvmhpuoi.supabase.co/auth/v1/callback
+```
 
 Additional validation commands:
 

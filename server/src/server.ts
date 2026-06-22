@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
 import { Server as SocketServer, Socket } from 'socket.io';
 import {
   AuthenticatedUser,
@@ -28,6 +29,12 @@ export interface MultiplayerServerOptions {
   readonly allowedOrigin: string;
   readonly reconnectWindowMs?: number;
   readonly sweepIntervalMs?: number;
+  readonly staticRoot?: string;
+  readonly browserConfig?: {
+    readonly serverUrl: string;
+    readonly supabaseUrl: string;
+    readonly supabasePublishableKey: string;
+  };
 }
 
 function roomName(matchId: string): string {
@@ -51,6 +58,29 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const fastify = Fastify({ logger: process.env['NODE_ENV'] !== 'test' });
   await fastify.register(cors, { origin: options.allowedOrigin });
   fastify.get('/health', async () => ({ status: 'ok' }));
+  if (options.staticRoot || options.browserConfig) {
+    if (!options.staticRoot || !options.browserConfig) {
+      throw new Error('staticRoot and browserConfig must be configured together.');
+    }
+    fastify.get('/config.js', async (_request, reply) => {
+      const config = JSON.stringify(options.browserConfig).replaceAll('<', '\\u003c');
+      return reply
+        .header('cache-control', 'no-store')
+        .type('application/javascript')
+        .send(`window.MATH_WAR_CONFIG = ${config};\n`);
+    });
+    await fastify.register(fastifyStatic, {
+      root: options.staticRoot,
+      wildcard: false,
+      globIgnore: ['config.js'],
+    });
+    fastify.setNotFoundHandler((request, reply) => {
+      if (request.method === 'GET' && request.headers.accept?.includes('text/html')) {
+        return reply.type('text/html').sendFile('index.html');
+      }
+      return reply.code(404).send({ message: 'Route not found.' });
+    });
+  }
   const io = new SocketServer(fastify.server, {
     cors: { origin: options.allowedOrigin, methods: ['GET', 'POST'] },
   });

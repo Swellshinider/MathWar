@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { resolveShot } from '@math-war/game-engine';
 import { io as createClient, Socket } from 'socket.io-client';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -56,6 +59,50 @@ afterEach(async () => {
 });
 
 describe('multiplayer socket server', () => {
+  it('serves the browser app, runtime config, and SPA fallbacks', async () => {
+    const staticRoot = await mkdtemp(join(tmpdir(), 'math-war-static-'));
+    await writeFile(join(staticRoot, 'index.html'), '<html>Math War</html>');
+    await writeFile(join(staticRoot, 'main.js'), 'console.log("asset");');
+    await writeFile(join(staticRoot, 'config.js'), 'window.MATH_WAR_CONFIG = { legacy: true };');
+    const repository = new InMemoryMatchRepository();
+    const server = await createMultiplayerServer({
+      repository,
+      verifyToken: async (token) => ({ id: token, displayName: token }),
+      allowedOrigin: 'https://math-war.example',
+      staticRoot,
+      browserConfig: {
+        serverUrl: 'https://math-war.example',
+        supabaseUrl: 'https://project.supabase.co',
+        supabasePublishableKey: 'sb_publishable_test',
+      },
+    });
+    harnesses.push({ repository, server, url: '', clients: [] });
+
+    try {
+      const config = await server.fastify.inject({ method: 'GET', url: '/config.js' });
+      expect(config.headers['cache-control']).toBe('no-store');
+      expect(config.headers['content-type']).toContain('application/javascript');
+      expect(config.body).toContain('supabasePublishableKey');
+      expect(config.body).toContain('sb_publishable_test');
+      expect(config.body).not.toContain('service_role');
+      expect(config.body).not.toContain('legacy');
+
+      const asset = await server.fastify.inject({ method: 'GET', url: '/main.js' });
+      expect(asset.statusCode).toBe(200);
+      expect(asset.body).toContain('asset');
+
+      const route = await server.fastify.inject({
+        method: 'GET',
+        url: '/games/equation-artillery/multiplayer',
+        headers: { accept: 'text/html' },
+      });
+      expect(route.statusCode).toBe(200);
+      expect(route.body).toContain('Math War');
+    } finally {
+      await rm(staticRoot, { recursive: true, force: true });
+    }
+  });
+
   it('requires authentication during the handshake', async () => {
     const harness = await createHarness();
     const socket = createClient(harness.url, { transports: ['websocket'] });

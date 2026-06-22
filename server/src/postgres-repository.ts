@@ -15,24 +15,13 @@ export class PostgresMatchRepository implements MatchRepository {
   }
 
   async initialize(): Promise<void> {
-    await this.pool.query(`
-      create table if not exists multiplayer_matches (
-        id uuid primary key,
-        room_code varchar(8) not null unique,
-        state jsonb not null,
-        version integer not null,
-        status varchar(16) not null,
-        updated_at timestamptz not null
-      );
-      create table if not exists multiplayer_commands (
-        match_id uuid not null references multiplayer_matches(id) on delete cascade,
-        command_id uuid not null,
-        created_at timestamptz not null default now(),
-        primary key (match_id, command_id)
-      );
-      create index if not exists multiplayer_matches_status_idx
-        on multiplayer_matches(status, updated_at);
-    `);
+    const result = await this.pool.query(
+      `select to_regclass('private.multiplayer_matches') as matches,
+              to_regclass('private.multiplayer_commands') as commands`,
+    );
+    if (!result.rows[0]?.matches || !result.rows[0]?.commands) {
+      throw new Error('Multiplayer database schema is not ready. Apply Supabase migrations.');
+    }
   }
 
   async create(state: MatchState, commandId: string): Promise<boolean> {
@@ -40,14 +29,14 @@ export class PostgresMatchRepository implements MatchRepository {
     try {
       await client.query('begin');
       await client.query(
-        `insert into multiplayer_matches(id, room_code, state, version, status, updated_at)
+        `insert into private.multiplayer_matches(id, room_code, state, version, status, updated_at)
          values ($1, $2, $3, $4, $5, $6)`,
         [state.id, state.roomCode, state, state.version, state.status, state.updatedAt],
       );
-      await client.query('insert into multiplayer_commands(match_id, command_id) values ($1, $2)', [
-        state.id,
-        commandId,
-      ]);
+      await client.query(
+        'insert into private.multiplayer_commands(match_id, command_id) values ($1, $2)',
+        [state.id, commandId],
+      );
       await client.query('commit');
       return true;
     } catch (error) {
@@ -61,7 +50,7 @@ export class PostgresMatchRepository implements MatchRepository {
 
   private async find(where: string, value: string): Promise<MatchState | null> {
     const result = await this.pool.query(
-      `select state from multiplayer_matches where ${where} = $1 limit 1`,
+      `select state from private.multiplayer_matches where ${where} = $1 limit 1`,
       [value],
     );
     return (result.rows[0]?.state as MatchState | undefined) ?? null;
@@ -76,7 +65,7 @@ export class PostgresMatchRepository implements MatchRepository {
 
   async findActiveByUser(userId: string): Promise<MatchState | null> {
     const result = await this.pool.query(
-      `select state from multiplayer_matches
+      `select state from private.multiplayer_matches
        where status <> 'ended' and state->'players' @> $1::jsonb order by updated_at desc limit 1`,
       [JSON.stringify([{ userId }])],
     );
@@ -93,7 +82,7 @@ export class PostgresMatchRepository implements MatchRepository {
     try {
       await client.query('begin');
       const command = await client.query(
-        `insert into multiplayer_commands(match_id, command_id) values ($1, $2)
+        `insert into private.multiplayer_commands(match_id, command_id) values ($1, $2)
          on conflict do nothing returning command_id`,
         [id, commandId],
       );
@@ -102,7 +91,7 @@ export class PostgresMatchRepository implements MatchRepository {
         return { ok: false, reason: 'duplicate' };
       }
       const selected = await client.query(
-        'select state, version from multiplayer_matches where id = $1 for update',
+        'select state, version from private.multiplayer_matches where id = $1 for update',
         [id],
       );
       if (selected.rowCount === 0) {
@@ -115,7 +104,8 @@ export class PostgresMatchRepository implements MatchRepository {
       }
       const state = transform(selected.rows[0].state as MatchState);
       await client.query(
-        `update multiplayer_matches set state = $2, version = $3, status = $4, updated_at = $5
+        `update private.multiplayer_matches
+         set state = $2, version = $3, status = $4, updated_at = $5
          where id = $1`,
         [id, state, state.version, state.status, state.updatedAt],
       );
@@ -131,7 +121,7 @@ export class PostgresMatchRepository implements MatchRepository {
 
   async listExpiredReconnects(now: Date): Promise<readonly MatchState[]> {
     const result = await this.pool.query(
-      `select state from multiplayer_matches where status = 'paused'
+      `select state from private.multiplayer_matches where status = 'paused'
        and (state->>'reconnectDeadline')::timestamptz <= $1`,
       [now],
     );
@@ -140,7 +130,7 @@ export class PostgresMatchRepository implements MatchRepository {
 
   async deleteFinishedBefore(cutoff: Date): Promise<number> {
     const result = await this.pool.query(
-      `delete from multiplayer_matches where status = 'ended' and updated_at < $1`,
+      `delete from private.multiplayer_matches where status = 'ended' and updated_at < $1`,
       [cutoff],
     );
     return result.rowCount ?? 0;

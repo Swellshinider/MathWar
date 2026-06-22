@@ -32,6 +32,7 @@ yarn-error.log
 /connect.lock
 /coverage
 /libpeerconnection.log
+supabase/.temp/
 testem.log
 /typings
 __screenshots__/
@@ -44,3 +45,4 @@ Thumbs.db
 
 # Env
 **/*.env
+public/config.js

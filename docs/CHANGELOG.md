@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added - 2026-06-22
 
+- Added a system architecture guide covering browser, server, shared engine, Supabase, Railway,
+  security, persistence, deployment, and scaling boundaries.
 - Added a private, Google-authenticated Equation Artillery 1v1 mode with short room codes.
 - Added an authoritative Fastify and Socket.IO server with PostgreSQL persistence, command
   idempotency, optimistic version checks, and Supabase JWT validation.
@@ -23,6 +25,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed - 2026-06-22
 
+- Combined the Angular application and Fastify server into one Railway deployment in US East.
+- Moved multiplayer persistence into a client-inaccessible `private` Supabase schema managed by a
+  committed migration, with startup now failing fast when the schema is missing.
+- Replaced build-time browser configuration with a runtime `/config.js` containing only public
+  endpoints and the Supabase publishable key.
 - Added the Math War logo to the site header and replaced the browser favicon.
 - Increased each round from two to four randomly generated walls.
 - Reduced wall impact blast radius so shots remove a smaller local area.
@@ -53,4 +60,3 @@ All notable changes to this project will be documented in this file.
 - Safe number-only equation parsing with documented implicit multiplication.
 - Fixed-step curve-based shots, target collisions, trails, and randomized rounds.
 - Vitest coverage for domain logic and Angular components.
-

@@ -6,8 +6,8 @@ import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 export class MultiplayerAuthService {
   private readonly config = inject(MULTIPLAYER_CONFIG);
   private readonly client: SupabaseClient | null =
-    this.config.supabaseUrl && this.config.supabaseAnonKey
-      ? createClient(this.config.supabaseUrl, this.config.supabaseAnonKey)
+    this.config.supabaseUrl && this.config.supabasePublishableKey
+      ? createClient(this.config.supabaseUrl, this.config.supabasePublishableKey)
       : null;
   readonly session = signal<Session | null>(null);
   readonly ready = signal(false);

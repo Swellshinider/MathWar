@@ -3,7 +3,7 @@ import { InjectionToken } from '@angular/core';
 export interface MultiplayerConfig {
   readonly serverUrl: string;
   readonly supabaseUrl: string;
-  readonly supabaseAnonKey: string;
+  readonly supabasePublishableKey: string;
 }
 
 declare global {
@@ -17,6 +17,6 @@ export const MULTIPLAYER_CONFIG = new InjectionToken<MultiplayerConfig>('MULTIPL
   factory: () => ({
     serverUrl: window.MATH_WAR_CONFIG?.serverUrl ?? 'http://localhost:3000',
     supabaseUrl: window.MATH_WAR_CONFIG?.supabaseUrl ?? '',
-    supabaseAnonKey: window.MATH_WAR_CONFIG?.supabaseAnonKey ?? '',
+    supabasePublishableKey: window.MATH_WAR_CONFIG?.supabasePublishableKey ?? '',
   }),
 });
