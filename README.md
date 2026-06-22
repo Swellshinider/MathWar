@@ -28,12 +28,6 @@ rtk npm run build
 
 `npm test` runs the Vitest unit suite. `npm run build` creates an optimized production build in `dist/`.
 
-## Focus mode
-
-Select **Focus on game** to hide the site header, footer, and nonessential game copy while keeping
-the board and controls available. Select **Exit focus** or press **Escape** to return to the normal
-site layout. Focus mode does not use browser fullscreen and is not saved across page reloads.
-
 ## Controls and equations
 
 Enter a function in the `f(x)` field and select **Fire**. The Fire control remains disabled until the shot ends. Destroy all three red targets to expose **New Round**.

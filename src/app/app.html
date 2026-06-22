@@ -1,16 +1,10 @@
-@if (!focusMode.active()) {
-  <a class="skip-link" href="#main-content">Skip to main content</a>
-}
-<div class="site-shell" [class.site-shell--focused]="focusMode.active()">
-  @if (!focusMode.active()) {
-    <app-site-header />
-  }
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<div class="site-shell">
+  <app-site-header />
 
   <main id="main-content">
     <router-outlet />
   </main>
 
-  @if (!focusMode.active()) {
-    <app-site-footer />
-  }
+  <app-site-footer />
 </div>

@@ -29,7 +29,8 @@ describe('application routes', () => {
     await harness.navigateByUrl('/games/equation-artillery');
 
     expect(harness.routeNativeElement?.querySelector('app-board')).not.toBeNull();
-    expect(harness.routeNativeElement?.textContent).toContain('Focus on game');
+    expect(harness.routeNativeElement?.textContent).toContain('Equation Artillery');
+    expect(harness.routeNativeElement?.textContent).not.toContain('Focus on game');
   });
 
   it('redirects unknown paths to the catalog', async () => {

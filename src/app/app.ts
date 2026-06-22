@@ -1,8 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { SiteFooterComponent } from './layout/site-footer/site-footer.component';
 import { SiteHeaderComponent } from './layout/site-header/site-header.component';
-import { FocusModeService } from './shared/game-frame/focus-mode.service';
 
 @Component({
   selector: 'app-root',
@@ -10,6 +9,4 @@ import { FocusModeService } from './shared/game-frame/focus-mode.service';
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
-export class App {
-  protected readonly focusMode = inject(FocusModeService);
-}
+export class App {}

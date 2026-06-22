@@ -14,8 +14,6 @@ header {
   min-height: 4.5rem;
   margin: 0 auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
 }
 
 a {
@@ -24,8 +22,7 @@ a {
 }
 
 a:hover,
-a:focus-visible,
-a.active {
+a:focus-visible {
   color: #f8c15c;
 }
 
@@ -34,8 +31,4 @@ a.active {
   font-size: 1.35rem;
   font-weight: 900;
   letter-spacing: -0.03em;
-}
-
-nav a {
-  font-weight: 700;
 }

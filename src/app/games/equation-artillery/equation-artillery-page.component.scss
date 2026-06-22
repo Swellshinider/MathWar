@@ -5,9 +5,3 @@
 code {
   color: #f8c15c;
 }
-
-:host-context(.game-frame--focused) app-board {
-  height: 100%;
-  min-height: 16rem;
-  aspect-ratio: auto;
-}
