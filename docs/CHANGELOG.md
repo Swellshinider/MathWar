@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-06-22
+
+- Added a compact square function silhouette preview beside the equation controls that hides the
+  game board's position and scale.
+
 ### Changed - 2026-06-22
 
 - Reduced wall impact blast radius so shots remove a smaller local area.

@@ -1,9 +1,11 @@
 import { Component, input, output } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FunctionPreviewComponent } from '../function-preview/function-preview.component';
 
 @Component({
   selector: 'app-equation-controls',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, FunctionPreviewComponent],
   templateUrl: './equation-controls.component.html',
   styleUrl: './equation-controls.component.scss',
 })
@@ -17,6 +19,9 @@ export class EquationControlsComponent {
   readonly equation = new FormControl('0.35x', {
     nonNullable: true,
     validators: [Validators.required],
+  });
+  readonly equationValue = toSignal(this.equation.valueChanges, {
+    initialValue: this.equation.value,
   });
 
   submit(event: SubmitEvent): void {

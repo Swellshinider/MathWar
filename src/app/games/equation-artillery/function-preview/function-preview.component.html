@@ -1,0 +1,15 @@
+<section aria-labelledby="function-preview-title">
+  <header>
+    <h2 id="function-preview-title">Function shape</h2>
+  </header>
+  <div class="preview-frame">
+    @if (preview().available) {
+      <svg viewBox="0 0 240 100" role="img" [attr.aria-label]="accessibleLabel()">
+        <path class="shadow" [attr.d]="preview().path" />
+        <path [attr.d]="preview().path" />
+      </svg>
+    } @else {
+      <p>Complete the function to preview its shape.</p>
+    }
+  </div>
+</section>
