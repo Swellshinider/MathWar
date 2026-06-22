@@ -3,12 +3,14 @@ import { Bullet } from '../models/bullet';
 import { Player } from '../models/player';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
+import { Wall, WallPiece } from '../models/wall';
 import { WorldBounds } from '../models/world-bounds';
 import { CanvasSize, worldToCanvas } from './coordinates';
 
 export interface BoardScene {
   readonly player: Player;
   readonly targets: readonly Target[];
+  readonly walls: readonly Wall[];
   readonly bullet: Bullet | null;
   readonly trail: readonly Point[];
 }
@@ -26,6 +28,9 @@ export class BoardRenderer {
     context.fillRect(0, 0, size.width, size.height);
     this.drawGrid(context, size, bounds);
     this.drawTrail(context, size, bounds, scene.trail);
+    scene.walls.forEach((wall) =>
+      wall.pieces.forEach((piece) => this.drawWallPiece(context, size, bounds, piece)),
+    );
     scene.targets.forEach((target) => this.drawTarget(context, size, bounds, target));
     this.drawPlayer(context, size, bounds, scene.player);
     if (scene.bullet) this.drawBullet(context, size, bounds, scene.bullet);
@@ -111,6 +116,22 @@ export class BoardRenderer {
     context.fillRect(center.x - width / 2, center.y - height / 2, width, height);
     context.strokeStyle = '#ffd3d7';
     context.lineWidth = 2;
+    context.strokeRect(center.x - width / 2, center.y - height / 2, width, height);
+  }
+
+  private drawWallPiece(
+    context: CanvasRenderingContext2D,
+    size: CanvasSize,
+    bounds: WorldBounds,
+    piece: WallPiece,
+  ): void {
+    const center = worldToCanvas(piece.center, bounds, size);
+    const width = (piece.size * size.width) / (bounds.maxX - bounds.minX);
+    const height = (piece.size * size.height) / (bounds.maxY - bounds.minY);
+    context.fillStyle = '#506b86';
+    context.fillRect(center.x - width / 2, center.y - height / 2, width, height);
+    context.strokeStyle = '#9db1c5';
+    context.lineWidth = 1;
     context.strokeRect(center.x - width / 2, center.y - height / 2, width, height);
   }
 

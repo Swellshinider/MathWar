@@ -9,4 +9,5 @@ export class GameFrameComponent {
   readonly eyebrow = input.required<string>();
   readonly title = input.required<string>();
   readonly objective = input.required<string>();
+  readonly wide = input(false);
 }

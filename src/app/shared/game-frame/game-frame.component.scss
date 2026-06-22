@@ -8,6 +8,10 @@ article {
   padding: 2rem 0 3rem;
 }
 
+article.wide {
+  width: min(94rem, calc(100% - 2rem));
+}
+
 .game-intro {
   display: flex;
   align-items: end;

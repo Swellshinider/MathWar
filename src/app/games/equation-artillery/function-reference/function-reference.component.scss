@@ -1,0 +1,87 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+aside {
+  height: 100%;
+  padding: 0.75rem;
+  border: 1px solid #29435f;
+  border-radius: 0.75rem;
+  background: rgb(11 23 37 / 82%);
+}
+
+h2,
+h3 {
+  margin: 0;
+  color: #f7f9fc;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h3 {
+  margin-top: 0.85rem;
+  color: #9fb1c4;
+  font-size: 0.7rem;
+}
+
+table {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+th,
+td {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgb(56 81 107 / 45%);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  padding-right: 0.35rem;
+  font-weight: 700;
+}
+
+td,
+dd,
+p {
+  color: #9fb1c4;
+}
+
+code {
+  color: #f8c15c;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+dl {
+  display: grid;
+  margin: 0.35rem 0 0;
+  gap: 0.2rem;
+}
+
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+dt,
+dd {
+  margin: 0;
+  font-size: 0.7rem;
+}
+
+.operators {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+p {
+  margin: 0.75rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}

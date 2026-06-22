@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file.
 
 - Streamlined the site header, reduced the Equation Artillery title, and added a dynamic footer
   copyright notice.
+- Preserved the coordinate plane size by moving function references below it when side space is
+  insufficient.
 
 ### Removed - 2026-06-21
 
@@ -19,6 +21,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added - 2026-06-21
 
+- Responsive function reference panels with the complete supported equation syntax.
+- Additional rounding, hyperbolic, and base-specific logarithm functions.
+- Two randomized, filled geometric walls per round with persistent local blast damage.
 - Routed minigame catalog and reusable application shell for future games.
 - Responsive site header and footer components.
 - Angular 22 Math War prototype with a responsive coordinate-plane canvas.

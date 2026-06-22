@@ -30,13 +30,19 @@ rtk npm run build
 
 ## Controls and equations
 
-Enter a function in the `f(x)` field and select **Fire**. The Fire control remains disabled until the shot ends. Destroy all three red targets to expose **New Round**.
+Enter a function in the `f(x)` field and select **Fire**. The Fire control remains disabled until
+the shot ends. Destroy all three red targets to expose **New Round**. Each round also contains two
+filled geometric walls. A wall stops the shot, but the impact destroys nearby wall pieces and opens
+a path for later shots.
 
 Equations may contain numbers, `x`, `pi`, `e`, parentheses, `+`, `-`, `*`, `/`, `^`, and these one-argument functions:
 
-`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sqrt`, `abs`, `log`, `ln`, and `exp`.
+`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `sqrt`, `abs`, `log`,
+`ln`, `log2`, `log10`, `exp`, `floor`, `ceil`, `round`, and `sign`.
 
-Angles use radians. Common Unicode multiplication, division, minus, and pi characters are normalized. Implicit multiplication is supported, including `2x`, `xx`, `x2`, `x(x+1)`, `(x+1)(x-1)`, and `sin(x)cos(x)`.
+Angles use radians. `log` and `ln` are natural logarithms. Common Unicode multiplication,
+division, minus, and pi characters are normalized. Implicit multiplication is supported,
+including `2x`, `xx`, `x2`, `x(x+1)`, `(x+1)(x-1)`, and `sin(x)cos(x)`.
 
 The shot is anchored to the player's position. For horizontal distance `dx` from the player, its height is:
 

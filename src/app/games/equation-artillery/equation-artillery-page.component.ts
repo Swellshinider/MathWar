@@ -10,11 +10,19 @@ import { Bullet } from './models/bullet';
 import { Player } from './models/player';
 import { Point } from './models/point';
 import { Target } from './models/target';
+import { Wall } from './models/wall';
 import { WORLD_BOUNDS } from './models/world-bounds';
+import { FunctionReferenceComponent } from './function-reference/function-reference.component';
+import { FUNCTION_REFERENCES } from './game/expression-catalog';
 
 @Component({
   selector: 'app-equation-artillery-page',
-  imports: [BoardComponent, EquationControlsComponent, GameFrameComponent],
+  imports: [
+    BoardComponent,
+    EquationControlsComponent,
+    FunctionReferenceComponent,
+    GameFrameComponent,
+  ],
   providers: [AnimationService],
   templateUrl: './equation-artillery-page.component.html',
   styleUrl: './equation-artillery-page.component.scss',
@@ -24,10 +32,17 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   private readonly initialRound = spawnRound();
   readonly player = signal<Player>(this.initialRound.player);
   readonly targets = signal<readonly Target[]>(this.initialRound.targets);
+  readonly walls = signal<readonly Wall[]>(this.initialRound.walls);
   readonly bullet = signal<Bullet | null>(null);
   readonly trail = signal<readonly Point[]>([]);
   readonly active = signal(false);
   readonly error = signal<string | null>(null);
+  readonly trigonometryFunctions = FUNCTION_REFERENCES.filter(
+    (reference) => reference.category === 'trigonometry',
+  );
+  readonly numericFunctions = FUNCTION_REFERENCES.filter(
+    (reference) => reference.category === 'numeric',
+  );
   readonly roundComplete = computed(() => this.targets().length === 0);
   readonly status = computed(() => {
     if (this.roundComplete()) return 'All targets destroyed.';
@@ -48,7 +63,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       );
       return;
     }
-    let shot = createShot(this.player(), this.targets());
+    let shot = createShot(this.player(), this.targets(), this.walls());
     this.active.set(true);
     this.bullet.set(shot.bullet);
     this.trail.set(shot.trail);
@@ -57,6 +72,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       this.bullet.set(shot.bullet);
       this.trail.set(shot.trail);
       this.targets.set(shot.targets);
+      this.walls.set(shot.walls);
       this.error.set(shot.error);
       this.active.set(shot.active);
       return shot.active;
@@ -68,6 +84,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     const round = spawnRound();
     this.player.set(round.player);
     this.targets.set(round.targets);
+    this.walls.set(round.walls);
     this.bullet.set(null);
     this.trail.set([]);
     this.active.set(false);

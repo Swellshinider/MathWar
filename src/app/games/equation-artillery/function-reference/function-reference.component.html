@@ -1,0 +1,42 @@
+<aside [attr.aria-label]="title()">
+  <h2>{{ title() }}</h2>
+  <table>
+    <tbody>
+      @for (function of functions(); track function.name) {
+        <tr>
+          <th scope="row">
+            <code>{{ function.syntax }}</code>
+          </th>
+          <td>{{ function.description }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  @if (showSyntax()) {
+    <h3>Constants</h3>
+    <dl>
+      @for (constant of constants; track constant.syntax) {
+        <div>
+          <dt>
+            <code>{{ constant.syntax }}</code>
+          </dt>
+          <dd>{{ constant.description }}</dd>
+        </div>
+      }
+    </dl>
+
+    <h3>Operators</h3>
+    <dl class="operators">
+      @for (operator of operators; track operator.syntax) {
+        <div>
+          <dt>
+            <code>{{ operator.syntax }}</code>
+          </dt>
+          <dd>{{ operator.description }}</dd>
+        </div>
+      }
+    </dl>
+    <p>Angles use radians. Parentheses and implicit multiplication are supported.</p>
+  }
+</aside>
