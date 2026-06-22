@@ -1,8 +1,19 @@
 # Changelog
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+### Added - 2026-06-22
+
+- Added a private, Google-authenticated Equation Artillery 1v1 mode with short room codes.
+- Added an authoritative Fastify and Socket.IO server with PostgreSQL persistence, command
+  idempotency, optimistic version checks, and Supabase JWT validation.
+- Added a deterministic shared game engine for bilateral shots, opponent collisions, and seeded
+  multiplayer boards.
+- Added 60-second reconnection recovery, abandonment wins, and automatic removal of finished
+  matches after 24 hours.
 
 ### Added - 2026-06-22
 
@@ -43,4 +54,3 @@ All notable changes to this project will be documented in this file.
 - Fixed-step curve-based shots, target collisions, trails, and randomized rounds.
 - Vitest coverage for domain logic and Angular components.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).

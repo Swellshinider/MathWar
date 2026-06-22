@@ -1,0 +1,74 @@
+:host {
+  display: block;
+}
+.panel,
+.match-meta,
+.controls,
+.account,
+.players {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.panel {
+  padding: 1.25rem;
+  border: 1px solid #29435f;
+  border-radius: 0.75rem;
+  background: #0d1b2a;
+}
+.auth-panel {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.account,
+.match-meta {
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.controls {
+  margin-top: 1rem;
+}
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+input {
+  min-width: 10rem;
+  padding: 0.7rem;
+  border: 1px solid #48627d;
+  border-radius: 0.4rem;
+  background: #07111f;
+  color: #fff;
+}
+button {
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: #f8c15c;
+  color: #07111f;
+  font-weight: 800;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+button.secondary {
+  border: 1px solid #8295aa;
+  background: transparent;
+  color: #e6edf5;
+}
+.status {
+  color: #f8c15c;
+  font-weight: 700;
+}
+.players {
+  justify-content: space-between;
+  color: #9fb1c4;
+}
+.error {
+  color: #ff8d8d;
+}

@@ -19,6 +19,9 @@ rtk npm start
 Open the local URL printed by the Angular development server. The home page lists the available
 games. Equation Artillery is also available directly at `/games/equation-artillery`.
 
+The authenticated private 1v1 mode is available at
+`/games/equation-artillery/multiplayer`. The existing local game remains independent.
+
 ## Development commands
 
 ```bash
@@ -27,6 +30,38 @@ rtk npm run build
 ```
 
 `npm test` runs the Vitest unit suite. `npm run build` creates an optimized production build in `dist/`.
+
+## Multiplayer development
+
+The multiplayer implementation has three parts:
+
+- `packages/game-engine`: deterministic simulation shared by browser and server.
+- `server`: Fastify and Socket.IO authoritative server with PostgreSQL persistence.
+- `src/app/games/equation-artillery/multiplayer`: Angular lobby and match client.
+
+Copy the values from `public/config.example.js` into `public/config.js`, then configure Google OAuth
+in Supabase. Start PostgreSQL and use `server/.env.example` as the server environment template.
+
+```bash
+rtk npm run server:dev
+rtk npm start
+```
+
+The server creates the `multiplayer_matches` and `multiplayer_commands` tables on startup. It
+validates Supabase JWTs against the project's JWKS endpoint. `DATABASE_URL`, `SUPABASE_URL`, and
+`CLIENT_ORIGIN` are mandatory server variables. The browser receives only the Supabase URL and
+publishable anonymous key. Never place a service-role key in `public/config.js`.
+
+For production, deploy the Angular output to Cloudflare Pages and replace `public/config.js` during
+the build with the production endpoints. Deploy the repository to one Railway service using
+`server/railway.json`, attach PostgreSQL, and keep the service in the same region as Supabase.
+
+Additional validation commands:
+
+```bash
+rtk npm run test:server
+rtk npm run server:build
+```
 
 ## Controls and equations
 
@@ -58,4 +93,5 @@ This means every valid curve begins at the player even when `f(0)` is not zero.
 - Rounds are local and are not persisted.
 - The player and targets are randomly placed on integer coordinates.
 - Equations are limited to 180 normalized characters and the documented syntax.
-- The game has no scoring, sound, touch-specific controls, or multiplayer support.
+- The game has no scoring, sound, or touch-specific controls.
+- Multiplayer has no public matchmaking, chat, ranking, history, profiles, or spectators.
