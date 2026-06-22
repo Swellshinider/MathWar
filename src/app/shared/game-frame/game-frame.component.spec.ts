@@ -25,4 +25,12 @@ describe('GameFrameComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Destroy every target.');
     expect(fixture.nativeElement.querySelector('button')).toBeNull();
   });
+
+  it('supports a wider game layout', () => {
+    const fixture = createFixture();
+    fixture.componentRef.setInput('wide', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('article').classList).toContain('wide');
+  });
 });

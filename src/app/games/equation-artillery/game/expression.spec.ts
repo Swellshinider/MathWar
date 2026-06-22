@@ -4,6 +4,7 @@ import {
   MAX_EXPRESSION_LENGTH,
   normalizeExpression,
 } from './expression';
+import { FUNCTION_REFERENCES } from './expression-catalog';
 
 describe('expression compiler', () => {
   it.each([
@@ -25,12 +26,19 @@ describe('expression compiler', () => {
     expect(normalizeExpression('2×X − π ÷ 2')).toBe('2*x-pi/2');
   });
 
-  it.each(['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sqrt', 'abs', 'log', 'ln', 'exp'])(
-    'allows %s',
-    (name) => {
-      expect(compileExpression(`${name}(1)`).evaluate(1)).toEqual(expect.any(Number));
-    },
-  );
+  it.each(FUNCTION_REFERENCES.map((reference) => reference.name))('allows %s', (name) => {
+    expect(compileExpression(`${name}(1)`).evaluate(1)).toEqual(expect.any(Number));
+  });
+
+  it('evaluates the expanded numeric and hyperbolic functions', () => {
+    expect(compileExpression('floor(1.8)').evaluate(0)).toBe(1);
+    expect(compileExpression('ceil(1.2)').evaluate(0)).toBe(2);
+    expect(compileExpression('round(1.6)').evaluate(0)).toBe(2);
+    expect(compileExpression('sign(-8)').evaluate(0)).toBe(-1);
+    expect(compileExpression('log2(8)').evaluate(0)).toBe(3);
+    expect(compileExpression('log10(100)').evaluate(0)).toBe(2);
+    expect(compileExpression('tanh(0)').evaluate(0)).toBe(0);
+  });
 
   it.each(['x=2', 'foo(x)', 'x.y', '[x]', 'x<2', 'min(x)', '2 cm'])(
     'rejects unsupported AST or tokens in %s',

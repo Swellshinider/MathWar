@@ -12,6 +12,7 @@ import { Bullet } from '../models/bullet';
 import { Player } from '../models/player';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
+import { Wall } from '../models/wall';
 import { WORLD_BOUNDS } from '../models/world-bounds';
 import { BoardRenderer } from '../game/board-renderer.service';
 
@@ -23,6 +24,7 @@ import { BoardRenderer } from '../game/board-renderer.service';
 export class BoardComponent implements AfterViewInit, OnDestroy {
   readonly player = input.required<Player>();
   readonly targets = input.required<readonly Target[]>();
+  readonly walls = input.required<readonly Wall[]>();
   readonly bullet = input<Bullet | null>(null);
   readonly trail = input<readonly Point[]>([]);
   @ViewChild('canvas', { static: true }) private canvasRef!: ElementRef<HTMLCanvasElement>;
@@ -34,6 +36,7 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       this.player();
       this.targets();
+      this.walls();
       this.bullet();
       this.trail();
       queueMicrotask(() => this.draw());
@@ -65,6 +68,7 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
     this.renderer.draw(context, { width, height }, WORLD_BOUNDS, {
       player: this.player(),
       targets: this.targets(),
+      walls: this.walls(),
       bullet: this.bullet(),
       trail: this.trail(),
     });

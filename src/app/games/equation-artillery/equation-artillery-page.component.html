@@ -2,8 +2,28 @@
   eyebrow="Functions and graphs"
   title="Equation Artillery"
   objective="Shape a function to guide the shot through every target."
+  [wide]="true"
 >
-  <app-board [player]="player()" [targets]="targets()" [bullet]="bullet()" [trail]="trail()" />
+  <div class="playfield">
+    <app-board
+      [player]="player()"
+      [targets]="targets()"
+      [walls]="walls()"
+      [bullet]="bullet()"
+      [trail]="trail()"
+    />
+    <app-function-reference
+      class="reference-left"
+      title="Trigonometry"
+      [functions]="trigonometryFunctions"
+    />
+    <app-function-reference
+      class="reference-right"
+      title="Numbers and logs"
+      [functions]="numericFunctions"
+      [showSyntax]="true"
+    />
+  </div>
 
   <app-equation-controls
     [active]="active()"
@@ -15,7 +35,7 @@
   />
 
   <p gameHint>
-    The curve starts at the player. Try <code>0.35x</code>, <code>sin(x)</code>, or
-    <code>0.08x^2</code>.
+    The curve starts at the player. Walls stop shots but lose pieces around an impact. Try
+    <code>0.35x</code>, <code>sin(x)</code>, or <code>0.08x^2</code>.
   </p>
 </app-game-frame>

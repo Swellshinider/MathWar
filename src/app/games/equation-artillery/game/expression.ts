@@ -1,22 +1,16 @@
 import { FunctionNode, MathNode, OperatorNode, parse, SymbolNode } from 'mathjs/number';
+import { FUNCTION_REFERENCES } from './expression-catalog';
 
 export const MAX_EXPRESSION_LENGTH = 180;
-const FUNCTIONS = [
-  'asin',
-  'acos',
-  'atan',
-  'sqrt',
-  'sin',
-  'cos',
-  'tan',
-  'abs',
-  'log',
-  'ln',
-  'exp',
-] as const;
-const SYMBOLS = new Set(['x', 'pi', 'e', ...FUNCTIONS]);
+const FUNCTION_BY_NAME = new Map(
+  FUNCTION_REFERENCES.map((reference) => [reference.name, reference] as const),
+);
+const EVALUATOR_FUNCTIONS = new Set(
+  FUNCTION_REFERENCES.map((reference) => reference.evaluatorName),
+);
+const SYMBOLS = new Set(['x', 'pi', 'e', ...EVALUATOR_FUNCTIONS]);
 const OPERATORS = new Set(['+', '-', '*', '/', '^']);
-const WORDS = [...FUNCTIONS, 'pi', 'x', 'e'].sort((a, b) => b.length - a.length);
+const WORDS = [...FUNCTION_BY_NAME.keys(), 'pi', 'x', 'e'].sort((a, b) => b.length - a.length);
 
 interface Token {
   readonly text: string;
@@ -44,9 +38,10 @@ function tokenize(source: string): Token[] {
     }
     const word = WORDS.find((candidate) => rest.startsWith(candidate));
     if (word) {
+      const functionReference = FUNCTION_BY_NAME.get(word);
       tokens.push({
-        text: word === 'ln' ? 'log' : word,
-        kind: (FUNCTIONS as readonly string[]).includes(word) ? 'function' : 'symbol',
+        text: functionReference?.evaluatorName ?? word,
+        kind: functionReference ? 'function' : 'symbol',
       });
       index += word.length;
       continue;
@@ -110,7 +105,7 @@ function validateAst(root: MathNode): void {
       const functionNode = node as FunctionNode;
       if (
         functionNode.fn.type !== 'SymbolNode' ||
-        !(FUNCTIONS as readonly string[]).includes((functionNode.fn as SymbolNode).name)
+        !EVALUATOR_FUNCTIONS.has((functionNode.fn as SymbolNode).name)
       ) {
         throw new ExpressionError('Only supported named functions may be called.');
       }
