@@ -18,5 +18,14 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-site-header')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-site-footer')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-site-header nav')).toBeNull();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const brand = root.querySelector<HTMLAnchorElement>('.brand')!;
+    const logo = brand.querySelector<HTMLImageElement>('.brand-logo')!;
+
+    expect(brand.textContent).toContain('Math War');
+    expect(brand.getAttribute('aria-label')).toBe('Math War home');
+    expect(logo.getAttribute('src')).toBe('mathwar-logo.png');
+    expect(logo.getAttribute('alt')).toBe('');
   });
 });

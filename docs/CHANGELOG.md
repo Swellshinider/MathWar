@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed - 2026-06-22
 
+- Added the Math War logo to the site header and replaced the browser favicon.
 - Increased each round from two to four randomly generated walls.
 - Reduced wall impact blast radius so shots remove a smaller local area.
 
