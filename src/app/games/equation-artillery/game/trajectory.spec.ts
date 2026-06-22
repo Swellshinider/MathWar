@@ -78,7 +78,7 @@ describe('trajectory advancement', () => {
     );
     expect(shot.active).toBe(false);
     expect(shot.trail.at(-1)).toEqual({ x: -1, y: 3 });
-    expect(shot.walls[0].pieces.map((piece) => piece.id)).toEqual([3]);
+    expect(shot.walls[0].pieces.map((piece) => piece.id)).toEqual([2, 3]);
   });
 
   it('does not damage targets when a wall blocks the same shot step', () => {

@@ -7,7 +7,7 @@ import { WorldBounds } from '../models/world-bounds';
 import { damageWalls, pointHitsTarget, pointHitsWallPiece } from './collision';
 import { CompiledExpression, ExpressionError } from './expression';
 
-export const WALL_BLAST_RADIUS = 1.5;
+export const WALL_BLAST_RADIUS = 0.75;
 
 export interface ShotState {
   readonly bullet: Bullet;

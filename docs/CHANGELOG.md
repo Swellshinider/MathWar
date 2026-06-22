@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2026-06-22
+
+- Reduced wall impact blast radius so shots remove a smaller local area.
+
 ### Changed - 2026-06-21
 
 - Streamlined the site header, reduced the Equation Artillery title, and added a dynamic footer
