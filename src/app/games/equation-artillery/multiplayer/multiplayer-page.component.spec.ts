@@ -61,11 +61,11 @@ describe('MultiplayerPageComponent', () => {
   const auth = {
     ready: signal(true),
     session: signal({
-      access_token: 'token',
-      user: { id: 'left', email: 'left@example.com', user_metadata: {} },
+      token: 'token',
+      user: { id: 'left', displayName: 'Left' },
     }),
     error: signal<string | null>(null),
-    signInWithGoogle: vi.fn(),
+    signIn: vi.fn(),
     signOut: vi.fn(),
   };
   const socket = {

@@ -1,5 +1,6 @@
 import { MatchState } from '@math-war/game-engine';
 import pg from 'pg';
+import { createDatabaseSslConfig } from './migrations.js';
 import { MatchRepository, UpdateResult } from './repository.js';
 
 const { Pool } = pg;
@@ -10,7 +11,7 @@ export class PostgresMatchRepository implements MatchRepository {
   constructor(connectionString: string) {
     this.pool = new Pool({
       connectionString,
-      ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+      ssl: createDatabaseSslConfig(),
     });
   }
 
@@ -20,7 +21,7 @@ export class PostgresMatchRepository implements MatchRepository {
               to_regclass('private.multiplayer_commands') as commands`,
     );
     if (!result.rows[0]?.matches || !result.rows[0]?.commands) {
-      throw new Error('Multiplayer database schema is not ready. Apply Supabase migrations.');
+      throw new Error('Multiplayer database schema is not ready. Apply database migrations.');
     }
   }
 

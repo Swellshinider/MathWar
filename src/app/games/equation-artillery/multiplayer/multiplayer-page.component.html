@@ -18,18 +18,19 @@
     <p>Loading authentication...</p>
   } @else if (!auth.session()) {
     <section class="panel auth-panel">
-      <p>Sign in with Google to create or join a private match.</p>
-      <button type="button" (click)="auth.signInWithGoogle()">Sign in with Google</button>
+      <p>Enter a display name to create or join a private match.</p>
+      <form (submit)="$event.preventDefault(); signIn()">
+        <label>Display name <input maxlength="80" [(ngModel)]="displayName" name="displayName" /></label>
+        <button type="submit">Continue</button>
+      </form>
       @if (auth.error()) {
         <p class="error" role="alert">{{ auth.error() }}</p>
       }
     </section>
   } @else {
     <div class="account">
-      <span>{{
-        auth.session()?.user?.user_metadata?.['full_name'] ?? auth.session()?.user?.email
-      }}</span>
-      <button type="button" class="secondary" (click)="auth.signOut()">Sign out</button>
+      <span>{{ auth.session()?.user?.displayName }}</span>
+      <button type="button" class="secondary" (click)="auth.signOut()">Reset session</button>
     </div>
 
     @if (!state()) {

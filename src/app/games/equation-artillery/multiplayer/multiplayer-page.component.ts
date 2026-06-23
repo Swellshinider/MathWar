@@ -30,6 +30,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   private readonly socket = inject(MultiplayerSocketService);
   private readonly animation = inject(AnimationService);
   readonly state = signal<MatchState | null>(null);
+  readonly displayName = signal('');
   readonly equation = signal('0');
   readonly roomCode = signal('');
   readonly error = signal<string | null>(null);
@@ -78,7 +79,7 @@ export class MultiplayerPageComponent implements OnDestroy {
 
   constructor() {
     effect(() => {
-      const token = this.auth.session()?.access_token;
+      const token = this.auth.session()?.token;
       if (!token) {
         this.socket.disconnect();
         this.state.set(null);
@@ -91,6 +92,10 @@ export class MultiplayerPageComponent implements OnDestroy {
         error: (message) => this.error.set(message),
       });
     });
+  }
+
+  async signIn(): Promise<void> {
+    await this.auth.signIn(this.displayName());
   }
 
   async createRoom(): Promise<void> {

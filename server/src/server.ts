@@ -32,9 +32,10 @@ export interface MultiplayerServerOptions {
   readonly staticRoot?: string;
   readonly browserConfig?: {
     readonly serverUrl: string;
-    readonly supabaseUrl: string;
-    readonly supabasePublishableKey: string;
   };
+  readonly issueGuestSession?: (
+    displayName: string,
+  ) => Promise<{ token: string; user: AuthenticatedUser }>;
 }
 
 function roomName(matchId: string): string {
@@ -57,7 +58,25 @@ function isVersionedCommand(value: unknown): value is VersionedCommand {
 export async function createMultiplayerServer(options: MultiplayerServerOptions) {
   const fastify = Fastify({ logger: process.env['NODE_ENV'] !== 'test' });
   await fastify.register(cors, { origin: options.allowedOrigin });
-  fastify.get('/health', async () => ({ status: 'ok' }));
+  const healthHandler = async () => ({ status: 'ok' });
+  fastify.get('/health', healthHandler);
+  fastify.get('/healthz', healthHandler);
+  fastify.post<{ Body?: { displayName?: unknown } }>('/api/auth/guest', async (request, reply) => {
+    if (!options.issueGuestSession) {
+      return reply.code(503).send({ message: 'Guest authentication is not configured.' });
+    }
+    const displayName = request.body?.displayName;
+    if (typeof displayName !== 'string') {
+      return reply.code(400).send({ message: 'Display name is required.' });
+    }
+    try {
+      return await options.issueGuestSession(displayName);
+    } catch (error) {
+      return reply.code(400).send({
+        message: error instanceof Error ? error.message : 'Display name is required.',
+      });
+    }
+  });
   if (options.staticRoot || options.browserConfig) {
     if (!options.staticRoot || !options.browserConfig) {
       throw new Error('staticRoot and browserConfig must be configured together.');
@@ -75,6 +94,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       globIgnore: ['config.js'],
     });
     fastify.setNotFoundHandler((request, reply) => {
+      if (request.url.startsWith('/api/')) {
+        return reply.code(404).send({ message: 'Route not found.' });
+      }
       if (request.method === 'GET' && request.headers.accept?.includes('text/html')) {
         return reply.type('text/html').sendFile('index.html');
       }
