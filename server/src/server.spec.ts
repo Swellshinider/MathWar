@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { resolveShot } from '@math-war/game-engine';
 import { io as createClient, Socket } from 'socket.io-client';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
 import { InMemoryMatchRepository } from './repository.js';
 import { createMultiplayerServer } from './server.js';
 
@@ -22,6 +23,7 @@ async function createHarness(reconnectWindowMs = 60_000): Promise<Harness> {
   const server = await createMultiplayerServer({
     repository,
     verifyToken: async (token) => ({ id: token, displayName: token }),
+    issueGuestSession: createGuestTokenIssuer('test-secret'),
     allowedOrigin: '*',
     reconnectWindowMs,
     sweepIntervalMs: 10,
@@ -68,13 +70,12 @@ describe('multiplayer socket server', () => {
     const repository = new InMemoryMatchRepository();
     const server = await createMultiplayerServer({
       repository,
-      verifyToken: async (token) => ({ id: token, displayName: token }),
+      verifyToken: createGuestTokenVerifier('test-secret'),
+      issueGuestSession: createGuestTokenIssuer('test-secret'),
       allowedOrigin: 'https://math-war.example',
       staticRoot,
       browserConfig: {
         serverUrl: 'https://math-war.example',
-        supabaseUrl: 'https://project.supabase.co',
-        supabasePublishableKey: 'sb_publishable_test',
       },
     });
     harnesses.push({ repository, server, url: '', clients: [] });
@@ -83,9 +84,8 @@ describe('multiplayer socket server', () => {
       const config = await server.fastify.inject({ method: 'GET', url: '/config.js' });
       expect(config.headers['cache-control']).toBe('no-store');
       expect(config.headers['content-type']).toContain('application/javascript');
-      expect(config.body).toContain('supabasePublishableKey');
-      expect(config.body).toContain('sb_publishable_test');
-      expect(config.body).not.toContain('service_role');
+      expect(config.body).toContain('serverUrl');
+      expect(config.body).not.toContain('supabase');
       expect(config.body).not.toContain('legacy');
 
       const asset = await server.fastify.inject({ method: 'GET', url: '/main.js' });
@@ -103,9 +103,30 @@ describe('multiplayer socket server', () => {
       });
       expect(route.statusCode).toBe(200);
       expect(route.body).toContain('Math War');
+
+      const health = await server.fastify.inject({ method: 'GET', url: '/healthz' });
+      expect(health.statusCode).toBe(200);
+      expect(health.json()).toEqual({ status: 'ok' });
     } finally {
       await rm(staticRoot, { recursive: true, force: true });
     }
+  });
+
+  it('creates guest sessions through the HTTP auth route', async () => {
+    const harness = await createHarness();
+    const response = await harness.server.fastify.inject({
+      method: 'POST',
+      url: '/api/auth/guest',
+      payload: { displayName: 'Guest Player' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      token: expect.any(String),
+      user: {
+        id: expect.any(String),
+        displayName: 'Guest Player',
+      },
+    });
   });
 
   it('requires authentication during the handshake', async () => {
