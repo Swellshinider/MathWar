@@ -26,6 +26,7 @@ describe('trajectory advancement', () => {
     );
     expect(shot.active).toBe(false);
     expect(shot.trail).toHaveLength(1);
+    expect(shot.impact).toBe('bounds');
   });
 
   it('removes every target hit at a sampled point and keeps flying', () => {
@@ -42,6 +43,7 @@ describe('trajectory advancement', () => {
     );
     expect(shot.targets).toHaveLength(0);
     expect(shot.active).toBe(true);
+    expect(shot.impact).toBe('target');
   });
 
   it('stops with an inline error when evaluation becomes non-finite', () => {
@@ -55,6 +57,7 @@ describe('trajectory advancement', () => {
     );
     expect(shot.active).toBe(false);
     expect(shot.error).toContain('non-finite');
+    expect(shot.impact).toBe('invalid');
   });
 
   it('stops at a wall and removes only pieces within the blast radius', () => {
@@ -77,6 +80,7 @@ describe('trajectory advancement', () => {
       1,
     );
     expect(shot.active).toBe(false);
+    expect(shot.impact).toBe('wall');
     expect(shot.trail.at(-1)).toEqual({ x: -1, y: 3 });
     expect(shot.walls[0].pieces.map((piece) => piece.id)).toEqual([2, 3]);
   });

@@ -7,6 +7,7 @@ import { MultiplayerGuestSession } from './multiplayer-auth.service';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerPageComponent } from './multiplayer-page.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
+import { EquationArtilleryAudioService } from '../game/audio.service';
 
 type SocketHandlers = Parameters<MultiplayerSocketService['connect']>[1];
 
@@ -145,6 +146,21 @@ describe('MultiplayerPageComponent', () => {
     }),
     cancel: vi.fn(),
   };
+  const audio = {
+    muted: vi.fn(() => false),
+    volume: vi.fn(() => 1),
+    playFire: vi.fn(),
+    playWallHit: vi.fn(),
+    playEnemyHit: vi.fn(),
+    playWin: vi.fn(),
+    playLose: vi.fn(),
+    startEquationSound: vi.fn(),
+    updateEquationSound: vi.fn(),
+    stopEquationSound: vi.fn(),
+    resume: vi.fn(),
+    setMuted: vi.fn(),
+    setVolume: vi.fn(),
+  };
 
   beforeEach(async () => {
     TestBed.resetTestingModule();
@@ -172,6 +188,7 @@ describe('MultiplayerPageComponent', () => {
     await TestBed.configureTestingModule({
       imports: [MultiplayerPageComponent],
       providers: [
+        { provide: EquationArtilleryAudioService, useValue: audio },
         { provide: MultiplayerAuthService, useValue: auth },
         { provide: MultiplayerSocketService, useValue: socket },
         {
@@ -191,6 +208,7 @@ describe('MultiplayerPageComponent', () => {
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
 
+    expect(text).toContain('Sound');
     expect(text).toContain('Help');
     expect(text).toContain('Equation history');
     expect(text).not.toContain('connected');
@@ -243,6 +261,8 @@ describe('MultiplayerPageComponent', () => {
     handlers.state(resolved);
     handlers.state(paused);
 
+    expect(audio.playFire).toHaveBeenCalledOnce();
+    expect(audio.startEquationSound).toHaveBeenCalledWith(event.trail[0]);
     expect(component.activeShot()).toBe(true);
     expect(component.status()).toBe('Shot in flight.');
     expect(component.state()?.walls).toHaveLength(1);
@@ -254,8 +274,11 @@ describe('MultiplayerPageComponent', () => {
     expect(component.equationHistory()).toEqual([]);
 
     expect(advanceShot?.()).toBe(true);
+    expect(audio.updateEquationSound).toHaveBeenCalledWith(event.trail[1]);
     expect(advanceShot?.()).toBe(false);
 
+    expect(audio.stopEquationSound).toHaveBeenCalled();
+    expect(audio.playWallHit).toHaveBeenCalledOnce();
     expect(component.activeShot()).toBe(false);
     expect(component.state()?.version).toBe(3);
     expect(component.state()?.walls).toEqual([]);
@@ -291,6 +314,64 @@ describe('MultiplayerPageComponent', () => {
     expect(fixture.componentInstance.activeShot()).toBe(false);
     expect(animation.start).not.toHaveBeenCalled();
     expect(fixture.componentInstance.equationHistory()).toEqual([]);
+  });
+
+  it('plays local fire immediately and does not double-play it for the resolved shot event', async () => {
+    socket.fire.mockResolvedValue({ ok: true });
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const state = matchState();
+    handlers.state(state);
+
+    await fixture.componentInstance.fire();
+    const commandId = socket.fire.mock.calls[0][0].commandId;
+    handlers.shot({
+      commandId,
+      matchId: state.id,
+      version: 2,
+      shooterUserId: 'left',
+      shooterCharacterId: 0,
+      equation: '0',
+      trail: [state.characters[0].position, { x: -8, y: 0 }],
+      impact: 'bounds',
+      error: null,
+      state: matchState({ version: 2, turnUserId: 'right', turnCharacterId: 3 }),
+    });
+
+    expect(audio.playFire).toHaveBeenCalledOnce();
+  });
+
+  it('plays opponent hit and lose sounds after a resolved final shot', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const state = matchState();
+    const ended = matchState({
+      version: 2,
+      status: 'ended',
+      winnerUserId: 'right',
+      endReason: 'hit',
+      turnUserId: null,
+      turnCharacterId: null,
+    });
+    handlers.state(state);
+    handlers.shot({
+      commandId: 'right-final',
+      matchId: state.id,
+      version: ended.version,
+      shooterUserId: 'right',
+      shooterCharacterId: 3,
+      equation: '0',
+      trail: [state.characters[3].position, { x: -9, y: 0 }],
+      impact: 'opponent',
+      error: null,
+      state: ended,
+    });
+
+    advanceShot?.();
+    advanceShot?.();
+
+    expect(audio.playEnemyHit).toHaveBeenCalledOnce();
+    expect(audio.playLose).toHaveBeenCalledOnce();
   });
 
   it('recovers the current player equation for each active character', () => {

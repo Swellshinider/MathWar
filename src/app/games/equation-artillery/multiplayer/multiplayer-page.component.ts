@@ -1,16 +1,24 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { CharacterState, MatchState, PlayerState, ShotResolvedEvent } from '@math-war/game-engine';
+import {
+  CharacterState,
+  MatchEndedEvent,
+  MatchState,
+  PlayerState,
+  ShotResolvedEvent,
+} from '@math-war/game-engine';
 import { GameFrameComponent } from '../../../shared/game-frame/game-frame.component';
 import { BoardComponent } from '../board/board.component';
 import { EquationHelpDialogComponent } from '../equation-help-dialog/equation-help-dialog.component';
 import { EquationHistoryComponent } from '../equation-history/equation-history.component';
 import { AnimationService } from '../game/animation.service';
+import { EquationArtilleryAudioService } from '../game/audio.service';
 import { BoardCharacter } from '../game/board-renderer.service';
 import { Bullet } from '../models/bullet';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
+import { SoundSettingsDialogComponent } from '../sound-settings-dialog/sound-settings-dialog.component';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
 
@@ -31,6 +39,7 @@ function formatRoomCode(value: string): string {
     EquationHistoryComponent,
     FormsModule,
     GameFrameComponent,
+    SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
   templateUrl: './multiplayer-page.component.html',
@@ -41,6 +50,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly socket = inject(MultiplayerSocketService);
   private readonly animation = inject(AnimationService);
+  private readonly audio = inject(EquationArtilleryAudioService);
   readonly state = signal<MatchState | null>(null);
   readonly displayName = signal(this.auth.storedDisplayName());
   readonly equation = signal('0');
@@ -54,6 +64,8 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly bullet = signal<Bullet | null>(null);
   readonly trail = signal<readonly Point[]>([]);
   private pendingState: MatchState | null = null;
+  private readonly pendingLocalShotCommandIds = new Set<string>();
+  private lastEndedSoundKey: string | null = null;
   private recalledTurnKey: string | null = null;
   private inviteJoinPending = false;
   private inviteJoinInFlight = false;
@@ -153,7 +165,7 @@ export class MultiplayerPageComponent implements OnDestroy {
       this.socket.connect(token, {
         state: (state) => this.receiveState(state),
         shot: (event) => this.animateShot(event),
-        ended: () => undefined,
+        ended: (event) => this.playMatchResult(event),
         error: (message) => this.error.set(message),
         connected: () => void this.joinInviteRoom(),
       });
@@ -224,12 +236,18 @@ export class MultiplayerPageComponent implements OnDestroy {
     const state = this.state();
     if (!state || !this.isMyTurn() || this.activeShot()) return;
     this.error.set(null);
+    const commandId = crypto.randomUUID();
+    this.pendingLocalShotCommandIds.add(commandId);
+    this.audio.playFire();
     const response = await this.socket.fire({
-      commandId: crypto.randomUUID(),
+      commandId,
       expectedVersion: state.version,
       equation: this.equation(),
     });
-    if (!response.ok) this.error.set(response.error ?? 'The shot was rejected.');
+    if (!response.ok) {
+      this.pendingLocalShotCommandIds.delete(commandId);
+      this.error.set(response.error ?? 'The shot was rejected.');
+    }
   }
 
   async leave(): Promise<void> {
@@ -258,13 +276,14 @@ export class MultiplayerPageComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.animation.cancel();
+    this.audio.stopEquationSound();
     this.socket.disconnect();
   }
 
   private applyResponse(response: { ok: boolean; data?: MatchState; error?: string }): boolean {
     if (response.ok && response.data) {
       this.pendingState = null;
-      this.state.set(response.data);
+      this.setState(response.data);
       this.error.set(null);
       return true;
     }
@@ -289,6 +308,8 @@ export class MultiplayerPageComponent implements OnDestroy {
   }
 
   private animateShot(event: ShotResolvedEvent): void {
+    const isLocalShot = event.shooterUserId === this.userId();
+    const alreadyPlayedLocalFire = this.pendingLocalShotCommandIds.delete(event.commandId);
     if (event.error) {
       this.receiveState(event.state);
       this.error.set(event.error);
@@ -296,9 +317,10 @@ export class MultiplayerPageComponent implements OnDestroy {
     }
     const firstPoint = event.trail[0];
     if (!firstPoint) {
-      this.finishShot(event.state);
+      this.finishShot(event);
       return;
     }
+    if (!isLocalShot || !alreadyPlayedLocalFire) this.audio.playFire();
     let index = 0;
     this.activeShot.set(true);
     this.activeShotCharacterId.set(event.shooterCharacterId);
@@ -310,39 +332,58 @@ export class MultiplayerPageComponent implements OnDestroy {
     );
     this.trail.set([firstPoint]);
     this.bullet.set({ position: firstPoint, radius: 0.18 });
+    this.audio.startEquationSound(firstPoint);
     this.animation.start(() => {
       index += 1;
       const point = event.trail[index];
       if (!point) {
-        this.finishShot(event.state);
+        this.finishShot(event);
         return false;
       }
       this.trail.set(event.trail.slice(0, index + 1));
       this.bullet.set({ position: point, radius: 0.18 });
+      this.audio.updateEquationSound(point);
       return true;
     });
   }
 
   private receiveState(state: MatchState): void {
     if (!this.activeShot()) {
-      this.state.set(state);
+      this.setState(state);
       return;
     }
     if (!this.pendingState || state.version >= this.pendingState.version) this.pendingState = state;
   }
 
-  private finishShot(resolvedState: MatchState): void {
+  private finishShot(event: ShotResolvedEvent): void {
     const nextState =
-      this.pendingState && this.pendingState.version >= resolvedState.version
+      this.pendingState && this.pendingState.version >= event.state.version
         ? this.pendingState
-        : resolvedState;
+        : event.state;
     this.pendingState = null;
-    this.state.set(nextState);
+    this.setState(nextState);
     this.bullet.set(null);
     this.trail.set([]);
     this.activeShot.set(false);
     this.activeShotCharacterId.set(null);
     this.activeShotEquation.set(null);
+    this.audio.stopEquationSound();
+    if (event.impact === 'wall') this.audio.playWallHit();
+    if (event.impact === 'opponent') this.audio.playEnemyHit();
+  }
+
+  private setState(state: MatchState): void {
+    this.state.set(state);
+    if (state.status === 'ended') this.playMatchResult(state);
+  }
+
+  private playMatchResult(event: MatchState | MatchEndedEvent): void {
+    const matchId = 'matchId' in event ? event.matchId : event.id;
+    const key = `${matchId}:${event.version}:${event.winnerUserId ?? 'none'}`;
+    if (this.lastEndedSoundKey === key) return;
+    this.lastEndedSoundKey = key;
+    if (event.winnerUserId === this.userId()) this.audio.playWin();
+    else this.audio.playLose();
   }
 
   private charactersForState(state: MatchState | null | undefined): readonly CharacterState[] {
