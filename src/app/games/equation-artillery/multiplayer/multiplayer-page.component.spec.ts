@@ -1,7 +1,9 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { MatchState, ShotResolvedEvent } from '@math-war/game-engine';
 import { AnimationService } from '../game/animation.service';
+import { MultiplayerGuestSession } from './multiplayer-auth.service';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerPageComponent } from './multiplayer-page.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
@@ -115,12 +117,14 @@ function matchState(overrides: Partial<MatchState> = {}): MatchState {
 describe('MultiplayerPageComponent', () => {
   let handlers: SocketHandlers;
   let advanceShot: (() => boolean) | undefined;
+  let routeParams: Record<string, string>;
   const auth = {
     ready: signal(true),
-    session: signal({
+    session: signal<MultiplayerGuestSession | null>({
       token: 'token',
       user: { id: 'left', displayName: 'Left' },
     }),
+    storedDisplayName: signal(''),
     error: signal<string | null>(null),
     signIn: vi.fn(),
     signOut: vi.fn(),
@@ -143,7 +147,17 @@ describe('MultiplayerPageComponent', () => {
   };
 
   beforeEach(async () => {
+    TestBed.resetTestingModule();
     vi.clearAllMocks();
+    routeParams = {};
+    auth.ready.set(true);
+    auth.session.set({
+      token: 'token',
+      user: { id: 'left', displayName: 'Left' },
+    });
+    auth.storedDisplayName.set('');
+    auth.error.set(null);
+    auth.signIn.mockResolvedValue(undefined);
     advanceShot = undefined;
     vi.stubGlobal(
       'ResizeObserver',
@@ -160,6 +174,10 @@ describe('MultiplayerPageComponent', () => {
       providers: [
         { provide: MultiplayerAuthService, useValue: auth },
         { provide: MultiplayerSocketService, useValue: socket },
+        {
+          provide: ActivatedRoute,
+          useFactory: () => ({ snapshot: { queryParamMap: convertToParamMap(routeParams) } }),
+        },
       ],
     }).compileComponents();
   });
@@ -284,5 +302,80 @@ describe('MultiplayerPageComponent', () => {
     expect(characters.map((character) => character.id)).toEqual([0, 1, 2, 4, 5]);
     expect(characters.find((character) => character.id === 0)?.active).toBe(true);
     expect(characters.every((character) => character.functionLabel === null)).toBe(true);
+  });
+
+  it('submits the lobby room code with Enter', async () => {
+    socket.join.mockResolvedValue({ ok: true, data: matchState({ roomCode: 'ABCD-EFGH' }) });
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.setRoomCode('abcd-efgh');
+
+    fixture.nativeElement.querySelector('.lobby').dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(socket.join).toHaveBeenCalledWith({
+      commandId: expect.any(String),
+      expectedVersion: 0,
+      roomCode: 'ABCD-EFGH',
+    });
+  });
+
+  it('auto-joins an invite room after the socket connects', async () => {
+    routeParams = { room: 'abcd-efgh' };
+    socket.join.mockResolvedValue({ ok: true, data: matchState({ roomCode: 'ABCD-EFGH' }) });
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+
+    handlers.connected?.();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.roomCode()).toBe('ABCD-EFGH');
+    expect(socket.join).toHaveBeenCalledWith({
+      commandId: expect.any(String),
+      expectedVersion: 0,
+      roomCode: 'ABCD-EFGH',
+    });
+  });
+
+  it('auto-joins an invite room after display-name sign-in', async () => {
+    routeParams = { room: 'abcd-efgh' };
+    auth.session.set(null);
+    auth.signIn.mockImplementation(async () => {
+      auth.session.set({ token: 'token', user: { id: 'left', displayName: 'Left' } });
+    });
+    socket.join.mockResolvedValue({ ok: true, data: matchState({ roomCode: 'ABCD-EFGH' }) });
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.signIn();
+    fixture.detectChanges();
+    handlers.connected?.();
+    await fixture.whenStable();
+
+    expect(socket.join).toHaveBeenCalledWith({
+      commandId: expect.any(String),
+      expectedVersion: 0,
+      roomCode: 'ABCD-EFGH',
+    });
+  });
+
+  it('copies the current room invite link', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+    vi.stubGlobal('location', new URL('https://math-war.example/current'));
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    handlers.state(matchState({ roomCode: 'ABCD-EFGH' }));
+
+    await fixture.componentInstance.shareRoomLink();
+
+    expect(writeText).toHaveBeenCalledWith(
+      'https://math-war.example/games/equation-artillery/multiplayer?room=ABCD-EFGH',
+    );
+    expect(fixture.componentInstance.status()).toBe('Share link copied.');
   });
 });

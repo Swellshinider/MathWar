@@ -154,10 +154,10 @@ export class BoardRenderer {
     }
     if (character.active && glow) {
       context.beginPath();
-      context.arc(center.x, center.y, radius + 7, 0, Math.PI * 2);
+      context.arc(center.x, center.y, radius + 4, 0, Math.PI * 2);
       context.fillStyle = BOARD_PALETTE.characterGlows[colorIndex];
       context.shadowColor = BOARD_PALETTE.characterGlows[colorIndex];
-      context.shadowBlur = 22;
+      context.shadowBlur = 8;
       context.fill();
       context.shadowBlur = 0;
     }
@@ -166,7 +166,7 @@ export class BoardRenderer {
     context.fillStyle = BOARD_PALETTE.characterColors[colorIndex];
     if (character.active && glow) {
       context.shadowColor = BOARD_PALETTE.characterGlows[colorIndex];
-      context.shadowBlur = 14;
+      context.shadowBlur = 6;
     }
     context.fill();
     context.shadowBlur = 0;
@@ -180,7 +180,9 @@ export class BoardRenderer {
     context.font = '600 12px system-ui';
     context.textAlign = 'center';
     context.textBaseline = 'top';
-    context.fillStyle = BOARD_PALETTE.playerText;
+    context.fillStyle = character.active
+      ? BOARD_PALETTE.activePlayerText
+      : BOARD_PALETTE.playerText;
     context.fillText(character.displayName, center.x, center.y + radius + 5);
   }
 

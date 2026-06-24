@@ -149,6 +149,7 @@ describe('multiplayer socket server', () => {
       { commandId: randomUUID(), expectedVersion: 0 },
     );
     expect(created.ok).toBe(true);
+    expect(created.data.roomCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
     const startedPromise = once<{ version: number }>(left, 'match:started');
     const joined = await emit<{ ok: true; data: { version: number } }>(right, 'room:join', {
       commandId: randomUUID(),
@@ -223,6 +224,33 @@ describe('multiplayer socket server', () => {
         shot.state.characters.some((character) => character.id === id && character.alive),
       ),
     );
+  });
+
+  it('accepts canonical, lowercase, and compact room codes when joining', async () => {
+    const harness = await createHarness();
+    const variants = [
+      (roomCode: string) => roomCode,
+      (roomCode: string) => roomCode.toLowerCase(),
+      (roomCode: string) => roomCode.replace('-', ''),
+    ];
+
+    for (const [index, variant] of variants.entries()) {
+      const left = await connect(harness, `left-${index}`);
+      const right = await connect(harness, `right-${index}`);
+      const created = await emit<{ ok: true; data: { roomCode: string } }>(left, 'room:create', {
+        commandId: randomUUID(),
+        expectedVersion: 0,
+      });
+
+      expect(created.data.roomCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+      const joined = await emit<{ ok: boolean }>(right, 'room:join', {
+        commandId: randomUUID(),
+        expectedVersion: 0,
+        roomCode: variant(created.data.roomCode),
+      });
+
+      expect(joined.ok).toBe(true);
+    }
   });
 
   it('restores a paused match on reconnect and ends it after the deadline', async () => {

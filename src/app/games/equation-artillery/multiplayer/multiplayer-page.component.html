@@ -42,7 +42,7 @@
     </div>
 
     @if (!state()) {
-      <section class="panel glass lobby">
+      <form class="panel glass lobby" (submit)="$event.preventDefault(); joinRoom()">
         <button type="button" class="btn btn--primary" (click)="createRoom()">
           Create private room
         </button>
@@ -51,25 +51,35 @@
         <input
           id="room-code"
           class="field"
-          maxlength="6"
-          [(ngModel)]="roomCode"
-          placeholder="ABC123"
+          maxlength="9"
+          name="roomCode"
+          [ngModel]="roomCode()"
+          (ngModelChange)="setRoomCode($event)"
+          placeholder="ABCD-EFGH"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
         />
-        <button type="button" class="btn btn--primary" (click)="joinRoom()">Join room</button>
-      </section>
+        <button type="submit" class="btn btn--primary">Join room</button>
+      </form>
     } @else {
       <div class="game-layout">
         <div class="game-column">
           <section class="match-meta">
             <strong>Room {{ state()?.roomCode }}</strong>
-            <button
-              type="button"
-              class="btn btn--subtle"
-              [disabled]="activeShot()"
-              (click)="leave()"
-            >
-              Leave match
-            </button>
+            <div class="match-actions">
+              <button type="button" class="btn btn--subtle" (click)="shareRoomLink()">
+                Share link
+              </button>
+              <button
+                type="button"
+                class="btn btn--subtle"
+                [disabled]="activeShot()"
+                (click)="leave()"
+              >
+                Leave match
+              </button>
+            </div>
           </section>
           <app-board
             [player]="playerForBoard()"

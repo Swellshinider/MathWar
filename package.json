@@ -4,6 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "dev:local": "node scripts/dev-local.mjs",
     "build": "npm run build:engine && ng build",
     "build:production": "npm run build && npm run server:build",
     "watch": "ng build --watch --configuration development",

@@ -48,7 +48,13 @@ window.MATH_WAR_CONFIG = {
 };
 ```
 
-Then run the in-memory server and Angular dev server in separate terminals:
+Then run the in-memory server and Angular dev server together:
+
+```bash
+npm run dev:local
+```
+
+You can still run them in separate terminals when you need independent logs:
 
 ```bash
 npm run server:dev:memory

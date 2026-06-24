@@ -22,6 +22,7 @@ export const BOARD_PALETTE = {
   ],
   activeCharacterRing: '#fff7d1',
   playerText: '#d8f7e6',
+  activePlayerText: '#ff8994',
   playerGlow: 'rgba(69, 212, 131, 0.62)',
   functionText: '#fff0a6',
   functionTextBackground: 'rgba(7, 17, 31, 0.78)',

@@ -1,5 +1,6 @@
 import { BoardRenderer } from './board-renderer.service';
 import { WORLD_BOUNDS } from '../models/world-bounds';
+import { BOARD_PALETTE } from './board-palette';
 
 describe('BoardRenderer', () => {
   it('draws the grid, player, targets, walls, trail, and bullet', () => {
@@ -47,6 +48,7 @@ describe('BoardRenderer', () => {
   });
 
   it('draws living multiplayer characters with names, active glow, and function labels', () => {
+    const fillStyles: string[] = [];
     const context = {
       clearRect: vi.fn(),
       fillRect: vi.fn(),
@@ -59,7 +61,12 @@ describe('BoardRenderer', () => {
       fill: vi.fn(),
       fillText: vi.fn(),
       measureText: vi.fn(() => ({ width: 84 })),
-      fillStyle: '',
+      get fillStyle() {
+        return fillStyles.at(-1) ?? '';
+      },
+      set fillStyle(value: string) {
+        fillStyles.push(value);
+      },
       strokeStyle: '',
       shadowColor: '',
       shadowBlur: 0,
@@ -105,5 +112,6 @@ describe('BoardRenderer', () => {
     );
     expect(context.fillText).toHaveBeenCalledWith('Left', expect.any(Number), expect.any(Number));
     expect(context.fillText).toHaveBeenCalledWith('Right', expect.any(Number), expect.any(Number));
+    expect(fillStyles).toContain(BOARD_PALETTE.activePlayerText);
   });
 });
