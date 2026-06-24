@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed - 2026-06-24
 
 - Enlarged the equation help reference text to a readable size.
+- Guarded multiplayer session storage so the guest auth service no longer crashes when
+  `localStorage` is unavailable (tests, SSR), and corrected the multiplayer route test to assert
+  the rendered entry state.
 
 ### Fixed - 2026-06-22
 

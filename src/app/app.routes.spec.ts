@@ -38,7 +38,7 @@ describe('application routes', () => {
     await harness.navigateByUrl('/games/equation-artillery/multiplayer');
 
     expect(harness.routeNativeElement?.textContent).toContain('Equation Artillery Multiplayer');
-    expect(harness.routeNativeElement?.textContent).toContain('Supabase is not configured');
+    expect(harness.routeNativeElement?.textContent).toContain('Enter a display name');
   });
 
   it('redirects unknown paths to the catalog', async () => {
