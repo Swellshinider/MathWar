@@ -139,7 +139,7 @@ describe('multiplayer socket server', () => {
     expect(message).toContain('Authentication required');
   });
 
-  it('creates, joins, rejects unsafe commands, and resolves a winning shot', async () => {
+  it('creates, joins, rejects unsafe commands, and resolves a character hit', async () => {
     const harness = await createHarness();
     const left = await connect(harness, 'left');
     const right = await connect(harness, 'right');
@@ -149,6 +149,7 @@ describe('multiplayer socket server', () => {
       { commandId: randomUUID(), expectedVersion: 0 },
     );
     expect(created.ok).toBe(true);
+    expect(created.data.roomCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
     const startedPromise = once<{ version: number }>(left, 'match:started');
     const joined = await emit<{ ok: true; data: { version: number } }>(right, 'room:join', {
       commandId: randomUUID(),
@@ -173,30 +174,83 @@ describe('multiplayer socket server', () => {
 
     const persisted = await harness.repository.findByCode(created.data.roomCode);
     expect(persisted).not.toBeNull();
+    const cleared = await harness.repository.update(
+      persisted!.id,
+      persisted!.version,
+      randomUUID(),
+      (state) => ({
+        ...state,
+        walls: [],
+        version: state.version + 1,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+    expect(cleared.ok).toBe(true);
+    const clearState = cleared.ok ? cleared.state : persisted!;
     let equation = '';
     for (let coefficient = -40; coefficient <= 40 && !equation; coefficient += 1) {
       const value = coefficient / 1000;
-      const leftPlayer = persisted!.players[0];
-      const rightPlayer = persisted!.players[1];
-      const slope = (rightPlayer.position.y - leftPlayer.position.y) / 18;
-      const candidate = `${value}x(x-18)+${slope}x`;
-      if (resolveShot(persisted!, 'left', 'probe', candidate).impact === 'opponent')
+      const leftCharacter = clearState.characters.find((character) => character.id === 0)!;
+      const rightCharacter = clearState.characters.find((character) => character.id === 3)!;
+      const distance = rightCharacter.position.x - leftCharacter.position.x;
+      const slope = (rightCharacter.position.y - leftCharacter.position.y) / distance;
+      const candidate = `${value}x(x-${distance})+${slope}x`;
+      if (resolveShot(clearState, 'left', 'probe', candidate).impact === 'opponent')
         equation = candidate;
     }
     expect(equation).not.toBe('');
-    const shotPromise = once<{ impact: string; state: { status: string; winnerUserId: string } }>(
-      right,
-      'shot:resolved',
-    );
+    const shotPromise = once<{
+      impact: string;
+      shooterCharacterId: number;
+      state: {
+        status: string;
+        winnerUserId: string | null;
+        turnCharacterId: number;
+        characters: { id: number; alive: boolean }[];
+      };
+    }>(right, 'shot:resolved');
     const fired = await emit<{ ok: true }>(left, 'match:fire', {
       commandId: randomUUID(),
-      expectedVersion: persisted!.version,
+      expectedVersion: clearState.version,
       equation,
     });
     expect(fired.ok).toBe(true);
     const shot = await shotPromise;
     expect(shot.impact).toBe('opponent');
-    expect(shot.state).toMatchObject({ status: 'ended', winnerUserId: 'left' });
+    expect(shot.shooterCharacterId).toBe(0);
+    expect(shot.state).toMatchObject({ status: 'active', winnerUserId: null });
+    expect(shot.state.turnCharacterId).toBe(
+      [3, 1, 4, 2, 5].find((id) =>
+        shot.state.characters.some((character) => character.id === id && character.alive),
+      ),
+    );
+  });
+
+  it('accepts canonical, lowercase, and compact room codes when joining', async () => {
+    const harness = await createHarness();
+    const variants = [
+      (roomCode: string) => roomCode,
+      (roomCode: string) => roomCode.toLowerCase(),
+      (roomCode: string) => roomCode.replace('-', ''),
+    ];
+
+    for (const [index, variant] of variants.entries()) {
+      const left = await connect(harness, `left-${index}`);
+      const right = await connect(harness, `right-${index}`);
+      const created = await emit<{ ok: true; data: { roomCode: string } }>(left, 'room:create', {
+        commandId: randomUUID(),
+        expectedVersion: 0,
+      });
+
+      expect(created.data.roomCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+      const joined = await emit<{ ok: boolean }>(right, 'room:join', {
+        commandId: randomUUID(),
+        expectedVersion: 0,
+        roomCode: variant(created.data.roomCode),
+      });
+
+      expect(joined.ok).toBe(true);
+    }
   });
 
   it('restores a paused match on reconnect and ends it after the deadline', async () => {

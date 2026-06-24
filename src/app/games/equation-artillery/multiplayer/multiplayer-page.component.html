@@ -42,7 +42,7 @@
     </div>
 
     @if (!state()) {
-      <section class="panel glass lobby">
+      <form class="panel glass lobby" (submit)="$event.preventDefault(); joinRoom()">
         <button type="button" class="btn btn--primary" (click)="createRoom()">
           Create private room
         </button>
@@ -51,28 +51,39 @@
         <input
           id="room-code"
           class="field"
-          maxlength="6"
-          [(ngModel)]="roomCode"
-          placeholder="ABC123"
+          maxlength="9"
+          name="roomCode"
+          [ngModel]="roomCode()"
+          (ngModelChange)="setRoomCode($event)"
+          placeholder="ABCD-EFGH"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
         />
-        <button type="button" class="btn btn--primary" (click)="joinRoom()">Join room</button>
-      </section>
+        <button type="submit" class="btn btn--primary">Join room</button>
+      </form>
     } @else {
       <div class="game-layout">
         <div class="game-column">
           <section class="match-meta">
             <strong>Room {{ state()?.roomCode }}</strong>
-            <button
-              type="button"
-              class="btn btn--subtle"
-              [disabled]="activeShot()"
-              (click)="leave()"
-            >
-              Leave match
-            </button>
+            <div class="match-actions">
+              <button type="button" class="btn btn--subtle" (click)="shareRoomLink()">
+                Share link
+              </button>
+              <button
+                type="button"
+                class="btn btn--subtle"
+                [disabled]="activeShot()"
+                (click)="leave()"
+              >
+                Leave match
+              </button>
+            </div>
           </section>
           <app-board
             [player]="playerForBoard()"
+            [characters]="boardCharacters()"
             [targets]="opponentTarget()"
             [walls]="state()?.walls ?? []"
             [bullet]="bullet()"
@@ -88,22 +99,11 @@
               [(ngModel)]="equation"
               placeholder="0.35x"
             />
-            <button
-              type="submit"
-              class="btn btn--primary"
-              [disabled]="!isMyTurn() || activeShot()"
-            >
+            <button type="submit" class="btn btn--primary" [disabled]="!isMyTurn() || activeShot()">
               Fire
             </button>
           </form>
           <p class="status" aria-live="polite">{{ status() }}</p>
-          <div class="players">
-            @for (player of state()?.players ?? []; track player.userId) {
-              <span class="player-chip {{ player.connected ? 'is-connected' : 'is-reconnecting' }}">
-                {{ player.displayName }} · {{ player.connected ? 'connected' : 'reconnecting' }}
-              </span>
-            }
-          </div>
         </div>
 
         <app-equation-history

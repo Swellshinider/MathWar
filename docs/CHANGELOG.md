@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-24
+
+- Added multiplayer squad lives with three characters per player, character-based turn rotation,
+  randomized character positions, distinct character colors, active-character glow, persistent
+  shooter function labels, and names under each character.
+- Added per-character multiplayer equation recall so each character restores its last accepted
+  function on the player's next turn.
+- Added randomized multiplayer wall counts and shapes so matches now spawn 2 to 5 mixed walls
+  instead of three fixed vertical walls.
+- Added multiplayer invite links with one-click copying and automatic room joins from shared room
+  URLs.
+
 ### Changed - 2026-06-24
 
 - Redesigned the UI around a shared design-token system (colors, surfaces, spacing, radius,
@@ -17,13 +29,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Introduced reusable button, field, and glass styles so every screen shares one look, and unified
   the scattered responsive breakpoints into a consistent scale.
 - Kept the site header visible while scrolling.
+- Changed multiplayer room codes to the `XXXX-XXXX` format and remembered the last display name
+  separately from the guest session.
+- Added a `dev:local` npm script that starts the Angular UI and in-memory multiplayer server
+  together for local testing.
 
 ### Fixed - 2026-06-24
 
 - Enlarged the equation help reference text to a readable size.
+- Show a clear multiplayer sign-in error when the local server cannot be reached, and documented
+  the in-memory multiplayer dev server for no-database local testing.
 - Guarded multiplayer session storage so the guest auth service no longer crashes when
   `localStorage` is unavailable (tests, SSR), and corrected the multiplayer route test to assert
   the rendered entry state.
+- Allowed Enter to submit the multiplayer join-room field and reduced the active-character glow
+  while highlighting the active player's name in red.
 
 ### Fixed - 2026-06-22
 

@@ -19,6 +19,16 @@ export interface PlayerState {
   readonly connected: boolean;
 }
 
+export interface CharacterState {
+  readonly id: number;
+  readonly ownerUserId: string;
+  readonly displayName: string;
+  readonly position: Point;
+  readonly radius: number;
+  readonly direction: 1 | -1;
+  readonly alive: boolean;
+}
+
 export interface WallPiece {
   readonly id: number;
   readonly center: Point;
@@ -39,6 +49,7 @@ export type MatchEndReason = 'hit' | 'abandonment' | 'left';
 export interface ShotHistoryEntry {
   readonly commandId: string;
   readonly shooterUserId: string;
+  readonly shooterCharacterId: number | null;
   readonly equation: string;
 }
 
@@ -49,9 +60,11 @@ export interface MatchState {
   readonly version: number;
   readonly status: MatchStatus;
   readonly players: readonly PlayerState[];
+  readonly characters: readonly CharacterState[];
   readonly walls: readonly Wall[];
   readonly equationHistory: readonly ShotHistoryEntry[];
   readonly turnUserId: string | null;
+  readonly turnCharacterId: number | null;
   readonly winnerUserId: string | null;
   readonly endReason: MatchEndReason | null;
   readonly disconnectedUserId: string | null;
@@ -78,6 +91,7 @@ export interface ShotResolvedEvent {
   readonly matchId: string;
   readonly version: number;
   readonly shooterUserId: string;
+  readonly shooterCharacterId: number | null;
   readonly equation: string;
   readonly trail: readonly Point[];
   readonly impact: 'opponent' | 'wall' | 'bounds' | 'invalid';

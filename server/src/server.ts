@@ -22,6 +22,7 @@ interface AuthenticatedSocket extends Socket {
 }
 
 type Ack<T = undefined> = (response: CommandAck<T>) => void;
+const ROOM_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 export interface MultiplayerServerOptions {
   readonly repository: MatchRepository;
@@ -41,7 +42,17 @@ export interface MultiplayerServerOptions {
 function roomName(matchId: string): string {
   return `match:${matchId}`;
 }
+function createRoomCode(): string {
+  const bytes = randomBytes(8);
+  const characters = [...bytes].map((byte) => ROOM_CODE_ALPHABET[byte % ROOM_CODE_ALPHABET.length]);
+  return `${characters.slice(0, 4).join('')}-${characters.slice(4).join('')}`;
+}
 function normalizeRoomCode(value: string): string {
+  const compact = value
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '');
+  if (/^[A-Z0-9]{8}$/.test(compact)) return `${compact.slice(0, 4)}-${compact.slice(4)}`;
   return value.trim().toUpperCase();
 }
 function isVersionedCommand(value: unknown): value is VersionedCommand {
@@ -184,7 +195,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           error: 'Leave the current match first.',
         });
       for (let attempt = 0; attempt < 10; attempt += 1) {
-        const roomCode = randomBytes(4).toString('base64url').slice(0, 6).toUpperCase();
+        const roomCode = createRoomCode();
         const state = createMatchState(randomUUID(), roomCode, randomBytes(32).toString('hex'), {
           userId: socket.data.user.id,
           displayName: socket.data.user.displayName,
@@ -292,6 +303,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             version: state.version + 1,
             status: 'ended',
             turnUserId: null,
+            turnCharacterId: null,
             winnerUserId: opponent?.userId ?? null,
             endReason: 'left',
             updatedAt: new Date().toISOString(),
@@ -357,6 +369,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           version: state.version + 1,
           status: 'ended',
           turnUserId: null,
+          turnCharacterId: null,
           winnerUserId: winner?.userId ?? null,
           endReason: 'abandonment',
           updatedAt: now.toISOString(),

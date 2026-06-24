@@ -10,10 +10,18 @@ import { BOARD_PALETTE } from './board-palette';
 
 export interface BoardScene {
   readonly player: Player;
+  readonly characters: readonly BoardCharacter[];
   readonly targets: readonly Target[];
   readonly walls: readonly Wall[];
   readonly bullet: Bullet | null;
   readonly trail: readonly Point[];
+}
+
+export interface BoardCharacter extends Player {
+  readonly id: number;
+  readonly displayName: string;
+  readonly active: boolean;
+  readonly functionLabel: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -36,7 +44,13 @@ export class BoardRenderer {
       wall.pieces.forEach((piece) => this.drawWallPiece(context, size, bounds, piece)),
     );
     scene.targets.forEach((target) => this.drawTarget(context, size, bounds, target));
-    this.drawPlayer(context, size, bounds, scene.player);
+    if (scene.characters.length) {
+      scene.characters.forEach((character) =>
+        this.drawCharacter(context, size, bounds, character, glow),
+      );
+    } else {
+      this.drawPlayer(context, size, bounds, scene.player);
+    }
     if (scene.bullet) this.drawBullet(context, size, bounds, scene.bullet, glow);
   }
 
@@ -123,6 +137,72 @@ export class BoardRenderer {
     context.arc(center.x, center.y, radius, 0, Math.PI * 2);
     context.fillStyle = BOARD_PALETTE.player;
     context.fill();
+  }
+
+  private drawCharacter(
+    context: CanvasRenderingContext2D,
+    size: CanvasSize,
+    bounds: WorldBounds,
+    character: BoardCharacter,
+    glow: boolean,
+  ): void {
+    const center = worldToCanvas(character.position, bounds, size);
+    const radius = (character.radius * size.width) / (bounds.maxX - bounds.minX);
+    const colorIndex = character.id % BOARD_PALETTE.characterColors.length;
+    if (character.functionLabel) {
+      this.drawFunctionLabel(context, center, radius, character.functionLabel);
+    }
+    if (character.active && glow) {
+      context.beginPath();
+      context.arc(center.x, center.y, radius + 4, 0, Math.PI * 2);
+      context.fillStyle = BOARD_PALETTE.characterGlows[colorIndex];
+      context.shadowColor = BOARD_PALETTE.characterGlows[colorIndex];
+      context.shadowBlur = 8;
+      context.fill();
+      context.shadowBlur = 0;
+    }
+    context.beginPath();
+    context.arc(center.x, center.y, radius, 0, Math.PI * 2);
+    context.fillStyle = BOARD_PALETTE.characterColors[colorIndex];
+    if (character.active && glow) {
+      context.shadowColor = BOARD_PALETTE.characterGlows[colorIndex];
+      context.shadowBlur = 6;
+    }
+    context.fill();
+    context.shadowBlur = 0;
+    if (character.active) {
+      context.beginPath();
+      context.arc(center.x, center.y, radius + 4, 0, Math.PI * 2);
+      context.strokeStyle = BOARD_PALETTE.activeCharacterRing;
+      context.lineWidth = 2.5;
+      context.stroke();
+    }
+    context.font = '600 12px system-ui';
+    context.textAlign = 'center';
+    context.textBaseline = 'top';
+    context.fillStyle = character.active
+      ? BOARD_PALETTE.activePlayerText
+      : BOARD_PALETTE.playerText;
+    context.fillText(character.displayName, center.x, center.y + radius + 5);
+  }
+
+  private drawFunctionLabel(
+    context: CanvasRenderingContext2D,
+    center: Point,
+    radius: number,
+    label: string,
+  ): void {
+    const text = `f(x) = ${label}`;
+    const y = center.y - radius - 24;
+    context.font = '600 12px system-ui';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    const metrics = context.measureText(text);
+    const width = Math.min(metrics.width + 16, 180);
+    context.fillStyle = BOARD_PALETTE.functionTextBackground;
+    context.fillRect(center.x - width / 2, y - 10, width, 20);
+    context.fillStyle = BOARD_PALETTE.functionText;
+    context.fillText(text, center.x, y, width - 8);
   }
 
   private drawTarget(
