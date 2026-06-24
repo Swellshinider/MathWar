@@ -4,9 +4,16 @@
   objective="Shape a function to guide the shot through every target."
   [wide]="true"
 >
-  <a gameActions class="btn btn--ghost" href="/games/equation-artillery/multiplayer">
-    Play 1v1
-  </a>
+  <a gameActions class="btn btn--ghost" href="/games/equation-artillery/multiplayer"> Play 1v1 </a>
+  <button
+    gameActions
+    type="button"
+    class="btn btn--ghost"
+    aria-haspopup="dialog"
+    (click)="soundDialog.open()"
+  >
+    Sound
+  </button>
   <button
     gameActions
     type="button"
@@ -42,6 +49,7 @@
   </div>
 
   <app-equation-help-dialog #helpDialog />
+  <app-sound-settings-dialog #soundDialog />
 
   <p gameHint>
     The curve starts at the player. Walls stop shots but lose pieces around an impact. Try

@@ -9,6 +9,15 @@
     type="button"
     class="btn btn--ghost"
     aria-haspopup="dialog"
+    (click)="soundDialog.open()"
+  >
+    Sound
+  </button>
+  <button
+    gameActions
+    type="button"
+    class="btn btn--ghost"
+    aria-haspopup="dialog"
     (click)="helpDialog.open()"
   >
     Help
@@ -118,4 +127,5 @@
   }
 
   <app-equation-help-dialog #helpDialog />
+  <app-sound-settings-dialog #soundDialog />
 </app-game-frame>

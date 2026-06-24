@@ -9,6 +9,8 @@ import { CompiledExpression, ExpressionError } from './expression';
 
 export const WALL_BLAST_RADIUS = 0.75;
 
+export type ShotImpact = 'target' | 'wall' | 'bounds' | 'invalid' | null;
+
 export interface ShotState {
   readonly bullet: Bullet;
   readonly trail: readonly Point[];
@@ -16,6 +18,7 @@ export interface ShotState {
   readonly walls: readonly Wall[];
   readonly active: boolean;
   readonly error: string | null;
+  readonly impact: ShotImpact;
 }
 
 export function createShot(
@@ -30,6 +33,7 @@ export function createShot(
     walls,
     active: true,
     error: null,
+    impact: null,
   };
 }
 
@@ -51,6 +55,7 @@ export function advanceShot(
       ...state,
       active: false,
       error: error instanceof ExpressionError ? error.message : 'The equation became invalid.',
+      impact: 'invalid',
     };
   }
   const point = { x: nextX, y: nextY };
@@ -59,7 +64,13 @@ export function advanceShot(
     point.x <= bounds.maxX &&
     point.y >= bounds.minY &&
     point.y <= bounds.maxY;
-  if (!inside) return { ...state, bullet: { ...state.bullet, position: point }, active: false };
+  if (!inside)
+    return {
+      ...state,
+      bullet: { ...state.bullet, position: point },
+      active: false,
+      impact: 'bounds',
+    };
   const hitPiece = state.walls
     .flatMap((wall) => wall.pieces)
     .find((piece) => pointHitsWallPiece(point, piece, state.bullet.radius));
@@ -70,12 +81,15 @@ export function advanceShot(
       trail: [...state.trail, point],
       walls: damageWalls(state.walls, point, WALL_BLAST_RADIUS),
       active: false,
+      impact: 'wall',
     };
   }
+  const targets = state.targets.filter((target) => !pointHitsTarget(point, target));
   return {
     ...state,
     bullet: { ...state.bullet, position: point },
     trail: [...state.trail, point],
-    targets: state.targets.filter((target) => !pointHitsTarget(point, target)),
+    targets,
+    impact: targets.length < state.targets.length ? 'target' : null,
   };
 }
