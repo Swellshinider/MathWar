@@ -173,15 +173,28 @@ describe('multiplayer socket server', () => {
 
     const persisted = await harness.repository.findByCode(created.data.roomCode);
     expect(persisted).not.toBeNull();
+    const cleared = await harness.repository.update(
+      persisted!.id,
+      persisted!.version,
+      randomUUID(),
+      (state) => ({
+        ...state,
+        walls: [],
+        version: state.version + 1,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+    expect(cleared.ok).toBe(true);
+    const clearState = cleared.ok ? cleared.state : persisted!;
     let equation = '';
     for (let coefficient = -40; coefficient <= 40 && !equation; coefficient += 1) {
       const value = coefficient / 1000;
-      const leftCharacter = persisted!.characters.find((character) => character.id === 0)!;
-      const rightCharacter = persisted!.characters.find((character) => character.id === 3)!;
+      const leftCharacter = clearState.characters.find((character) => character.id === 0)!;
+      const rightCharacter = clearState.characters.find((character) => character.id === 3)!;
       const distance = rightCharacter.position.x - leftCharacter.position.x;
       const slope = (rightCharacter.position.y - leftCharacter.position.y) / distance;
       const candidate = `${value}x(x-${distance})+${slope}x`;
-      if (resolveShot(persisted!, 'left', 'probe', candidate).impact === 'opponent')
+      if (resolveShot(clearState, 'left', 'probe', candidate).impact === 'opponent')
         equation = candidate;
     }
     expect(equation).not.toBe('');
@@ -197,7 +210,7 @@ describe('multiplayer socket server', () => {
     }>(right, 'shot:resolved');
     const fired = await emit<{ ok: true }>(left, 'match:fire', {
       commandId: randomUUID(),
-      expectedVersion: persisted!.version,
+      expectedVersion: clearState.version,
       equation,
     });
     expect(fired.ok).toBe(true);

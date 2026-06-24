@@ -14,10 +14,92 @@ export const WORLD_BOUNDS: WorldBounds = { minX: -12, maxX: 12, minY: -7.5, maxY
 export const SHOT_STEP = 0.08;
 const BULLET_RADIUS = 0.18;
 const WALL_BLAST_RADIUS = 0.75;
+const WALL_PIECE_SIZE = 0.5;
 const TURN_ORDER = [0, 3, 1, 4, 2, 5] as const;
+const WALL_SHAPES: readonly Wall['shape'][] = ['vertical', 'circle', 'square', 'triangle'];
 
 function integerBetween(random: () => number, minimum: number, maximum: number): number {
   return minimum + Math.floor(random() * (maximum - minimum + 1));
+}
+
+function halfStepBetween(random: () => number, minimum: number, maximum: number): number {
+  return integerBetween(random, minimum * 2, maximum * 2) / 2;
+}
+
+function centeredOffset(index: number, count: number): number {
+  return (index - (count - 1) / 2) * WALL_PIECE_SIZE;
+}
+
+function createLocalWallPieces(shape: Wall['shape'], random: () => number): readonly Point[] {
+  if (shape === 'vertical') {
+    const height = integerBetween(random, 8, 13);
+    return Array.from({ length: height }, (_, row) => ({
+      x: 0,
+      y: centeredOffset(row, height),
+    }));
+  }
+
+  if (shape === 'square') {
+    const side = integerBetween(random, 5, 8);
+    return Array.from({ length: side * side }, (_, index) => ({
+      x: centeredOffset(index % side, side),
+      y: centeredOffset(Math.floor(index / side), side),
+    }));
+  }
+
+  if (shape === 'circle') {
+    const radius = integerBetween(random, 3, 4);
+    const diameter = radius * 2 + 1;
+    const points: Point[] = [];
+    for (let row = 0; row < diameter; row += 1) {
+      for (let column = 0; column < diameter; column += 1) {
+        const x = column - radius;
+        const y = row - radius;
+        if (x * x + y * y <= radius * radius) {
+          points.push({ x: x * WALL_PIECE_SIZE, y: y * WALL_PIECE_SIZE });
+        }
+      }
+    }
+    return points;
+  }
+
+  const height = integerBetween(random, 6, 9);
+  const points: Point[] = [];
+  for (let row = 0; row < height; row += 1) {
+    const width = row + 1;
+    for (let column = 0; column < width; column += 1) {
+      points.push({
+        x: centeredOffset(column, width),
+        y: centeredOffset(row, height),
+      });
+    }
+  }
+  return points;
+}
+
+function selectWallShape(random: () => number): Wall['shape'] {
+  return WALL_SHAPES[integerBetween(random, 0, WALL_SHAPES.length - 1)];
+}
+
+function pieceFitsBounds(piece: { readonly center: Point; readonly size: number }): boolean {
+  const halfSize = piece.size / 2;
+  return (
+    piece.center.x - halfSize >= WORLD_BOUNDS.minX &&
+    piece.center.x + halfSize <= WORLD_BOUNDS.maxX &&
+    piece.center.y - halfSize >= WORLD_BOUNDS.minY &&
+    piece.center.y + halfSize <= WORLD_BOUNDS.maxY
+  );
+}
+
+function piecesOverlap(
+  first: { readonly center: Point; readonly size: number },
+  second: { readonly center: Point; readonly size: number },
+  padding = 0,
+): boolean {
+  return (
+    Math.abs(first.center.x - second.center.x) < first.size / 2 + second.size / 2 + padding &&
+    Math.abs(first.center.y - second.center.y) < first.size / 2 + second.size / 2 + padding
+  );
 }
 
 function spawnWalls(
@@ -25,17 +107,23 @@ function spawnWalls(
   characters: readonly Pick<CharacterState, 'position'>[],
 ): readonly Wall[] {
   const walls: Wall[] = [];
-  for (let wallId = 1; wallId <= 3; wallId += 1) {
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-      const x = integerBetween(random, -4, 4);
-      const y = integerBetween(random, -4, 2);
-      const height = integerBetween(random, 3, 6);
-      const pieces = Array.from({ length: height }, (_, index) => ({
-        id: wallId * 100 + index,
-        center: { x, y: y + index * 0.5 },
-        size: 0.5,
+  let nextPieceId = 1;
+  const wallCount = integerBetween(random, 2, 5);
+
+  for (let wallId = 1; wallId <= wallCount; wallId += 1) {
+    for (let attempt = 0; attempt < 500; attempt += 1) {
+      const shape = selectWallShape(random);
+      const center = {
+        x: halfStepBetween(random, -5, 5),
+        y: halfStepBetween(random, -5, 5),
+      };
+      const pieces = createLocalWallPieces(shape, random).map((point, pieceIndex) => ({
+        id: nextPieceId + pieceIndex,
+        center: { x: point.x + center.x, y: point.y + center.y },
+        size: WALL_PIECE_SIZE,
       }));
       const overlaps =
+        !pieces.every((piece) => pieceFitsBounds(piece)) ||
         characters.some((character) =>
           pieces.some(
             (piece) =>
@@ -47,18 +135,18 @@ function spawnWalls(
         ) ||
         walls.some((wall) =>
           wall.pieces.some((existing) =>
-            pieces.some(
-              (piece) =>
-                Math.hypot(existing.center.x - piece.center.x, existing.center.y - piece.center.y) <
-                0.75,
-            ),
+            pieces.some((piece) => piecesOverlap(existing, piece, WALL_PIECE_SIZE)),
           ),
         );
       if (!overlaps) {
-        walls.push({ id: wallId, shape: 'vertical', pieces });
+        walls.push({ id: wallId, shape, pieces });
+        nextPieceId += pieces.length;
         break;
       }
     }
+  }
+  if (walls.length !== wallCount) {
+    throw new Error(`Unable to place ${wallCount} multiplayer walls without overlap.`);
   }
   return walls;
 }

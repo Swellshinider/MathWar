@@ -61,6 +61,36 @@ describe('shared multiplayer simulation', () => {
     expect(second.state.turnUserId).toBe('left');
   });
 
+  it('generates two to five multiplayer walls with varied shapes', () => {
+    const counts = new Set<number>();
+    const shapes = new Set<string>();
+    for (let seed = 1; seed <= 100; seed += 1) {
+      const state = createMatchState(
+        '00000000-0000-4000-8000-000000000001',
+        'ABC123',
+        `walls-${seed}`,
+        { userId: 'left', displayName: 'Left' },
+        { userId: 'right', displayName: 'Right' },
+      );
+      counts.add(state.walls.length);
+      state.walls.forEach((wall) => {
+        shapes.add(wall.shape);
+        expect(wall.pieces.length).toBeGreaterThan(1);
+        wall.pieces.forEach((piece) => {
+          expect(piece.center.x - piece.size / 2).toBeGreaterThanOrEqual(-12);
+          expect(piece.center.x + piece.size / 2).toBeLessThanOrEqual(12);
+          expect(piece.center.y - piece.size / 2).toBeGreaterThanOrEqual(-7.5);
+          expect(piece.center.y + piece.size / 2).toBeLessThanOrEqual(7.5);
+        });
+      });
+    }
+
+    expect(Math.min(...counts)).toBeGreaterThanOrEqual(2);
+    expect(Math.max(...counts)).toBeLessThanOrEqual(5);
+    expect(counts.size).toBeGreaterThan(1);
+    expect(shapes).toEqual(new Set(['vertical', 'circle', 'square', 'triangle']));
+  });
+
   it('removes one character on hit and skips dead characters in turn order', () => {
     const created = createMatchState(
       '00000000-0000-4000-8000-000000000001',

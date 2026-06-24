@@ -152,6 +152,15 @@ export class BoardRenderer {
     if (character.functionLabel) {
       this.drawFunctionLabel(context, center, radius, character.functionLabel);
     }
+    if (character.active && glow) {
+      context.beginPath();
+      context.arc(center.x, center.y, radius + 7, 0, Math.PI * 2);
+      context.fillStyle = BOARD_PALETTE.characterGlows[colorIndex];
+      context.shadowColor = BOARD_PALETTE.characterGlows[colorIndex];
+      context.shadowBlur = 22;
+      context.fill();
+      context.shadowBlur = 0;
+    }
     context.beginPath();
     context.arc(center.x, center.y, radius, 0, Math.PI * 2);
     context.fillStyle = BOARD_PALETTE.characterColors[colorIndex];
@@ -161,6 +170,13 @@ export class BoardRenderer {
     }
     context.fill();
     context.shadowBlur = 0;
+    if (character.active) {
+      context.beginPath();
+      context.arc(center.x, center.y, radius + 4, 0, Math.PI * 2);
+      context.strokeStyle = BOARD_PALETTE.activeCharacterRing;
+      context.lineWidth = 2.5;
+      context.stroke();
+    }
     context.font = '600 12px system-ui';
     context.textAlign = 'center';
     context.textBaseline = 'top';

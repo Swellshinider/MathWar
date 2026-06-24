@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added multiplayer squad lives with three characters per player, character-based turn rotation,
   randomized character positions, distinct character colors, active-character glow, persistent
   shooter function labels, and names under each character.
+- Added randomized multiplayer wall counts and shapes so matches now spawn 2 to 5 mixed walls
+  instead of three fixed vertical walls.
 
 ### Changed - 2026-06-24
 

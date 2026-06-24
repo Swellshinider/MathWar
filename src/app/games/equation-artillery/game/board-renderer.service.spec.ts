@@ -95,7 +95,8 @@ describe('BoardRenderer', () => {
       trail: [],
     });
 
-    expect(context.arc).toHaveBeenCalledTimes(2);
+    expect(context.arc).toHaveBeenCalledTimes(4);
+    expect(context.stroke).toHaveBeenCalled();
     expect(context.fillText).toHaveBeenCalledWith(
       'f(x) = 0.25x',
       expect.any(Number),
