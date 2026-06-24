@@ -1,11 +1,12 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatchState, PlayerState, ShotResolvedEvent } from '@math-war/game-engine';
+import { CharacterState, MatchState, PlayerState, ShotResolvedEvent } from '@math-war/game-engine';
 import { GameFrameComponent } from '../../../shared/game-frame/game-frame.component';
 import { BoardComponent } from '../board/board.component';
 import { EquationHelpDialogComponent } from '../equation-help-dialog/equation-help-dialog.component';
 import { EquationHistoryComponent } from '../equation-history/equation-history.component';
 import { AnimationService } from '../game/animation.service';
+import { BoardCharacter } from '../game/board-renderer.service';
 import { Bullet } from '../models/bullet';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
@@ -35,6 +36,9 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly roomCode = signal('');
   readonly error = signal<string | null>(null);
   readonly activeShot = signal(false);
+  readonly activeShotCharacterId = signal<number | null>(null);
+  readonly activeShotEquation = signal<string | null>(null);
+  readonly lastShotLabel = signal<{ characterId: number; equation: string } | null>(null);
   readonly bullet = signal<Bullet | null>(null);
   readonly trail = signal<readonly Point[]>([]);
   private pendingState: MatchState | null = null;
@@ -46,6 +50,7 @@ export class MultiplayerPageComponent implements OnDestroy {
     () => this.state()?.players.find((player) => player.userId !== this.userId()) ?? null,
   );
   readonly opponentTarget = computed<readonly Target[]>(() => {
+    if (this.state()?.characters?.length) return [];
     const opponent = this.opponent();
     return opponent
       ? [
@@ -57,6 +62,31 @@ export class MultiplayerPageComponent implements OnDestroy {
           },
         ]
       : [];
+  });
+  readonly boardCharacters = computed<readonly BoardCharacter[]>(() => {
+    const state = this.state();
+    if (!state) return [];
+    const characters = this.charactersForState(state);
+    const activeCharacterId = this.activeShot()
+      ? this.activeShotCharacterId()
+      : state.turnCharacterId;
+    const activeShotEquation = this.activeShotEquation();
+    const lastShotLabel = this.lastShotLabel();
+    return characters
+      .filter((character) => character.alive)
+      .map((character) => ({
+        id: character.id,
+        displayName: character.displayName,
+        position: character.position,
+        radius: character.radius,
+        active: character.id === activeCharacterId,
+        functionLabel:
+          this.activeShot() && character.id === this.activeShotCharacterId()
+            ? activeShotEquation
+            : character.id === lastShotLabel?.characterId
+              ? lastShotLabel.equation
+              : null,
+      }));
   });
   readonly isMyTurn = computed(
     () => this.state()?.status === 'active' && this.state()?.turnUserId === this.userId(),
@@ -177,6 +207,13 @@ export class MultiplayerPageComponent implements OnDestroy {
     }
     let index = 0;
     this.activeShot.set(true);
+    this.activeShotCharacterId.set(event.shooterCharacterId);
+    this.activeShotEquation.set(event.equation);
+    this.lastShotLabel.set(
+      event.shooterCharacterId === null
+        ? null
+        : { characterId: event.shooterCharacterId, equation: event.equation },
+    );
     this.trail.set([firstPoint]);
     this.bullet.set({ position: firstPoint, radius: 0.18 });
     this.animation.start(() => {
@@ -208,6 +245,23 @@ export class MultiplayerPageComponent implements OnDestroy {
     this.pendingState = null;
     this.state.set(nextState);
     this.bullet.set(null);
+    this.trail.set([]);
     this.activeShot.set(false);
+    this.activeShotCharacterId.set(null);
+    this.activeShotEquation.set(null);
+  }
+
+  private charactersForState(state: MatchState | null | undefined): readonly CharacterState[] {
+    if (!state) return [];
+    if (state.characters?.length) return state.characters;
+    return state.players.map((player, index) => ({
+      id: index === 0 ? 0 : 3,
+      ownerUserId: player.userId,
+      displayName: player.displayName,
+      position: player.position,
+      radius: player.radius,
+      direction: player.direction,
+      alive: true,
+    }));
   }
 }

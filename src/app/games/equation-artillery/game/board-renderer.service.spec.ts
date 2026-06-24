@@ -14,6 +14,7 @@ describe('BoardRenderer', () => {
       arc: vi.fn(),
       fill: vi.fn(),
       fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 80 })),
       fillStyle: '',
       strokeStyle: '',
       lineWidth: 0,
@@ -23,6 +24,7 @@ describe('BoardRenderer', () => {
     } as unknown as CanvasRenderingContext2D;
     new BoardRenderer().draw(context, { width: 800, height: 500 }, WORLD_BOUNDS, {
       player: { position: { x: -8, y: 0 }, radius: 0.3 },
+      characters: [],
       targets: [{ id: 1, center: { x: 5, y: 1 }, width: 1, height: 1 }],
       walls: [
         {
@@ -42,5 +44,65 @@ describe('BoardRenderer', () => {
     expect(context.strokeRect).toHaveBeenCalledTimes(2);
     expect(context.lineTo).toHaveBeenCalled();
     expect(context.arc).toHaveBeenCalledTimes(2);
+  });
+
+  it('draws living multiplayer characters with names, active glow, and function labels', () => {
+    const context = {
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      strokeRect: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 84 })),
+      fillStyle: '',
+      strokeStyle: '',
+      shadowColor: '',
+      shadowBlur: 0,
+      lineWidth: 0,
+      font: '',
+      textAlign: '',
+      textBaseline: '',
+    } as unknown as CanvasRenderingContext2D;
+
+    new BoardRenderer().draw(context, { width: 800, height: 500 }, WORLD_BOUNDS, {
+      player: { position: { x: -8, y: 0 }, radius: 0.3 },
+      characters: [
+        {
+          id: 0,
+          displayName: 'Left',
+          position: { x: -9, y: 0 },
+          radius: 0.32,
+          active: true,
+          functionLabel: '0.25x',
+        },
+        {
+          id: 3,
+          displayName: 'Right',
+          position: { x: 9, y: 0 },
+          radius: 0.32,
+          active: false,
+          functionLabel: null,
+        },
+      ],
+      targets: [],
+      walls: [],
+      bullet: null,
+      trail: [],
+    });
+
+    expect(context.arc).toHaveBeenCalledTimes(2);
+    expect(context.fillText).toHaveBeenCalledWith(
+      'f(x) = 0.25x',
+      expect.any(Number),
+      expect.any(Number),
+      92,
+    );
+    expect(context.fillText).toHaveBeenCalledWith('Left', expect.any(Number), expect.any(Number));
+    expect(context.fillText).toHaveBeenCalledWith('Right', expect.any(Number), expect.any(Number));
   });
 });

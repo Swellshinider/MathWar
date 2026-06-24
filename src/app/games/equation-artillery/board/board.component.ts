@@ -14,7 +14,7 @@ import { Point } from '../models/point';
 import { Target } from '../models/target';
 import { Wall } from '../models/wall';
 import { WORLD_BOUNDS } from '../models/world-bounds';
-import { BoardRenderer } from '../game/board-renderer.service';
+import { BoardCharacter, BoardRenderer } from '../game/board-renderer.service';
 
 @Component({
   selector: 'app-board',
@@ -23,6 +23,7 @@ import { BoardRenderer } from '../game/board-renderer.service';
 })
 export class BoardComponent implements AfterViewInit, OnDestroy {
   readonly player = input.required<Player>();
+  readonly characters = input<readonly BoardCharacter[]>([]);
   readonly targets = input.required<readonly Target[]>();
   readonly walls = input.required<readonly Wall[]>();
   readonly bullet = input<Bullet | null>(null);
@@ -35,6 +36,7 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
   constructor() {
     effect(() => {
       this.player();
+      this.characters();
       this.targets();
       this.walls();
       this.bullet();
@@ -67,6 +69,7 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     this.renderer.draw(context, { width, height }, WORLD_BOUNDS, {
       player: this.player(),
+      characters: this.characters(),
       targets: this.targets(),
       walls: this.walls(),
       bullet: this.bullet(),

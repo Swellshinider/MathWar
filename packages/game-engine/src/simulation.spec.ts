@@ -27,13 +27,41 @@ describe('shared multiplayer simulation', () => {
       { userId: 'right', displayName: 'Right' },
     );
     const leftShot = resolveShot(state, 'left', 'left-command', '0');
-    const rightState = { ...state, turnUserId: 'right' };
+    const rightState = { ...state, turnUserId: 'right', turnCharacterId: 3 };
     const rightShot = resolveShot(rightState, 'right', 'right-command', '0');
-    expect(leftShot.trail[1].x).toBeGreaterThan(state.players[0].position.x);
-    expect(rightShot.trail[1].x).toBeLessThan(state.players[1].position.x);
+    expect(leftShot.trail[1].x).toBeGreaterThan(leftShot.trail[0].x);
+    expect(rightShot.trail[1].x).toBeLessThan(rightShot.trail[0].x);
   });
 
-  it('detects an opponent hit and ends the match', () => {
+  it('creates six living characters and rotates through the squad turn order', () => {
+    const state = createMatchState(
+      '00000000-0000-4000-8000-000000000001',
+      'ABC123',
+      'squad',
+      { userId: 'left', displayName: 'Left' },
+      { userId: 'right', displayName: 'Right' },
+    );
+
+    expect(state.characters.map((character) => character.id)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(state.characters.every((character) => character.alive)).toBe(true);
+    expect(
+      new Set(state.characters.slice(0, 3).map((character) => character.position.x)).size,
+    ).toBeGreaterThan(1);
+    expect(
+      new Set(state.characters.slice(3).map((character) => character.position.x)).size,
+    ).toBeGreaterThan(1);
+    expect(state.turnCharacterId).toBe(0);
+
+    const first = resolveShot({ ...state, walls: [] }, 'left', 'left-command', '50');
+    const second = resolveShot(first.state, 'right', 'right-command', '50');
+
+    expect(first.state.turnCharacterId).toBe(3);
+    expect(first.state.turnUserId).toBe('right');
+    expect(second.state.turnCharacterId).toBe(1);
+    expect(second.state.turnUserId).toBe('left');
+  });
+
+  it('removes one character on hit and skips dead characters in turn order', () => {
     const created = createMatchState(
       '00000000-0000-4000-8000-000000000001',
       'ABC123',
@@ -41,14 +69,51 @@ describe('shared multiplayer simulation', () => {
       { userId: 'left', displayName: 'Left' },
       { userId: 'right', displayName: 'Right' },
     );
-    const left = created.players[0];
-    const right = created.players[1];
-    const state = { ...created, walls: [] };
-    const slope = (right.position.y - left.position.y) / 18;
-    const shot = resolveShot(state, 'left', 'command', `${slope}x`);
+    const state = {
+      ...created,
+      walls: [],
+      turnCharacterId: 0,
+      turnUserId: 'left',
+      characters: created.characters.map((character) => {
+        if (character.id === 0) return { ...character, position: { x: -9, y: 0 } };
+        if (character.id === 3) return { ...character, position: { x: 9, y: 0 } };
+        return { ...character, position: { x: character.position.x, y: 6 } };
+      }),
+    };
+    const shot = resolveShot(state, 'left', 'command', '0');
+    expect(shot.impact).toBe('opponent');
+    expect(shot.state.status).toBe('active');
+    expect(shot.state.winnerUserId).toBeNull();
+    expect(shot.state.characters.find((character) => character.id === 3)?.alive).toBe(false);
+    expect(shot.state.turnCharacterId).toBe(1);
+    expect(shot.state.turnUserId).toBe('left');
+  });
+
+  it('ends the match after the last opposing character is hit', () => {
+    const created = createMatchState(
+      '00000000-0000-4000-8000-000000000001',
+      'ABC123',
+      'final-hit',
+      { userId: 'left', displayName: 'Left' },
+      { userId: 'right', displayName: 'Right' },
+    );
+    const state = {
+      ...created,
+      walls: [],
+      turnCharacterId: 0,
+      turnUserId: 'left',
+      characters: created.characters.map((character) => {
+        if (character.id === 0) return { ...character, position: { x: -9, y: 0 } };
+        if (character.id === 3) return { ...character, position: { x: 9, y: 0 }, alive: true };
+        if (character.ownerUserId === 'right') return { ...character, alive: false };
+        return character;
+      }),
+    };
+    const shot = resolveShot(state, 'left', 'command', '0');
     expect(shot.impact).toBe('opponent');
     expect(shot.state.status).toBe('ended');
     expect(shot.state.winnerUserId).toBe('left');
+    expect(shot.state.turnCharacterId).toBeNull();
   });
 
   it('keeps both players valid equations in firing order', () => {

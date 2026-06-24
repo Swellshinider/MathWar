@@ -33,6 +33,62 @@ function matchState(overrides: Partial<MatchState> = {}): MatchState {
         connected: true,
       },
     ],
+    characters: [
+      {
+        id: 0,
+        ownerUserId: 'left',
+        displayName: 'Left',
+        position: { x: -9, y: 0 },
+        radius: 0.32,
+        direction: 1,
+        alive: true,
+      },
+      {
+        id: 1,
+        ownerUserId: 'left',
+        displayName: 'Left',
+        position: { x: -9, y: 2 },
+        radius: 0.32,
+        direction: 1,
+        alive: true,
+      },
+      {
+        id: 2,
+        ownerUserId: 'left',
+        displayName: 'Left',
+        position: { x: -9, y: -2 },
+        radius: 0.32,
+        direction: 1,
+        alive: true,
+      },
+      {
+        id: 3,
+        ownerUserId: 'right',
+        displayName: 'Right',
+        position: { x: 9, y: 0 },
+        radius: 0.32,
+        direction: -1,
+        alive: true,
+      },
+      {
+        id: 4,
+        ownerUserId: 'right',
+        displayName: 'Right',
+        position: { x: 9, y: 2 },
+        radius: 0.32,
+        direction: -1,
+        alive: true,
+      },
+      {
+        id: 5,
+        ownerUserId: 'right',
+        displayName: 'Right',
+        position: { x: 9, y: -2 },
+        radius: 0.32,
+        direction: -1,
+        alive: true,
+      },
+    ],
     walls: [
       {
         id: 1,
@@ -45,6 +101,7 @@ function matchState(overrides: Partial<MatchState> = {}): MatchState {
     ],
     equationHistory: [],
     turnUserId: 'left',
+    turnCharacterId: 0,
     winnerUserId: null,
     endReason: null,
     disconnectedUserId: null,
@@ -118,6 +175,8 @@ describe('MultiplayerPageComponent', () => {
 
     expect(text).toContain('Help');
     expect(text).toContain('Equation history');
+    expect(text).not.toContain('connected');
+    expect(text).not.toContain('3/3');
     expect(text).not.toContain('Shots are resolved by the server');
     expect(text).not.toContain('Version 1');
   });
@@ -131,6 +190,7 @@ describe('MultiplayerPageComponent', () => {
       version: 2,
       walls: [],
       turnUserId: 'right',
+      turnCharacterId: 3,
       equationHistory: [{ commandId: 'shot-1', shooterUserId: 'left', equation: '0.25x' }],
     });
     const paused = matchState({
@@ -145,8 +205,9 @@ describe('MultiplayerPageComponent', () => {
       matchId: initial.id,
       version: resolved.version,
       shooterUserId: 'left',
+      shooterCharacterId: 0,
       equation: '0.25x',
-      trail: [initial.players[0].position, { x: 0, y: 0 }],
+      trail: [initial.characters[0].position, { x: 0, y: 0 }],
       impact: 'wall',
       error: null,
       state: resolved,
@@ -161,6 +222,10 @@ describe('MultiplayerPageComponent', () => {
     expect(component.status()).toBe('Shot in flight.');
     expect(component.state()?.walls).toHaveLength(1);
     expect(component.state()?.turnUserId).toBe('left');
+    expect(component.boardCharacters().find((character) => character.id === 0)?.active).toBe(true);
+    expect(component.boardCharacters().find((character) => character.id === 0)?.functionLabel).toBe(
+      '0.25x',
+    );
     expect(component.equationHistory()).toEqual([]);
 
     expect(advanceShot?.()).toBe(true);
@@ -170,6 +235,10 @@ describe('MultiplayerPageComponent', () => {
     expect(component.state()?.version).toBe(3);
     expect(component.state()?.walls).toEqual([]);
     expect(component.state()?.turnUserId).toBe('right');
+    expect(component.trail()).toEqual([]);
+    expect(component.boardCharacters().find((character) => character.id === 0)?.functionLabel).toBe(
+      '0.25x',
+    );
     expect(component.equationHistory()).toEqual(['0.25x']);
     expect(component.status()).toBe('Match paused while a player reconnects.');
   });
@@ -185,8 +254,9 @@ describe('MultiplayerPageComponent', () => {
       matchId: state.id,
       version: state.version,
       shooterUserId: 'left',
+      shooterCharacterId: 0,
       equation: 'x+(',
-      trail: [state.players[0].position],
+      trail: [state.characters[0].position],
       impact: 'invalid',
       error: 'The equation has invalid syntax.',
       state,
@@ -196,5 +266,23 @@ describe('MultiplayerPageComponent', () => {
     expect(fixture.componentInstance.activeShot()).toBe(false);
     expect(animation.start).not.toHaveBeenCalled();
     expect(fixture.componentInstance.equationHistory()).toEqual([]);
+  });
+
+  it('maps living match characters to the board and hides defeated characters', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    handlers.state(
+      matchState({
+        characters: matchState().characters.map((character) =>
+          character.id === 3 ? { ...character, alive: false } : character,
+        ),
+      }),
+    );
+
+    const characters = fixture.componentInstance.boardCharacters();
+
+    expect(characters.map((character) => character.id)).toEqual([0, 1, 2, 4, 5]);
+    expect(characters.find((character) => character.id === 0)?.active).toBe(true);
+    expect(characters.every((character) => character.functionLabel === null)).toBe(true);
   });
 });

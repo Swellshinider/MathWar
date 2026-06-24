@@ -19,11 +19,17 @@ export class MultiplayerAuthService {
   readonly error = signal<string | null>(null);
 
   async signIn(displayName: string): Promise<void> {
-    const response = await fetch(new URL('/api/auth/guest', this.config.serverUrl), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ displayName }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(new URL('/api/auth/guest', this.config.serverUrl), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ displayName }),
+      });
+    } catch {
+      this.error.set('Could not reach the multiplayer server.');
+      return;
+    }
     const body = (await response.json().catch(() => null)) as
       | MultiplayerGuestSession
       | { message?: string }

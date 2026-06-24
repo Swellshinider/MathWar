@@ -40,7 +40,22 @@ The multiplayer implementation has three parts:
 - `src/app/games/equation-artillery/multiplayer`: Angular lobby and match client
 
 Copy `public/config.example.js` to `public/config.js`, then set `serverUrl` to the origin of the
-Fastify server. Use `server/.env.example` as the template for local server variables.
+Fastify server. For a no-database local match server, use:
+
+```js
+window.MATH_WAR_CONFIG = {
+  serverUrl: 'http://127.0.0.1:3000',
+};
+```
+
+Then run the in-memory server and Angular dev server in separate terminals:
+
+```bash
+npm run server:dev:memory
+npm start -- --host 127.0.0.1
+```
+
+Use `server/.env.example` as the template for local production-like server variables.
 
 ```bash
 npm run server:dev

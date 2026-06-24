@@ -139,7 +139,7 @@ describe('multiplayer socket server', () => {
     expect(message).toContain('Authentication required');
   });
 
-  it('creates, joins, rejects unsafe commands, and resolves a winning shot', async () => {
+  it('creates, joins, rejects unsafe commands, and resolves a character hit', async () => {
     const harness = await createHarness();
     const left = await connect(harness, 'left');
     const right = await connect(harness, 'right');
@@ -176,18 +176,25 @@ describe('multiplayer socket server', () => {
     let equation = '';
     for (let coefficient = -40; coefficient <= 40 && !equation; coefficient += 1) {
       const value = coefficient / 1000;
-      const leftPlayer = persisted!.players[0];
-      const rightPlayer = persisted!.players[1];
-      const slope = (rightPlayer.position.y - leftPlayer.position.y) / 18;
-      const candidate = `${value}x(x-18)+${slope}x`;
+      const leftCharacter = persisted!.characters.find((character) => character.id === 0)!;
+      const rightCharacter = persisted!.characters.find((character) => character.id === 3)!;
+      const distance = rightCharacter.position.x - leftCharacter.position.x;
+      const slope = (rightCharacter.position.y - leftCharacter.position.y) / distance;
+      const candidate = `${value}x(x-${distance})+${slope}x`;
       if (resolveShot(persisted!, 'left', 'probe', candidate).impact === 'opponent')
         equation = candidate;
     }
     expect(equation).not.toBe('');
-    const shotPromise = once<{ impact: string; state: { status: string; winnerUserId: string } }>(
-      right,
-      'shot:resolved',
-    );
+    const shotPromise = once<{
+      impact: string;
+      shooterCharacterId: number;
+      state: {
+        status: string;
+        winnerUserId: string | null;
+        turnCharacterId: number;
+        characters: { id: number; alive: boolean }[];
+      };
+    }>(right, 'shot:resolved');
     const fired = await emit<{ ok: true }>(left, 'match:fire', {
       commandId: randomUUID(),
       expectedVersion: persisted!.version,
@@ -196,7 +203,13 @@ describe('multiplayer socket server', () => {
     expect(fired.ok).toBe(true);
     const shot = await shotPromise;
     expect(shot.impact).toBe('opponent');
-    expect(shot.state).toMatchObject({ status: 'ended', winnerUserId: 'left' });
+    expect(shot.shooterCharacterId).toBe(0);
+    expect(shot.state).toMatchObject({ status: 'active', winnerUserId: null });
+    expect(shot.state.turnCharacterId).toBe(
+      [3, 1, 4, 2, 5].find((id) =>
+        shot.state.characters.some((character) => character.id === id && character.alive),
+      ),
+    );
   });
 
   it('restores a paused match on reconnect and ends it after the deadline', async () => {

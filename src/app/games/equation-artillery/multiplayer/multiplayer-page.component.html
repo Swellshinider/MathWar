@@ -73,6 +73,7 @@
           </section>
           <app-board
             [player]="playerForBoard()"
+            [characters]="boardCharacters()"
             [targets]="opponentTarget()"
             [walls]="state()?.walls ?? []"
             [bullet]="bullet()"
@@ -88,22 +89,11 @@
               [(ngModel)]="equation"
               placeholder="0.35x"
             />
-            <button
-              type="submit"
-              class="btn btn--primary"
-              [disabled]="!isMyTurn() || activeShot()"
-            >
+            <button type="submit" class="btn btn--primary" [disabled]="!isMyTurn() || activeShot()">
               Fire
             </button>
           </form>
           <p class="status" aria-live="polite">{{ status() }}</p>
-          <div class="players">
-            @for (player of state()?.players ?? []; track player.userId) {
-              <span class="player-chip {{ player.connected ? 'is-connected' : 'is-reconnecting' }}">
-                {{ player.displayName }} · {{ player.connected ? 'connected' : 'reconnecting' }}
-              </span>
-            }
-          </div>
         </div>
 
         <app-equation-history

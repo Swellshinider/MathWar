@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-24
+
+- Added multiplayer squad lives with three characters per player, character-based turn rotation,
+  randomized character positions, distinct character colors, active-character glow, persistent
+  shooter function labels, and names under each character.
+
 ### Changed - 2026-06-24
 
 - Redesigned the UI around a shared design-token system (colors, surfaces, spacing, radius,
@@ -21,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed - 2026-06-24
 
 - Enlarged the equation help reference text to a readable size.
+- Show a clear multiplayer sign-in error when the local server cannot be reached, and documented
+  the in-memory multiplayer dev server for no-database local testing.
 - Guarded multiplayer session storage so the guest auth service no longer crashes when
   `localStorage` is unavailable (tests, SSR), and corrected the multiplayer route test to assert
   the rendered entry state.

@@ -10,6 +10,7 @@
     "test": "ng test",
     "test:server": "npm run build:engine && vitest run --config server/vitest.config.ts",
     "server:dev": "tsx watch server/src/main.ts",
+    "server:dev:memory": "tsx watch server/src/dev-main.ts",
     "build:engine": "tsc -p packages/game-engine/tsconfig.json",
     "server:build": "npm run build:engine && tsc -p server/tsconfig.json",
     "server:start": "node server/dist/main.js"
