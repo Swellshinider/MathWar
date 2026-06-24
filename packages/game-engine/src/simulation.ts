@@ -417,7 +417,7 @@ export function resolveShot(
     walls,
     equationHistory: [
       ...(state.equationHistory ?? []),
-      { commandId, shooterUserId, equation: expression.source },
+      { commandId, shooterUserId, shooterCharacterId: shooter.id, equation: expression.source },
     ],
     version: state.version + 1,
     updatedAt: now.toISOString(),

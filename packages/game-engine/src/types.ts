@@ -49,6 +49,7 @@ export type MatchEndReason = 'hit' | 'abandonment' | 'left';
 export interface ShotHistoryEntry {
   readonly commandId: string;
   readonly shooterUserId: string;
+  readonly shooterCharacterId: number | null;
   readonly equation: string;
 }
 

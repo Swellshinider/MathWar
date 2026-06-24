@@ -54,6 +54,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly bullet = signal<Bullet | null>(null);
   readonly trail = signal<readonly Point[]>([]);
   private pendingState: MatchState | null = null;
+  private recalledTurnKey: string | null = null;
   private inviteJoinPending = false;
   private inviteJoinInFlight = false;
   readonly userId = computed(() => this.auth.session()?.user.id ?? null);
@@ -108,6 +109,19 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly equationHistory = computed(
     () => this.state()?.equationHistory?.map((entry) => entry.equation) ?? [],
   );
+  readonly rememberedEquations = computed(() => {
+    const state = this.state();
+    const userId = this.userId();
+    const remembered = new Map<number, string>();
+    if (!state || !userId) return remembered;
+    for (const entry of state.equationHistory ?? []) {
+      const characterId = entry.shooterCharacterId;
+      if (entry.shooterUserId === userId && typeof characterId === 'number') {
+        remembered.set(characterId, entry.equation);
+      }
+    }
+    return remembered;
+  });
   readonly status = computed(() => {
     const state = this.state();
     if (!state) return 'Create a private room or join with a code.';
@@ -143,6 +157,25 @@ export class MultiplayerPageComponent implements OnDestroy {
         error: (message) => this.error.set(message),
         connected: () => void this.joinInviteRoom(),
       });
+    });
+    effect(() => {
+      const state = this.state();
+      const userId = this.userId();
+      const turnCharacterId = state?.turnCharacterId;
+      if (
+        !state ||
+        state.status !== 'active' ||
+        state.turnUserId !== userId ||
+        turnCharacterId === null ||
+        turnCharacterId === undefined
+      ) {
+        this.recalledTurnKey = null;
+        return;
+      }
+      const turnKey = `${state.id}:${state.turnUserId}:${turnCharacterId}`;
+      if (this.recalledTurnKey === turnKey) return;
+      this.recalledTurnKey = turnKey;
+      this.equation.set(this.rememberedEquations().get(turnCharacterId) ?? '0');
     });
   }
 

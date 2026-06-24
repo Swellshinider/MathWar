@@ -159,8 +159,13 @@ describe('shared multiplayer simulation', () => {
     const second = resolveShot(first.state, 'right', 'right-command', 'sin(x)');
 
     expect(second.state.equationHistory).toEqual([
-      { commandId: 'left-command', shooterUserId: 'left', equation: 'x+1' },
-      { commandId: 'right-command', shooterUserId: 'right', equation: 'sin(x)' },
+      { commandId: 'left-command', shooterUserId: 'left', shooterCharacterId: 0, equation: 'x+1' },
+      {
+        commandId: 'right-command',
+        shooterUserId: 'right',
+        shooterCharacterId: 3,
+        equation: 'sin(x)',
+      },
     ]);
   });
 
@@ -178,7 +183,7 @@ describe('shared multiplayer simulation', () => {
 
     expect(invalid.state.equationHistory).toBeUndefined();
     expect(valid.state.equationHistory).toEqual([
-      { commandId: 'valid-command', shooterUserId: 'left', equation: '0' },
+      { commandId: 'valid-command', shooterUserId: 'left', shooterCharacterId: 0, equation: '0' },
     ]);
   });
 });

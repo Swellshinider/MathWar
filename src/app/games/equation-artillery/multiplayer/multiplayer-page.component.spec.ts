@@ -209,7 +209,14 @@ describe('MultiplayerPageComponent', () => {
       walls: [],
       turnUserId: 'right',
       turnCharacterId: 3,
-      equationHistory: [{ commandId: 'shot-1', shooterUserId: 'left', equation: '0.25x' }],
+      equationHistory: [
+        {
+          commandId: 'shot-1',
+          shooterUserId: 'left',
+          shooterCharacterId: 0,
+          equation: '0.25x',
+        },
+      ],
     });
     const paused = matchState({
       ...resolved,
@@ -284,6 +291,142 @@ describe('MultiplayerPageComponent', () => {
     expect(fixture.componentInstance.activeShot()).toBe(false);
     expect(animation.start).not.toHaveBeenCalled();
     expect(fixture.componentInstance.equationHistory()).toEqual([]);
+  });
+
+  it('recovers the current player equation for each active character', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    handlers.state(
+      matchState({
+        turnUserId: 'left',
+        turnCharacterId: 0,
+        equationHistory: [
+          {
+            commandId: 'left-0',
+            shooterUserId: 'left',
+            shooterCharacterId: 0,
+            equation: 'x^2 - 2x + 1',
+          },
+          {
+            commandId: 'left-1',
+            shooterUserId: 'left',
+            shooterCharacterId: 1,
+            equation: 'x^2 - 3x + 2',
+          },
+          {
+            commandId: 'right-3',
+            shooterUserId: 'right',
+            shooterCharacterId: 3,
+            equation: '100x',
+          },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+    expect(component.equation()).toBe('x^2 - 2x + 1');
+
+    handlers.state(
+      matchState({
+        version: 2,
+        turnUserId: 'left',
+        turnCharacterId: 1,
+        equationHistory: [
+          {
+            commandId: 'left-0',
+            shooterUserId: 'left',
+            shooterCharacterId: 0,
+            equation: 'x^2 - 2x + 1',
+          },
+          {
+            commandId: 'left-1',
+            shooterUserId: 'left',
+            shooterCharacterId: 1,
+            equation: 'x^2 - 3x + 2',
+          },
+          {
+            commandId: 'right-3',
+            shooterUserId: 'right',
+            shooterCharacterId: 3,
+            equation: '100x',
+          },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+    expect(component.equation()).toBe('x^2 - 3x + 2');
+  });
+
+  it('uses the default equation for a player character without remembered history', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.equation.set('typed before turn');
+
+    handlers.state(
+      matchState({
+        turnUserId: 'left',
+        turnCharacterId: 2,
+        equationHistory: [
+          {
+            commandId: 'left-0',
+            shooterUserId: 'left',
+            shooterCharacterId: 0,
+            equation: 'x^2',
+          },
+        ],
+      }),
+    );
+    fixture.detectChanges();
+
+    expect(component.equation()).toBe('0');
+  });
+
+  it('does not overwrite edits while the same character turn remains active', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const state = matchState({
+      turnUserId: 'left',
+      turnCharacterId: 0,
+      equationHistory: [
+        {
+          commandId: 'left-0',
+          shooterUserId: 'left',
+          shooterCharacterId: 0,
+          equation: 'x^2',
+        },
+      ],
+    });
+
+    handlers.state(state);
+    fixture.detectChanges();
+    component.equation.set('x^2 + 1');
+    handlers.state({ ...state, updatedAt: '2026-06-22T12:00:01.000Z' });
+    fixture.detectChanges();
+
+    expect(component.equation()).toBe('x^2 + 1');
+  });
+
+  it('ignores legacy equation history entries without character ids for recall', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    handlers.state(
+      matchState({
+        turnUserId: 'left',
+        turnCharacterId: 0,
+        equationHistory: [
+          { commandId: 'legacy', shooterUserId: 'left', equation: 'x^2' },
+        ] as unknown as MatchState['equationHistory'],
+      }),
+    );
+    fixture.detectChanges();
+
+    expect(component.equation()).toBe('0');
+    expect(component.equationHistory()).toEqual(['x^2']);
   });
 
   it('maps living match characters to the board and hides defeated characters', () => {
