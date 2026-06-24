@@ -3,38 +3,19 @@
 }
 
 code {
-  color: #f8c15c;
+  color: var(--accent);
+  font-family: var(--font-mono);
 }
 
 .game-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
-  gap: 1rem;
+  gap: var(--space-4);
   align-items: stretch;
 }
 
 .game-column {
   min-width: 0;
-}
-
-.help-button,
-.multiplayer-link {
-  padding: 0.55rem 1rem;
-  border: 1px solid #f8c15c;
-  border-radius: 0.45rem;
-  background: transparent;
-  color: #f8c15c;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.help-button:hover,
-.help-button:focus-visible,
-.multiplayer-link:hover,
-.multiplayer-link:focus-visible {
-  background: rgb(248 193 92 / 12%);
 }
 
 @media (max-width: 56rem) {

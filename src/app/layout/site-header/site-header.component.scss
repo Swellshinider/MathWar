@@ -3,43 +3,48 @@
 }
 
 header {
-  border-bottom: 1px solid #20364d;
-  background: rgb(7 17 31 / 82%);
-  backdrop-filter: blur(0.75rem);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-raised);
+  border-bottom: 1px solid var(--border-1);
+  background: var(--surface-2);
+  backdrop-filter: blur(0.75rem) saturate(120%);
+  -webkit-backdrop-filter: blur(0.75rem) saturate(120%);
 }
 
 .header-content {
   display: flex;
-  width: min(72rem, calc(100% - 2rem));
+  width: min(var(--bp-2xl), calc(100% - 2rem));
   min-height: 4.5rem;
   margin: 0 auto;
   align-items: center;
 }
 
 a {
-  color: #b7c8da;
+  color: var(--text-muted);
   text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
 }
 
 a:hover,
 a:focus-visible {
-  color: #f8c15c;
+  color: var(--accent);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  color: #f7f9fc;
+  gap: var(--space-3);
+  color: var(--text-strong);
   font-size: 1.35rem;
-  font-weight: 900;
+  font-weight: var(--weight-black);
   letter-spacing: -0.03em;
 }
 
 .brand-logo {
   width: 3rem;
   height: 3rem;
-  border-radius: 0.65rem;
+  border-radius: var(--radius-md);
   object-fit: cover;
-  box-shadow: 0 0.25rem 0.75rem rgb(0 0 0 / 28%);
+  box-shadow: var(--shadow-1);
 }

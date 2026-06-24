@@ -3,25 +3,25 @@
 }
 
 footer {
-  border-top: 1px solid #20364d;
-  color: #8295aa;
+  border-top: 1px solid var(--border-1);
+  color: var(--text-subtle);
 }
 
 .footer-content {
   display: flex;
-  width: min(72rem, calc(100% - 2rem));
+  width: min(var(--bp-2xl), calc(100% - 2rem));
   min-height: 5rem;
   margin: 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 strong {
-  color: #b7c8da;
+  color: var(--text-muted);
 }
 
-@media (max-width: 480px) {
+@media (max-width: 30rem) {
   .footer-content {
     display: grid;
     justify-content: start;
