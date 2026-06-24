@@ -1,12 +1,36 @@
 import { buildFunctionPreview } from './function-preview';
 
+function pathCoordinates(path: string | null): readonly [number, number][] {
+  return (
+    path
+      ?.split(/[ML]/)
+      .filter(Boolean)
+      .map((command) => {
+        const [x, y] = command.trim().split(' ').map(Number);
+        return [x, y] as const;
+      }) ?? []
+  );
+}
+
 describe('function preview', () => {
   it('builds an auto-fitted path for a valid function', () => {
     const preview = buildFunctionPreview('x^2');
 
     expect(preview.available).toBe(true);
-    expect(preview.path).toMatch(/^M8 92 L/);
+    expect(preview.path).toMatch(/^M8 8 L/);
+    expect(preview.path).toContain('120 92');
     expect(preview.path).toContain('232 8');
+  });
+
+  it('previews sigmoid functions across a centered domain', () => {
+    const coordinates = pathCoordinates(buildFunctionPreview('1/(1 + (e^-x))').path);
+    const first = coordinates[0];
+    const middle = coordinates[Math.floor(coordinates.length / 2)];
+    const last = coordinates.at(-1);
+
+    expect(first).toEqual([8, 92]);
+    expect(middle).toEqual([120, 50]);
+    expect(last).toEqual([232, 8]);
   });
 
   it('centers constant functions', () => {
