@@ -1,17 +1,243 @@
 * {
   box-sizing: border-box;
 }
+
+:root {
+  /* surfaces - tiered for glassy depth */
+  --surface-base: #07111f; // board bg, app background anchor
+  --surface-1: #0b1725; // flat input baseline
+  --surface-2: rgb(13 27 42 / 82%); // glass: header, history, reference
+  --surface-3: rgb(17 38 58 / 78%); // raised glass: cards, dialog
+  --surface-hover-tint: rgb(248 193 92 / 0.04);
+  --surface-hairline: rgb(120 145 173 / 0.12);
+
+  /* borders */
+  --border-1: #20364d;
+  --border-2: #29435f;
+  --border-3: #38516b;
+
+  /* text */
+  --text-strong: #f7f9fc;
+  --text: #e6edf5;
+  --text-muted: #9fb1c4;
+  --text-subtle: #8295aa;
+  --text-faint: #708398;
+  --text-on-accent: #19202a;
+
+  /* accent gold + tints (brand) */
+  --accent: #f8c15c;
+  --accent-hover: #ffd27d;
+  --accent-soft: rgb(248 193 92 / 0.12);
+  --accent-glow: rgb(248 193 92 / 0.45);
+
+  /* semantic (board + UI share) */
+  --success: #45d483;
+  --danger: #f45b69;
+  --danger-border: #ffd3d7;
+  --bullet: #fff0a6;
+  --wall: #506b86;
+  --wall-border: #9db1c5;
+  --error: #ff8994;
+  --error-soft: rgb(255 137 148 / 0.08);
+
+  /* spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* radius */
+  --radius-sm: 0.45rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.9rem;
+  --radius-pill: 9999rem;
+
+  /* elevation */
+  --shadow-1: 0 0.25rem 0.75rem rgb(0 0 0 / 0.28);
+  --shadow-2: 0 1rem 3rem rgb(0 0 0 / 0.25);
+  --shadow-3: 0 1.5rem 5rem rgb(0 0 0 / 0.55);
+  --ring-focus: 0 0 0 3px var(--accent-glow);
+
+  /* typography */
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-md: 1.125rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.75rem;
+  --fs-2xl: 2.5rem;
+  --lh-tight: 1.05;
+  --lh-base: 1.6;
+  --tracking-caps: 0.1em;
+  --weight-bold: 700;
+  --weight-black: 800;
+
+  /* motion */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* z-index */
+  --z-raised: 10;
+  --z-skip: 200;
+  --z-dialog: 1000;
+
+  // container cap, reused via min()/clamp() in several components.
+  // (CSS custom properties cannot be used inside @media conditions, so media
+  // queries use literal rem values from the same scale.)
+  --bp-2xl: 72rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+}
+
 html,
 body {
   min-height: 100%;
 }
+
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #12253a 0, #07111f 60%);
-  color: #e6edf5;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: radial-gradient(circle at top, var(--surface-1) 0, var(--surface-base) 60%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
 button,
 input {
   font-family: inherit;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* ---- shared building blocks (global so they apply across components) ---- */
+
+.glass {
+  background: var(--surface-2);
+  backdrop-filter: blur(0.75rem);
+  -webkit-backdrop-filter: blur(0.75rem);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: var(--weight-black);
+}
+
+.btn--primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn--primary:active {
+  transform: translateY(1px);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn--ghost:hover {
+  background: var(--accent-soft);
+}
+
+.btn--subtle {
+  background: transparent;
+  border-color: var(--text-subtle);
+  color: var(--text);
+}
+
+.btn--subtle:hover {
+  border-color: var(--text-muted);
+  color: var(--text-strong);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: none;
+}
+
+.btn--ghost:disabled:hover,
+.btn--subtle:disabled:hover {
+  background: transparent;
+}
+
+.field {
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text);
+  font: inherit;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.field:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring-focus);
+}
+
+.field::placeholder {
+  color: var(--text-faint);
 }

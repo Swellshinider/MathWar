@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2026-06-24
+
+- Redesigned the UI around a shared design-token system (colors, surfaces, spacing, radius,
+  elevation, typography, and motion) with glass surfaces, consistent focus rings, and smooth
+  transitions that respect prefers-reduced-motion.
+- Refreshed the Equation Artillery board palette with a softer grid and a subtle glow on the shot
+  trail and bullet, drawn from one shared palette.
+- Introduced reusable button, field, and glass styles so every screen shares one look, and unified
+  the scattered responsive breakpoints into a consistent scale.
+- Kept the site header visible while scrolling.
+
+### Fixed - 2026-06-24
+
+- Enlarged the equation help reference text to a readable size.
+- Guarded multiplayer session storage so the guest auth service no longer crashes when
+  `localStorage` is unavailable (tests, SSR), and corrected the multiplayer route test to assert
+  the rendered entry state.
+
 ### Fixed - 2026-06-22
 
 - Prevented multiplayer wall damage, turn changes, match results, and equation history from

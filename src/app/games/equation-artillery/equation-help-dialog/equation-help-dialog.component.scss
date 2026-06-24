@@ -1,51 +1,59 @@
 dialog {
   width: min(48rem, calc(100% - 2rem));
   max-height: calc(100dvh - 2rem);
-  padding: 1rem;
+  padding: var(--space-4);
   overflow-y: auto;
-  border: 1px solid #38516b;
-  border-radius: 0.9rem;
-  background: #0b1725;
-  color: #e6edf5;
-  box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 55%);
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: var(--shadow-3);
 }
 
 dialog::backdrop {
   background: rgb(2 8 15 / 75%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+dialog[open] {
+  animation: dialog-in var(--duration-base) var(--ease-out);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog[open] {
+    animation: none;
+  }
 }
 
 header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 h2 {
   margin: 0;
-  color: #f7f9fc;
-  font-size: 1.25rem;
-}
-
-header button {
-  padding: 0.5rem 0.8rem;
-  border: 1px solid #f8c15c;
-  border-radius: 0.45rem;
-  background: transparent;
-  color: #f8c15c;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
+  color: var(--text-strong);
+  font-size: var(--fs-lg);
 }
 
 .references {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 37.5rem) {
   .references {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -4,18 +4,23 @@
     <form (submit)="submit($event)">
       <label for="equation">Trajectory equation</label>
       <div class="entry-row">
-        <span aria-hidden="true">f(x) =</span>
+        <span class="prefix" aria-hidden="true">f(x) =</span>
         <input
           id="equation"
+          class="field"
           [formControl]="equationControl"
           autocomplete="off"
           spellcheck="false"
         />
-        <button type="submit" [disabled]="active() || equationControl.invalid || roundComplete()">
+        <button
+          type="submit"
+          class="btn btn--primary"
+          [disabled]="active() || equationControl.invalid || roundComplete()"
+        >
           Fire
         </button>
         @if (roundComplete()) {
-          <button type="button" class="secondary" (click)="newRound.emit()">New Round</button>
+          <button type="button" class="btn btn--ghost" (click)="newRound.emit()">New Round</button>
         }
       </div>
     </form>

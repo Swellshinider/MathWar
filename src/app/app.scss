@@ -16,15 +16,17 @@ main {
 
 .skip-link {
   position: fixed;
-  top: 0.5rem;
-  left: 0.5rem;
-  z-index: 200;
-  padding: 0.65rem 0.9rem;
-  border-radius: 0.4rem;
-  background: #f8c15c;
-  color: #19202a;
-  font-weight: 800;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-skip);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: var(--weight-black);
+  text-decoration: none;
   transform: translateY(-150%);
+  transition: transform var(--duration-base) var(--ease-out);
 }
 
 .skip-link:focus {

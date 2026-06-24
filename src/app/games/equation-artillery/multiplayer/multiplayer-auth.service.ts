@@ -45,11 +45,15 @@ export class MultiplayerAuthService {
   signOut(): void {
     this.session.set(null);
     this.error.set(null);
-    localStorage.removeItem(STORAGE_KEY);
+    this.storage?.removeItem(STORAGE_KEY);
+  }
+
+  private get storage(): Storage | null {
+    return typeof localStorage !== 'undefined' ? localStorage : null;
   }
 
   private readStoredSession(): MultiplayerGuestSession | null {
-    const rawValue = localStorage.getItem(STORAGE_KEY);
+    const rawValue = this.storage?.getItem(STORAGE_KEY);
     if (!rawValue) return null;
     try {
       const session = JSON.parse(rawValue) as Partial<MultiplayerGuestSession>;
@@ -67,11 +71,11 @@ export class MultiplayerAuthService {
         };
       }
     } catch {}
-    localStorage.removeItem(STORAGE_KEY);
+    this.storage?.removeItem(STORAGE_KEY);
     return null;
   }
 
   private writeStoredSession(session: MultiplayerGuestSession): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    this.storage?.setItem(STORAGE_KEY, JSON.stringify(session));
   }
 }

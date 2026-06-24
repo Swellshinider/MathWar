@@ -11,7 +11,7 @@
         <p class="game-topic">{{ game.eyebrow }}</p>
         <h2>{{ game.title }}</h2>
         <p>{{ game.summary }}</p>
-        <a [routerLink]="game.route">Play {{ game.title }}</a>
+        <a class="btn btn--primary" [routerLink]="game.route">Play {{ game.title }}</a>
       </article>
     }
   </div>
