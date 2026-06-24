@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed - 2026-06-24
 
+- Graphed function previews across a centered domain so sigmoid-style equations show their full
+  shape instead of only the forward-shot segment.
+- Clarified that the function preview is stretched for shape readability and may not match the
+  fired shot's board-scaled path.
 - Enlarged the equation help reference text to a readable size.
 - Show a clear multiplayer sign-in error when the local server cannot be reached, and documented
   the in-memory multiplayer dev server for no-database local testing.

@@ -1,5 +1,6 @@
 import { compileExpression, ExpressionError } from './expression';
 
+const DOMAIN_MIN = -12;
 const DOMAIN_MAX = 12;
 const SAMPLE_COUNT = 121;
 const VIEWBOX_WIDTH = 240;
@@ -33,9 +34,9 @@ export function buildFunctionPreview(equation: string): FunctionPreview {
 
   const samples: (PreviewPoint | null)[] = [];
   for (let index = 0; index < SAMPLE_COUNT; index += 1) {
-    const x = (index / (SAMPLE_COUNT - 1)) * DOMAIN_MAX;
+    const x = DOMAIN_MIN + (index / (SAMPLE_COUNT - 1)) * (DOMAIN_MAX - DOMAIN_MIN);
     try {
-      samples.push({ x, y: expression.evaluate(x) - expression.originValue });
+      samples.push({ x, y: expression.evaluate(x) });
     } catch (error) {
       if (!(error instanceof ExpressionError)) throw error;
       samples.push(null);
@@ -52,7 +53,7 @@ export function buildFunctionPreview(equation: string): FunctionPreview {
   const usableWidth = VIEWBOX_WIDTH - PADDING * 2;
   const usableHeight = VIEWBOX_HEIGHT - PADDING * 2;
   const toViewPoint = (sample: PreviewPoint): PreviewPoint => ({
-    x: PADDING + (sample.x / DOMAIN_MAX) * usableWidth,
+    x: PADDING + ((sample.x - DOMAIN_MIN) / (DOMAIN_MAX - DOMAIN_MIN)) * usableWidth,
     y:
       range < CONSTANT_TOLERANCE
         ? VIEWBOX_HEIGHT / 2

@@ -28,9 +28,9 @@ describe('EquationControlsComponent', () => {
     fixture.componentRef.setInput('status', 'Shot in flight.');
     fixture.componentRef.setInput('error', 'Invalid value.');
     fixture.detectChanges();
-    expect((fixture.nativeElement.querySelector('button') as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect(
+      (fixture.nativeElement.querySelector('button[type="submit"]') as HTMLButtonElement).disabled,
+    ).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Shot in flight.');
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
       'Invalid value.',
@@ -63,6 +63,25 @@ describe('EquationControlsComponent', () => {
     expect(preview.querySelector('svg')).not.toBeNull();
     expect(preview.querySelectorAll('line, text, circle, rect')).toHaveLength(0);
     expect(preview.textContent).not.toContain('Position and scale hidden');
+  });
+
+  it('explains that the shape preview is visually stretched', () => {
+    const fixture = TestBed.createComponent(EquationControlsComponent);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector(
+      'app-function-preview .info-button',
+    ) as HTMLButtonElement;
+    const note = fixture.nativeElement.querySelector(
+      '#function-preview-note',
+    ) as HTMLElement;
+
+    expect(button.textContent?.trim()).toBe('?');
+    expect(button.getAttribute('aria-label')).toBe('About the function shape preview');
+    expect(button.getAttribute('aria-describedby')).toBe('function-preview-note');
+    expect(note.getAttribute('role')).toBe('tooltip');
+    expect(note.textContent).toContain('Preview is stretched to show the function shape clearly.');
+    expect(note.textContent).toContain('Shots still start at the player');
   });
 
   it('clears the preview for an incomplete expression', () => {

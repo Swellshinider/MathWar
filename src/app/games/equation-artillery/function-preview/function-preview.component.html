@@ -1,6 +1,20 @@
 <section aria-labelledby="function-preview-title">
   <header>
     <h2 id="function-preview-title">Function shape</h2>
+    <span class="info">
+      <button
+        type="button"
+        class="info-button"
+        aria-label="About the function shape preview"
+        aria-describedby="function-preview-note"
+      >
+        ?
+      </button>
+      <span id="function-preview-note" class="info-tooltip" role="tooltip">
+        Preview is stretched to show the function shape clearly. Shots still start at the player
+        and use the board scale, so the fired path can look different.
+      </span>
+    </span>
   </header>
   <div class="preview-frame">
     @if (preview().available) {
