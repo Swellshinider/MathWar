@@ -71,26 +71,3 @@ npm start
 The server applies SQL files from `db/migrations` into PostgreSQL on startup and then checks that
 the multiplayer tables exist. `DATABASE_URL`, `SESSION_SECRET`, and `CLIENT_ORIGIN` are mandatory.
 The browser receives only `serverUrl` through `/config.js`.
-
-## Docker deployment
-
-The VM-level deployment wrapper lives one directory up from this repo in `/opt/docker/projects/math-war`.
-It mirrors the `leal-planning-poker` pattern:
-
-- `dev/` builds from the GitHub `main` branch
-- `prod/` resolves the latest GitHub release tag, with a pinned fallback ref until tags exist
-- both stacks run Fastify plus a local PostgreSQL container behind Traefik
-
-From the VM wrapper directory:
-
-```bash
-cd /opt/docker/projects/math-war/dev
-./deploy.sh
-```
-
-## Controls and equations
-
-Enter a function in the `f(x)` field and select **Fire**. The Fire control remains disabled until
-the shot ends. Destroy all three red targets to expose **New Round**. Each round also contains four
-filled geometric walls. A wall stops the shot, but the impact destroys nearby wall pieces and opens
-a path for later shots.
