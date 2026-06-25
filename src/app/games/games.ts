@@ -6,6 +6,7 @@ export const GAMES: readonly GameDefinition[] = [
     eyebrow: 'Functions and graphs',
     title: 'Equation Artillery',
     summary: 'Shape a mathematical curve to guide each shot through every target.',
+    image: 'images/equation-artillery.png',
     route: '/games/equation-artillery',
   },
 ];

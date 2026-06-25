@@ -7,8 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-25
+
+- Added an offline Single Player Equation Artillery mode with CPU soldier squads, local turn
+  resolution, and a pre-match CPU difficulty selector from 0 to 10.
+
 ### Changed - 2026-06-25
 
+- Reworked Single Player CPU aiming with Graphwar-inspired per-soldier evolutionary search,
+  difficulty-scaled calculations, and penalties for repeating missed equations.
+- Stretched the site header and footer to the full viewport width.
+- Redesigned the landing catalog into clickable game cards with preview imagery and animated hover.
+- Renamed the "Math War" brand to "MathWar" across the app, README, and architecture docs.
+- Trimmed redundant Equation Artillery page copy and removed the multiplayer "Reset session" button.
+- Kept multiplayer Share link and Leave match actions on a single row at every viewport width.
+- Added a transient toast confirmation when copying the multiplayer share link.
+- Prompted for confirmation before leaving a multiplayer match when an opponent is connected.
 - Zoomed out the Equation Artillery coordinate plane from `-12..12` by `-7.5..7.5` to
   `-16..16` by `-10..10` while keeping the board's physical canvas size unchanged.
 - Expanded local and multiplayer spawn bands so players, enemies, and generated walls use more of
@@ -26,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resizing the play layout.
 - Moved Equation Artillery Sound and Help into compact icon controls on the board and reorganized
   multiplayer utility actions into cleaner toolbars.
+- Replaced the Equation Artillery "Play 1v1" action with the private-room create and join lobby.
+- Added 10-minute cleanup for multiplayer rooms after the last player disconnects.
+- Added the Equation Artillery preview image to the game catalog.
 
 ### Fixed - 2026-06-25
 
@@ -35,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   launch-singular equations with finite forward paths, such as `log(x)`, at the player.
 - Cleared Angular's prebundle cache and rebuilt the shared game engine before local UI startup and
   tests so equation changes are not served from stale package output.
+- Allowed share-link joins for waiting multiplayer rooms after the host reconnects.
 
 ## [0.1.0] - 2026-06-24
 

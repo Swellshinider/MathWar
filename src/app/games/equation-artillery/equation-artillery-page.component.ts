@@ -1,10 +1,25 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
+import {
+  CharacterState,
+  createMatchState,
+  MatchState,
+  resolveShot,
+  ShotResolvedEvent,
+} from '@math-war/game-engine';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import { BoardComponent } from './board/board.component';
 import { EquationControlsComponent } from './equation-controls/equation-controls.component';
 import { AnimationService } from './game/animation.service';
 import { EquationArtilleryAudioService } from './game/audio.service';
+import { BoardCharacter } from './game/board-renderer.service';
+import {
+  chooseCpuMove,
+  createCpuOpponentMemory,
+  CpuOpponentMemory,
+  recordCpuShotOutcome,
+} from './game/cpu-opponent';
 import { compileExpression, ExpressionError } from './game/expression';
 import { spawnRound } from './game/spawning';
 import { advanceShot, createShot } from './game/trajectory';
@@ -20,6 +35,14 @@ import {
   EquationHistoryMessage,
 } from './equation-history/equation-history.component';
 import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-settings-dialog.component';
+import { MultiplayerLobbyComponent } from './multiplayer/multiplayer-lobby.component';
+
+type GameMode = 'target-practice' | 'single-player';
+
+const HUMAN_USER_ID = 'human';
+const CPU_USER_ID = 'cpu';
+const CPU_THINK_DELAY_MS = 500;
+const BULLET_RADIUS = 0.18;
 
 @Component({
   selector: 'app-equation-artillery-page',
@@ -31,6 +54,7 @@ import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-sett
     GameFrameComponent,
     LucideCircleHelp,
     LucideVolume2,
+    MultiplayerLobbyComponent,
     SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
@@ -40,19 +64,106 @@ import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-sett
 export class EquationArtilleryPageComponent implements OnDestroy {
   private readonly animation = inject(AnimationService);
   private readonly audio = inject(EquationArtilleryAudioService);
+  private readonly router = inject(Router);
   private readonly initialRound = spawnRound();
+  private pendingCpuTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingSinglePlayerState: MatchState | null = null;
+  private commandSequence = 0;
   private wonRound = false;
+  readonly gameMode = signal<GameMode>('target-practice');
+  readonly cpuDifficulty = signal(5);
+  readonly singlePlayerState = signal<MatchState | null>(null);
   readonly player = signal<Player>(this.initialRound.player);
   readonly targets = signal<readonly Target[]>(this.initialRound.targets);
   readonly walls = signal<readonly Wall[]>(this.initialRound.walls);
   readonly bullet = signal<Bullet | null>(null);
   readonly trail = signal<readonly Point[]>([]);
   readonly active = signal(false);
+  readonly activeShot = signal(false);
+  readonly cpuThinking = signal(false);
+  readonly activeShotCharacterId = signal<number | null>(null);
+  readonly activeShotEquation = signal<string | null>(null);
+  readonly lastShotLabel = signal<{ characterId: number; equation: string } | null>(null);
+  readonly cpuOpponentMemory = signal<CpuOpponentMemory | null>(null);
   readonly error = signal<string | null>(null);
   readonly equation = signal('0.35x');
-  readonly equationHistory = signal<readonly EquationHistoryMessage[]>([]);
-  readonly roundComplete = computed(() => this.targets().length === 0);
+  private readonly targetPracticeHistory = signal<readonly EquationHistoryMessage[]>([]);
+  readonly boardCharacters = computed<readonly BoardCharacter[]>(() => {
+    const state = this.singlePlayerState();
+    if (!state || this.gameMode() !== 'single-player') return [];
+    const activeCharacterId = this.activeShot()
+      ? this.activeShotCharacterId()
+      : state.turnCharacterId;
+    const activeShotEquation = this.activeShotEquation();
+    const lastShotLabel = this.lastShotLabel();
+    return this.charactersForState(state)
+      .filter((character) => character.alive)
+      .map((character) => ({
+        id: character.id,
+        displayName: character.displayName,
+        position: character.position,
+        radius: character.radius,
+        active: character.id === activeCharacterId,
+        functionLabel:
+          this.activeShot() && character.id === this.activeShotCharacterId()
+            ? activeShotEquation
+            : character.id === lastShotLabel?.characterId
+              ? lastShotLabel.equation
+              : null,
+      }));
+  });
+  readonly targetsForBoard = computed<readonly Target[]>(() =>
+    this.gameMode() === 'single-player' ? [] : this.targets(),
+  );
+  readonly wallsForBoard = computed<readonly Wall[]>(() =>
+    this.gameMode() === 'single-player' ? (this.singlePlayerState()?.walls ?? []) : this.walls(),
+  );
+  readonly controlsActive = computed(
+    () =>
+      this.active() ||
+      this.activeShot() ||
+      this.cpuThinking() ||
+      (this.gameMode() === 'single-player' && !this.isHumanTurn()),
+  );
+  readonly cpuDifficultyLocked = computed(() => {
+    const state = this.singlePlayerState();
+    return this.gameMode() === 'single-player' && state?.status === 'active';
+  });
+  readonly equationHistory = computed<readonly EquationHistoryMessage[]>(() => {
+    const state = this.singlePlayerState();
+    if (this.gameMode() !== 'single-player' || !state) return this.targetPracticeHistory();
+    const characters = this.charactersForState(state);
+    return state.equationHistory.map((entry, index) => {
+      const player = state.players.find((candidate) => candidate.userId === entry.shooterUserId);
+      const character =
+        typeof entry.shooterCharacterId === 'number'
+          ? characters.find((candidate) => candidate.id === entry.shooterCharacterId)
+          : null;
+      return {
+        id: entry.commandId ?? `local-cpu-history-${index}`,
+        equation: entry.equation,
+        senderName: player?.displayName ?? 'CPU',
+        soldierName: character?.displayName ?? null,
+        mine: entry.shooterUserId === HUMAN_USER_ID,
+      };
+    });
+  });
+  readonly roundComplete = computed(() => {
+    const state = this.singlePlayerState();
+    if (this.gameMode() === 'single-player') return state?.status === 'ended';
+    return this.targets().length === 0;
+  });
   readonly status = computed(() => {
+    const state = this.singlePlayerState();
+    if (this.gameMode() === 'single-player') {
+      if (!state) return 'Choose a CPU difficulty and start a single player match.';
+      if (this.activeShot()) return 'Shot in flight.';
+      if (this.cpuThinking()) return 'CPU is aiming.';
+      if (state.status === 'ended') {
+        return state.winnerUserId === HUMAN_USER_ID ? 'You won.' : 'You lost.';
+      }
+      return this.isHumanTurn() ? 'Your turn.' : 'CPU is aiming.';
+    }
     if (this.roundComplete()) return 'All targets destroyed.';
     if (this.active())
       return `${this.targets().length} target${this.targets().length === 1 ? '' : 's'} remaining. Shot in flight.`;
@@ -60,6 +171,10 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   });
 
   fire(equation: string): void {
+    if (this.gameMode() === 'single-player') {
+      this.fireSinglePlayer(equation);
+      return;
+    }
     if (this.active() || this.roundComplete()) return;
     this.error.set(null);
     let expression;
@@ -71,7 +186,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       );
       return;
     }
-    this.equationHistory.update((history) => [
+    this.targetPracticeHistory.update((history) => [
       ...history,
       {
         id: `local-${history.length}`,
@@ -111,6 +226,10 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   }
 
   newRound(): void {
+    if (this.gameMode() === 'single-player') {
+      this.startCpuMatch();
+      return;
+    }
     this.animation.cancel();
     this.audio.stopEquationSound();
     const round = spawnRound();
@@ -124,8 +243,214 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.wonRound = false;
   }
 
-  ngOnDestroy(): void {
+  selectTargetPractice(): void {
+    this.cancelCpuTurn();
     this.animation.cancel();
     this.audio.stopEquationSound();
+    this.gameMode.set('target-practice');
+    this.singlePlayerState.set(null);
+    this.cpuOpponentMemory.set(null);
+    this.pendingSinglePlayerState = null;
+    this.activeShot.set(false);
+    this.cpuThinking.set(false);
+    this.bullet.set(null);
+    this.trail.set([]);
+    this.error.set(null);
+  }
+
+  selectSinglePlayerMode(): void {
+    this.cancelCpuTurn();
+    this.animation.cancel();
+    this.audio.stopEquationSound();
+    this.gameMode.set('single-player');
+    this.singlePlayerState.set(null);
+    this.cpuOpponentMemory.set(null);
+    this.pendingSinglePlayerState = null;
+    this.active.set(false);
+    this.activeShot.set(false);
+    this.cpuThinking.set(false);
+    this.activeShotCharacterId.set(null);
+    this.activeShotEquation.set(null);
+    this.lastShotLabel.set(null);
+    this.bullet.set(null);
+    this.trail.set([]);
+    this.error.set(null);
+  }
+
+  startCpuMatch(): void {
+    this.cancelCpuTurn();
+    this.animation.cancel();
+    this.audio.stopEquationSound();
+    const seed = `local-cpu-${Date.now()}-${Math.random()}`;
+    const state = createMatchState(
+      `local-cpu-${Date.now()}`,
+      'LOCALCPU',
+      seed,
+      { userId: HUMAN_USER_ID, displayName: 'You' },
+      { userId: CPU_USER_ID, displayName: 'CPU' },
+    );
+    this.gameMode.set('single-player');
+    this.singlePlayerState.set(state);
+    this.cpuOpponentMemory.set(createCpuOpponentMemory(state));
+    this.pendingSinglePlayerState = null;
+    this.active.set(false);
+    this.activeShot.set(false);
+    this.cpuThinking.set(false);
+    this.activeShotCharacterId.set(null);
+    this.activeShotEquation.set(null);
+    this.lastShotLabel.set(null);
+    this.bullet.set(null);
+    this.trail.set([]);
+    this.error.set(null);
+    this.wonRound = false;
+  }
+
+  playerForBoard(): Player {
+    if (this.gameMode() !== 'single-player') return this.player();
+    const human = this.singlePlayerState()?.players.find(
+      (player) => player.userId === HUMAN_USER_ID,
+    );
+    return human ?? this.player();
+  }
+
+  enterMultiplayer(): void {
+    void this.router.navigate(['/games/equation-artillery/multiplayer']);
+  }
+
+  ngOnDestroy(): void {
+    this.cancelCpuTurn();
+    this.animation.cancel();
+    this.audio.stopEquationSound();
+  }
+
+  private fireSinglePlayer(equation: string): void {
+    const state = this.singlePlayerState();
+    if (!state || !this.isHumanTurn() || this.activeShot() || this.cpuThinking()) return;
+    this.error.set(null);
+    const event = resolveShot(state, HUMAN_USER_ID, this.nextCommandId('human'), equation);
+    if (event.error) {
+      this.error.set(event.error);
+      return;
+    }
+    this.audio.playFire();
+    this.animateSinglePlayerShot(event);
+  }
+
+  private fireCpu(): void {
+    const state = this.singlePlayerState();
+    if (!state || state.status !== 'active' || state.turnUserId !== CPU_USER_ID) {
+      this.cpuThinking.set(false);
+      return;
+    }
+    const memory = this.cpuOpponentMemory() ?? createCpuOpponentMemory(state);
+    const decision = chooseCpuMove(state, this.cpuDifficulty(), memory);
+    this.cpuOpponentMemory.set(decision.memory);
+    const equation = decision.equation;
+    const event = resolveShot(state, CPU_USER_ID, this.nextCommandId('cpu'), equation);
+    this.cpuOpponentMemory.update((currentMemory) =>
+      recordCpuShotOutcome(currentMemory ?? decision.memory, {
+        shooterCharacterId: event.shooterCharacterId,
+        equation: event.equation,
+        impact: event.impact,
+      }),
+    );
+    this.cpuThinking.set(false);
+    if (event.error) {
+      this.error.set(event.error);
+      this.singlePlayerState.set(event.state);
+      return;
+    }
+    this.audio.playFire();
+    this.animateSinglePlayerShot(event);
+  }
+
+  private animateSinglePlayerShot(event: ShotResolvedEvent): void {
+    const firstPoint = event.trail[0];
+    if (!firstPoint) {
+      this.finishSinglePlayerShot(event);
+      return;
+    }
+    this.pendingSinglePlayerState = event.state;
+    let index = 0;
+    this.activeShot.set(true);
+    this.activeShotCharacterId.set(event.shooterCharacterId);
+    this.activeShotEquation.set(event.equation);
+    this.lastShotLabel.set(
+      event.shooterCharacterId === null
+        ? null
+        : { characterId: event.shooterCharacterId, equation: event.equation },
+    );
+    this.trail.set([firstPoint]);
+    this.bullet.set({ position: firstPoint, radius: BULLET_RADIUS });
+    this.audio.startEquationSound(firstPoint);
+    this.animation.start(() => {
+      index += 1;
+      const point = event.trail[index];
+      if (!point) {
+        this.finishSinglePlayerShot(event);
+        return false;
+      }
+      this.trail.set(event.trail.slice(0, index + 1));
+      this.bullet.set({ position: point, radius: BULLET_RADIUS });
+      this.audio.updateEquationSound(point);
+      return true;
+    });
+  }
+
+  private finishSinglePlayerShot(event: ShotResolvedEvent): void {
+    const nextState = this.pendingSinglePlayerState ?? event.state;
+    this.pendingSinglePlayerState = null;
+    this.singlePlayerState.set(nextState);
+    this.bullet.set(null);
+    this.trail.set([]);
+    this.activeShot.set(false);
+    this.activeShotCharacterId.set(null);
+    this.activeShotEquation.set(null);
+    this.audio.stopEquationSound();
+    if (event.impact === 'wall') this.audio.playWallHit();
+    if (event.impact === 'opponent') this.audio.playEnemyHit();
+    if (nextState.status === 'ended') {
+      if (nextState.winnerUserId === HUMAN_USER_ID) this.audio.playWin();
+      else this.audio.playLose();
+      return;
+    }
+    if (nextState.turnUserId === CPU_USER_ID) this.scheduleCpuTurn();
+  }
+
+  private scheduleCpuTurn(): void {
+    this.cancelCpuTurn();
+    this.cpuThinking.set(true);
+    this.pendingCpuTimer = setTimeout(() => {
+      this.pendingCpuTimer = null;
+      this.fireCpu();
+    }, CPU_THINK_DELAY_MS);
+  }
+
+  private cancelCpuTurn(): void {
+    if (!this.pendingCpuTimer) return;
+    clearTimeout(this.pendingCpuTimer);
+    this.pendingCpuTimer = null;
+  }
+
+  private isHumanTurn(): boolean {
+    const state = this.singlePlayerState();
+    return state?.status === 'active' && state.turnUserId === HUMAN_USER_ID;
+  }
+
+  private nextCommandId(prefix: string): string {
+    this.commandSequence += 1;
+    return `${prefix}-${this.commandSequence}`;
+  }
+
+  private charactersForState(state: MatchState): readonly CharacterState[] {
+    return state.players.flatMap((player) =>
+      state.characters
+        .filter((character) => character.ownerUserId === player.userId)
+        .sort((first, second) => first.id - second.id)
+        .map((character, index) => ({
+          ...character,
+          displayName: `${player.displayName}-${index + 1}`,
+        })),
+    );
   }
 }

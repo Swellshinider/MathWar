@@ -14,9 +14,11 @@ describe('GameCatalogComponent', () => {
     const fixture = TestBed.createComponent(GameCatalogComponent);
     fixture.detectChanges();
 
-    const link = fixture.nativeElement.querySelector('.game-card a') as HTMLAnchorElement;
+    const link = fixture.nativeElement.querySelector('.game-card') as HTMLAnchorElement;
+    const image = fixture.nativeElement.querySelector('.game-card__preview') as HTMLImageElement;
     expect(fixture.nativeElement.textContent).toContain('Equation Artillery');
     expect(link.getAttribute('href')).toBe('/games/equation-artillery');
+    expect(image.getAttribute('src')).toBe('images/equation-artillery.png');
   });
 
   it('does not render unavailable placeholder games', () => {

@@ -6,8 +6,8 @@ import { Component, input } from '@angular/core';
   styleUrl: './game-frame.component.scss',
 })
 export class GameFrameComponent {
-  readonly eyebrow = input.required<string>();
+  readonly eyebrow = input('');
   readonly title = input.required<string>();
-  readonly objective = input.required<string>();
+  readonly objective = input('');
   readonly wide = input(false);
 }

@@ -10,6 +10,7 @@ import {
   ShotResolvedEvent,
 } from '@math-war/game-engine';
 import { GameFrameComponent } from '../../../shared/game-frame/game-frame.component';
+import { ToastService } from '../../../shared/toast/toast.service';
 import { BoardComponent } from '../board/board.component';
 import { EquationHelpDialogComponent } from '../equation-help-dialog/equation-help-dialog.component';
 import {
@@ -24,16 +25,9 @@ import { Point } from '../models/point';
 import { Target } from '../models/target';
 import { SoundSettingsDialogComponent } from '../sound-settings-dialog/sound-settings-dialog.component';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
+import { MultiplayerLobbyComponent } from './multiplayer-lobby.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
-
-function formatRoomCode(value: string): string {
-  const compact = value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .slice(0, 8);
-  if (compact.length <= 4) return compact;
-  return `${compact.slice(0, 4)}-${compact.slice(4)}`;
-}
+import { formatRoomCode } from './room-code';
 
 @Component({
   selector: 'app-multiplayer-page',
@@ -45,6 +39,7 @@ function formatRoomCode(value: string): string {
     GameFrameComponent,
     LucideCircleHelp,
     LucideVolume2,
+    MultiplayerLobbyComponent,
     SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
@@ -57,12 +52,10 @@ export class MultiplayerPageComponent implements OnDestroy {
   private readonly socket = inject(MultiplayerSocketService);
   private readonly animation = inject(AnimationService);
   private readonly audio = inject(EquationArtilleryAudioService);
+  private readonly toast = inject(ToastService);
   readonly state = signal<MatchState | null>(null);
-  readonly displayName = signal(this.auth.storedDisplayName());
   readonly equation = signal('0');
-  readonly roomCode = signal('');
   readonly error = signal<string | null>(null);
-  readonly shareStatus = signal<string | null>(null);
   readonly activeShot = signal(false);
   readonly activeShotCharacterId = signal<number | null>(null);
   readonly activeShotEquation = signal<string | null>(null);
@@ -75,6 +68,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   private recalledTurnKey: string | null = null;
   private inviteJoinPending = false;
   private inviteJoinInFlight = false;
+  private inviteRoomCode: string | null = null;
   readonly userId = computed(() => this.auth.session()?.user.id ?? null);
   readonly me = computed(
     () => this.state()?.players.find((player) => player.userId === this.userId()) ?? null,
@@ -160,8 +154,6 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly status = computed(() => {
     const state = this.state();
     if (!state) return 'Create a private room or join with a code.';
-    const shareStatus = this.shareStatus();
-    if (shareStatus) return shareStatus;
     if (this.activeShot()) return 'Shot in flight.';
     if (state.status === 'waiting') return `Room ${state.roomCode}: waiting for the second player.`;
     if (state.status === 'paused') return 'Match paused while a player reconnects.';
@@ -175,7 +167,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   constructor() {
     const inviteRoomCode = this.route.snapshot.queryParamMap.get('room');
     if (inviteRoomCode) {
-      this.setRoomCode(inviteRoomCode);
+      this.inviteRoomCode = formatRoomCode(inviteRoomCode);
       this.inviteJoinPending = true;
     }
     effect(() => {
@@ -214,30 +206,8 @@ export class MultiplayerPageComponent implements OnDestroy {
     });
   }
 
-  async signIn(): Promise<void> {
-    await this.auth.signIn(this.displayName());
-  }
-
-  async createRoom(): Promise<void> {
-    const response = await this.socket.create({
-      commandId: crypto.randomUUID(),
-      expectedVersion: 0,
-    });
-    this.applyResponse(response);
-  }
-
-  async joinRoom(): Promise<boolean> {
-    this.roomCode.set(formatRoomCode(this.roomCode()));
-    const response = await this.socket.join({
-      commandId: crypto.randomUUID(),
-      expectedVersion: 0,
-      roomCode: this.roomCode(),
-    });
-    return this.applyResponse(response);
-  }
-
-  setRoomCode(value: string): void {
-    this.roomCode.set(formatRoomCode(value));
+  onRoomJoined(state: MatchState): void {
+    this.setState(state);
   }
 
   async shareRoomLink(): Promise<void> {
@@ -247,10 +217,9 @@ export class MultiplayerPageComponent implements OnDestroy {
     url.searchParams.set('room', roomCode);
     try {
       await navigator.clipboard.writeText(url.toString());
-      this.shareStatus.set('Share link copied.');
+      this.toast.show('Link copied to clipboard!');
       this.error.set(null);
     } catch {
-      this.shareStatus.set(null);
       this.error.set('Could not copy the share link.');
     }
   }
@@ -282,6 +251,20 @@ export class MultiplayerPageComponent implements OnDestroy {
     });
     if (response.ok) this.state.set(null);
     else this.error.set(response.error ?? 'Could not leave the match.');
+  }
+
+  requestLeave(dialog: HTMLDialogElement): void {
+    if (this.opponent()?.connected) dialog.showModal();
+    else void this.leave();
+  }
+
+  confirmLeave(dialog: HTMLDialogElement): void {
+    dialog.close();
+    void this.leave();
+  }
+
+  cancelLeave(dialog: HTMLDialogElement): void {
+    dialog.close();
   }
 
   playerForBoard(): PlayerState {
@@ -320,12 +303,17 @@ export class MultiplayerPageComponent implements OnDestroy {
       this.inviteJoinInFlight ||
       this.state() ||
       !this.auth.session() ||
-      !this.roomCode()
+      !this.inviteRoomCode
     ) {
       return;
     }
     this.inviteJoinInFlight = true;
-    await this.joinRoom();
+    const response = await this.socket.join({
+      commandId: crypto.randomUUID(),
+      expectedVersion: 0,
+      roomCode: this.inviteRoomCode,
+    });
+    this.applyResponse(response);
     this.inviteJoinPending = false;
     this.inviteJoinInFlight = false;
   }

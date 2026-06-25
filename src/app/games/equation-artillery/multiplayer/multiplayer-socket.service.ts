@@ -21,8 +21,8 @@ export class MultiplayerSocketService {
     token: string,
     handlers: {
       state: (state: MatchState) => void;
-      shot: (event: ShotResolvedEvent) => void;
-      ended: (event: MatchEndedEvent) => void;
+      shot?: (event: ShotResolvedEvent) => void;
+      ended?: (event: MatchEndedEvent) => void;
       error: (message: string) => void;
       connected?: () => void;
     },
@@ -36,8 +36,8 @@ export class MultiplayerSocketService {
     this.socket.on('room:state', run(handlers.state));
     this.socket.on('match:started', run(handlers.state));
     this.socket.on('match:state', run(handlers.state));
-    this.socket.on('shot:resolved', run(handlers.shot));
-    this.socket.on('match:ended', run(handlers.ended));
+    if (handlers.shot) this.socket.on('shot:resolved', run(handlers.shot));
+    if (handlers.ended) this.socket.on('match:ended', run(handlers.ended));
     this.socket.on('connect', () => this.zone.run(() => handlers.connected?.()));
     this.socket.on('connect_error', (error) => this.zone.run(() => handlers.error(error.message)));
   }

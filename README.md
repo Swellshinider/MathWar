@@ -1,6 +1,6 @@
-# Math War
+# MathWar
 
-Math War is an Angular 22 collection of browser-based math minigames. Equation Artillery includes
+MathWar is an Angular 22 collection of browser-based math minigames. Equation Artillery includes
 both local play and a private 1v1 multiplayer mode backed by Fastify, Socket.IO, and PostgreSQL.
 
 ## Requirements

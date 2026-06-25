@@ -61,7 +61,6 @@ app-equation-history {
   letter-spacing: var(--tracking-caps);
 }
 
-.account,
 .match-meta {
   display: grid;
   align-items: center;
@@ -74,13 +73,8 @@ app-equation-history {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
-}
-
-.account-name {
-  color: var(--text);
-  font-weight: var(--weight-bold);
 }
 
 .lobby {
@@ -144,17 +138,64 @@ app-equation-history {
 }
 
 @media (max-width: 37.5rem) {
-  .account,
   .match-meta {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .account .btn,
-  .match-toolbar .btn {
-    width: 100%;
-  }
+dialog {
+  width: min(30rem, calc(100% - 2rem));
+  padding: var(--space-5);
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: var(--shadow-3);
+}
 
-  .match-toolbar {
-    justify-content: stretch;
+dialog::backdrop {
+  background: rgb(2 8 15 / 75%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+dialog[open] {
+  animation: confirm-dialog-in var(--duration-base) var(--ease-out);
+}
+
+@keyframes confirm-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog[open] {
+    animation: none;
+  }
+}
+
+.confirm-dialog {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.confirm-dialog h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--fs-lg);
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: var(--lh-base);
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
