@@ -9,6 +9,6 @@ describe('SiteFooterComponent', () => {
     const fixture = TestBed.createComponent(SiteFooterComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain(`© ${new Date().getFullYear()} Math War`);
+    expect(fixture.nativeElement.textContent).toContain(`© ${new Date().getFullYear()} MathWar`);
   });
 });

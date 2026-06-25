@@ -1,7 +1,5 @@
 <app-game-frame
-  eyebrow="Private 1v1"
   title="Equation Artillery Multiplayer"
-  objective="Hit the opposing player with a function before they hit you."
   [wide]="true"
 >
   @if (!auth.ready()) {
@@ -26,11 +24,6 @@
       }
     </section>
   } @else {
-    <div class="account toolbar">
-      <span class="account-name">{{ auth.session()?.user?.displayName }}</span>
-      <button type="button" class="btn btn--subtle" (click)="auth.signOut()">Reset session</button>
-    </div>
-
     @if (!state()) {
       <form class="panel glass lobby" (submit)="$event.preventDefault(); joinRoom()">
         <button type="button" class="btn btn--primary" (click)="createRoom()">
@@ -65,7 +58,7 @@
                 type="button"
                 class="btn btn--subtle"
                 [disabled]="activeShot()"
-                (click)="leave()"
+                (click)="requestLeave(confirmLeaveDialog)"
               >
                 Leave match
               </button>
@@ -139,4 +132,19 @@
 
   <app-equation-help-dialog #helpDialog />
   <app-sound-settings-dialog #soundDialog />
+
+  <dialog #confirmLeaveDialog aria-labelledby="leave-confirm-title">
+    <div class="confirm-dialog">
+      <h2 id="leave-confirm-title">Leave this match?</h2>
+      <p>Your opponent is still in the match. You will return to the lobby.</p>
+      <div class="confirm-dialog__actions">
+        <button type="button" class="btn btn--subtle" (click)="cancelLeave(confirmLeaveDialog)">
+          Stay
+        </button>
+        <button type="button" class="btn btn--primary" (click)="confirmLeave(confirmLeaveDialog)">
+          Leave match
+        </button>
+      </div>
+    </div>
+  </dialog>
 </app-game-frame>

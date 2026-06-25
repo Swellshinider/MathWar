@@ -3,5 +3,6 @@ export interface GameDefinition {
   readonly eyebrow: string;
   readonly title: string;
   readonly summary: string;
+  readonly image: string;
   readonly route: string;
 }

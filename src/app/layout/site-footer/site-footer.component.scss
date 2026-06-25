@@ -9,9 +9,8 @@ footer {
 
 .footer-content {
   display: flex;
-  width: min(var(--bp-2xl), calc(100% - 2rem));
   min-height: 5rem;
-  margin: 0 auto;
+  padding-inline: clamp(1rem, 4vw, 2rem);
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);

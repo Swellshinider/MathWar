@@ -1,0 +1,9 @@
+@if (toast.toasts().length) {
+  <div class="toast-stack" role="status" aria-live="polite">
+    @for (item of toast.toasts(); track item.id) {
+      <button type="button" class="toast" (click)="toast.dismiss(item.id)">
+        {{ item.message }}
+      </button>
+    }
+  </div>
+}

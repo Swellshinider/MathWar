@@ -10,6 +10,7 @@ import {
   ShotResolvedEvent,
 } from '@math-war/game-engine';
 import { GameFrameComponent } from '../../../shared/game-frame/game-frame.component';
+import { ToastService } from '../../../shared/toast/toast.service';
 import { BoardComponent } from '../board/board.component';
 import { EquationHelpDialogComponent } from '../equation-help-dialog/equation-help-dialog.component';
 import {
@@ -57,12 +58,12 @@ export class MultiplayerPageComponent implements OnDestroy {
   private readonly socket = inject(MultiplayerSocketService);
   private readonly animation = inject(AnimationService);
   private readonly audio = inject(EquationArtilleryAudioService);
+  private readonly toast = inject(ToastService);
   readonly state = signal<MatchState | null>(null);
   readonly displayName = signal(this.auth.storedDisplayName());
   readonly equation = signal('0');
   readonly roomCode = signal('');
   readonly error = signal<string | null>(null);
-  readonly shareStatus = signal<string | null>(null);
   readonly activeShot = signal(false);
   readonly activeShotCharacterId = signal<number | null>(null);
   readonly activeShotEquation = signal<string | null>(null);
@@ -160,8 +161,6 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly status = computed(() => {
     const state = this.state();
     if (!state) return 'Create a private room or join with a code.';
-    const shareStatus = this.shareStatus();
-    if (shareStatus) return shareStatus;
     if (this.activeShot()) return 'Shot in flight.';
     if (state.status === 'waiting') return `Room ${state.roomCode}: waiting for the second player.`;
     if (state.status === 'paused') return 'Match paused while a player reconnects.';
@@ -247,10 +246,9 @@ export class MultiplayerPageComponent implements OnDestroy {
     url.searchParams.set('room', roomCode);
     try {
       await navigator.clipboard.writeText(url.toString());
-      this.shareStatus.set('Share link copied.');
+      this.toast.show('Link copied to clipboard!');
       this.error.set(null);
     } catch {
-      this.shareStatus.set(null);
       this.error.set('Could not copy the share link.');
     }
   }
@@ -282,6 +280,20 @@ export class MultiplayerPageComponent implements OnDestroy {
     });
     if (response.ok) this.state.set(null);
     else this.error.set(response.error ?? 'Could not leave the match.');
+  }
+
+  requestLeave(dialog: HTMLDialogElement): void {
+    if (this.opponent()?.connected) dialog.showModal();
+    else void this.leave();
+  }
+
+  confirmLeave(dialog: HTMLDialogElement): void {
+    dialog.close();
+    void this.leave();
+  }
+
+  cancelLeave(dialog: HTMLDialogElement): void {
+    dialog.close();
   }
 
   playerForBoard(): PlayerState {

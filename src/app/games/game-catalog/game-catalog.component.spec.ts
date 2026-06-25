@@ -14,7 +14,7 @@ describe('GameCatalogComponent', () => {
     const fixture = TestBed.createComponent(GameCatalogComponent);
     fixture.detectChanges();
 
-    const link = fixture.nativeElement.querySelector('.game-card a') as HTMLAnchorElement;
+    const link = fixture.nativeElement.querySelector('.game-card') as HTMLAnchorElement;
     expect(fixture.nativeElement.textContent).toContain('Equation Artillery');
     expect(link.getAttribute('href')).toBe('/games/equation-artillery');
   });

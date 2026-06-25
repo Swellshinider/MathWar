@@ -23,8 +23,8 @@ describe('App', () => {
     const brand = root.querySelector<HTMLAnchorElement>('.brand')!;
     const logo = brand.querySelector<HTMLImageElement>('.brand-logo')!;
 
-    expect(brand.textContent).toContain('Math War');
-    expect(brand.getAttribute('aria-label')).toBe('Math War home');
+    expect(brand.textContent).toContain('MathWar');
+    expect(brand.getAttribute('aria-label')).toBe('MathWar home');
     expect(logo.getAttribute('src')).toBe('mathwar-logo.png');
     expect(logo.getAttribute('alt')).toBe('');
   });

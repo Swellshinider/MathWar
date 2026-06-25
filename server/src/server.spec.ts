@@ -63,7 +63,7 @@ afterEach(async () => {
 describe('multiplayer socket server', () => {
   it('serves the browser app, runtime config, and SPA fallbacks', async () => {
     const staticRoot = await mkdtemp(join(tmpdir(), 'math-war-static-'));
-    await writeFile(join(staticRoot, 'index.html'), '<html>Math War</html>');
+    await writeFile(join(staticRoot, 'index.html'), '<html>MathWar</html>');
     await writeFile(join(staticRoot, 'main.js'), 'console.log("asset");');
     await writeFile(join(staticRoot, 'favicon.ico'), 'icon');
     await writeFile(join(staticRoot, 'config.js'), 'window.MATH_WAR_CONFIG = { legacy: true };');
@@ -102,7 +102,7 @@ describe('multiplayer socket server', () => {
         headers: { accept: 'text/html' },
       });
       expect(route.statusCode).toBe(200);
-      expect(route.body).toContain('Math War');
+      expect(route.body).toContain('MathWar');
 
       const health = await server.fastify.inject({ method: 'GET', url: '/healthz' });
       expect(health.statusCode).toBe(200);

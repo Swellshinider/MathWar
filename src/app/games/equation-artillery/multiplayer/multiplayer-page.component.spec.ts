@@ -8,6 +8,7 @@ import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerPageComponent } from './multiplayer-page.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
 import { EquationArtilleryAudioService } from '../game/audio.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 type SocketHandlers = Parameters<MultiplayerSocketService['connect']>[1];
 
@@ -628,6 +629,6 @@ describe('MultiplayerPageComponent', () => {
     expect(writeText).toHaveBeenCalledWith(
       'https://math-war.example/games/equation-artillery/multiplayer?room=ABCD-EFGH',
     );
-    expect(fixture.componentInstance.status()).toBe('Share link copied.');
+    expect(TestBed.inject(ToastService).toasts()[0]?.message).toBe('Link copied to clipboard!');
   });
 });

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed - 2026-06-25
 
+- Stretched the site header and footer to the full viewport width.
+- Redesigned the landing catalog into clickable game cards with preview imagery and animated hover.
+- Renamed the "Math War" brand to "MathWar" across the app, README, and architecture docs.
+- Trimmed redundant Equation Artillery page copy and removed the multiplayer "Reset session" button.
+- Kept multiplayer Share link and Leave match actions on a single row at every viewport width.
+- Added a transient toast confirmation when copying the multiplayer share link.
+- Prompted for confirmation before leaving a multiplayer match when an opponent is connected.
 - Zoomed out the Equation Artillery coordinate plane from `-12..12` by `-7.5..7.5` to
   `-16..16` by `-10..10` while keeping the board's physical canvas size unchanged.
 - Expanded local and multiplayer spawn bands so players, enemies, and generated walls use more of

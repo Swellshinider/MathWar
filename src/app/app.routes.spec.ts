@@ -21,7 +21,7 @@ describe('application routes', () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/');
 
-    expect(harness.routeNativeElement?.textContent).toContain('Choose your challenge');
+    expect(harness.routeNativeElement?.textContent).toContain('Practice mathematical ideas');
   });
 
   it('opens Equation Artillery at its direct route', async () => {
@@ -47,6 +47,6 @@ describe('application routes', () => {
     await harness.navigateByUrl('/missing-game');
 
     expect(router.url).toBe('/');
-    expect(harness.routeNativeElement?.textContent).toContain('Choose your challenge');
+    expect(harness.routeNativeElement?.textContent).toContain('Practice mathematical ideas');
   });
 });

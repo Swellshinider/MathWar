@@ -1,8 +1,8 @@
-# Math War Architecture
+# MathWar Architecture
 
 ## Overview
 
-Math War ships as a single Fastify service that serves the built Angular application, exposes
+MathWar ships as a single Fastify service that serves the built Angular application, exposes
 runtime browser configuration at `/config.js`, handles Socket.IO multiplayer traffic, and persists
 authoritative match state in PostgreSQL.
 
