@@ -4,14 +4,20 @@
     <p class="empty">Fired equations will appear here.</p>
   } @else {
     <ol #list role="log" aria-live="polite" aria-relevant="additions">
-      @for (equation of equations(); track $index) {
-        <li>
+      @for (entry of equations(); track entry.id) {
+        <li [class.mine]="entry.mine">
           <button
             type="button"
-            [attr.aria-label]="'Use equation ' + equation"
-            (click)="selectEquation.emit(equation)"
+            [attr.aria-label]="'Use equation ' + entry.equation"
+            (click)="selectEquation.emit(entry.equation)"
           >
-            <code>f(x) = {{ equation }}</code>
+            <span class="meta">
+              <strong>{{ entry.senderName }}</strong>
+              @if (entry.soldierName) {
+                <span>{{ entry.soldierName }}</span>
+              }
+            </span>
+            <code>f(x) = {{ entry.equation }}</code>
           </button>
         </li>
       }

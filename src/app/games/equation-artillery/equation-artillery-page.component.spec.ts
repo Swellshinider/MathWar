@@ -47,11 +47,16 @@ describe('EquationArtilleryPageComponent', () => {
     const component = fixture.componentInstance;
 
     component.fire('sin(x)');
-    expect(component.equationHistory()).toEqual(['sin(x)']);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['sin(x)']);
+    expect(component.equationHistory()[0]).toMatchObject({
+      senderName: 'You',
+      soldierName: null,
+      mine: true,
+    });
 
     component.active.set(false);
     component.fire('x+(');
-    expect(component.equationHistory()).toEqual(['sin(x)']);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['sin(x)']);
     expect(component.error()).not.toBeNull();
   });
 
@@ -62,7 +67,7 @@ describe('EquationArtilleryPageComponent', () => {
     component.fire('x^2');
     component.newRound();
 
-    expect(component.equationHistory()).toEqual(['x^2']);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['x^2']);
     expect(component.active()).toBe(false);
     expect(audio.stopEquationSound).toHaveBeenCalled();
   });

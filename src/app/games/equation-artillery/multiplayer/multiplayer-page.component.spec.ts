@@ -287,7 +287,12 @@ describe('MultiplayerPageComponent', () => {
     expect(component.boardCharacters().find((character) => character.id === 0)?.functionLabel).toBe(
       '0.25x',
     );
-    expect(component.equationHistory()).toEqual(['0.25x']);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['0.25x']);
+    expect(component.equationHistory()[0]).toMatchObject({
+      senderName: 'Left',
+      soldierName: 'Left-1',
+      mine: true,
+    });
     expect(component.status()).toBe('Match paused while a player reconnects.');
   });
 
@@ -507,7 +512,12 @@ describe('MultiplayerPageComponent', () => {
     fixture.detectChanges();
 
     expect(component.equation()).toBe('0');
-    expect(component.equationHistory()).toEqual(['x^2']);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['x^2']);
+    expect(component.equationHistory()[0]).toMatchObject({
+      senderName: 'Left',
+      soldierName: null,
+      mine: true,
+    });
   });
 
   it('maps living match characters to the board and hides defeated characters', () => {
