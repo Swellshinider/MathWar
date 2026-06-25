@@ -37,7 +37,7 @@ ol {
   overflow-y: auto;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   list-style: none;
   scrollbar-color: var(--border-3) rgb(7 17 31 / 0.45);
   scrollbar-width: thin;
@@ -74,9 +74,9 @@ li.mine {
 
 button {
   display: grid;
-  max-width: min(100%, 15rem);
+  max-width: min(100%, 13.5rem);
   gap: var(--space-1);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-3);
   border-radius: var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-sm);
   background: var(--surface-2);
@@ -109,6 +109,7 @@ button:focus-visible {
 code {
   color: inherit;
   font-family: var(--font-mono);
+  font-size: var(--fs-sm);
   overflow-wrap: anywhere;
   white-space: normal;
 }
