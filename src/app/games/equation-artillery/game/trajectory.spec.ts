@@ -17,7 +17,7 @@ describe('trajectory advancement', () => {
   });
 
   it('clips the trail to the board edge when a shot exits horizontally', () => {
-    const edgePlayer: Player = { position: { x: 11.9, y: 0 }, radius: 0 };
+    const edgePlayer: Player = { position: { x: 15.9, y: 0 }, radius: 0 };
     const shot = advanceShot(
       createShot(edgePlayer, [], []),
       edgePlayer,

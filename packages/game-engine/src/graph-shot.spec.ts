@@ -3,7 +3,7 @@ import { compileExpression, ExpressionError } from './expression.js';
 import { createGraphShotCursor } from './graph-shot.js';
 import { WorldBounds } from './types.js';
 
-const bounds: WorldBounds = { minX: -12, maxX: 12, minY: -7.5, maxY: 7.5 };
+const bounds: WorldBounds = { minX: -16, maxX: 16, minY: -10, maxY: 10 };
 
 describe('graph shot cursor', () => {
   it('samples equations with board x and vertically anchors them to the shooter', () => {
@@ -73,7 +73,7 @@ describe('graph shot cursor', () => {
   it('clips shots to the board bounds', () => {
     const cursor = createGraphShotCursor({
       expression: compileExpression('0'),
-      shooter: { x: 11.9, y: 0 },
+      shooter: { x: 15.95, y: 0 },
       shooterRadius: 0,
       direction: 1,
       bounds,

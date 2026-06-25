@@ -134,8 +134,8 @@ describe('EquationArtilleryAudioService', () => {
   it('generates, updates, and stops equation travel audio', () => {
     const service = TestBed.inject(EquationArtilleryAudioService);
 
-    service.startEquationSound({ x: -12, y: -7.5 });
-    service.updateEquationSound({ x: 12, y: 7.5 });
+    service.startEquationSound({ x: -16, y: -10 });
+    service.updateEquationSound({ x: 16, y: 10 });
     service.stopEquationSound();
 
     expect(context.resume).toHaveBeenCalled();

@@ -6,8 +6,8 @@ export interface WorldBounds {
 }
 
 export const WORLD_BOUNDS: WorldBounds = {
-  minX: -12,
-  maxX: 12,
-  minY: -7.5,
-  maxY: 7.5,
+  minX: -16,
+  maxX: 16,
+  minY: -10,
+  maxY: 10,
 };

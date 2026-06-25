@@ -1,7 +1,7 @@
 import { compileExpression, ExpressionError } from './expression';
 
-const DOMAIN_MIN = -12;
-const DOMAIN_MAX = 12;
+const DOMAIN_MIN = -16;
+const DOMAIN_MAX = 16;
 const SAMPLE_COUNT = 121;
 const VIEWBOX_WIDTH = 240;
 const VIEWBOX_HEIGHT = 100;

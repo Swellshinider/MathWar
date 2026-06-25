@@ -111,8 +111,8 @@ function spawnWalls(player: Player, random: () => number): readonly Wall[] {
     const localPieces = createLocalPieces(shape, random);
     for (let attempts = 0; attempts < 500; attempts += 1) {
       const center = {
-        x: halfStepBetween(random, -4, 6),
-        y: halfStepBetween(random, -5, 5),
+        x: halfStepBetween(random, -7, 9),
+        y: halfStepBetween(random, -7, 7),
       };
       const pieces = localPieces.map((point, pieceIndex) => ({
         id: nextPieceId + pieceIndex,
@@ -137,7 +137,7 @@ function spawnWalls(player: Player, random: () => number): readonly Wall[] {
 
 export function spawnRound(random: () => number = Math.random): RoundEntities {
   const player: Player = {
-    position: { x: integerBetween(random, -10, -6), y: integerBetween(random, -5, 5) },
+    position: { x: integerBetween(random, -14, -9), y: integerBetween(random, -7, 7) },
     radius: 0.32,
   };
   const walls = spawnWalls(player, random);
@@ -146,7 +146,7 @@ export function spawnRound(random: () => number = Math.random): RoundEntities {
   for (let attempts = 0; targets.length < 3 && attempts < 500; attempts += 1) {
     const candidate: Target = {
       id: targets.length + 1,
-      center: { x: integerBetween(random, 3, 10), y: integerBetween(random, -5, 5) },
+      center: { x: integerBetween(random, 5, 14), y: integerBetween(random, -7, 7) },
       width: 1,
       height: 1,
     };

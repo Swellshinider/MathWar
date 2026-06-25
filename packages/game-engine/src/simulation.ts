@@ -11,7 +11,7 @@ import {
   WorldBounds,
 } from './types.js';
 
-export const WORLD_BOUNDS: WorldBounds = { minX: -12, maxX: 12, minY: -7.5, maxY: 7.5 };
+export const WORLD_BOUNDS: WorldBounds = { minX: -16, maxX: 16, minY: -10, maxY: 10 };
 export const SHOT_STEP = GRAPH_SHOT_STEP;
 const BULLET_RADIUS = 0.18;
 const WALL_BLAST_RADIUS = 0.75;
@@ -115,8 +115,8 @@ function spawnWalls(
     for (let attempt = 0; attempt < 500; attempt += 1) {
       const shape = selectWallShape(random);
       const center = {
-        x: halfStepBetween(random, -5, 5),
-        y: halfStepBetween(random, -5, 5),
+        x: halfStepBetween(random, -8, 8),
+        y: halfStepBetween(random, -7, 7),
       };
       const pieces = createLocalWallPieces(shape, random).map((point, pieceIndex) => ({
         id: nextPieceId + pieceIndex,
@@ -160,7 +160,7 @@ function randomCharacterPosition(
 ): Point {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const x = integerBetween(random, minimumX, maximumX);
-    const y = integerBetween(random, -5, 5);
+    const y = integerBetween(random, -7, 7);
     if (
       used.every((existing) => existing.x !== x) &&
       used.every((existing) => Math.hypot(existing.x - x, existing.y - y) >= 1.5)
@@ -173,7 +173,7 @@ function randomCharacterPosition(
       Array.from({ length: maximumX - minimumX + 1 }, (_, index) => minimumX + index).find(
         (candidate) => used.every((existing) => existing.x !== candidate),
       ) ?? integerBetween(random, minimumX, maximumX),
-    y: [-4, 0, 4][used.length % 3],
+    y: [-6, 0, 6][used.length % 3],
   };
 }
 
@@ -186,7 +186,7 @@ function spawnCharacters(
   const secondPositions: Point[] = [];
   const characters: CharacterState[] = [];
   for (let index = 0; index < 3; index += 1) {
-    const position = randomCharacterPosition(random, -10, -7, firstPositions);
+    const position = randomCharacterPosition(random, -14, -10, firstPositions);
     firstPositions.push(position);
     characters.push({
       id: index,
@@ -200,7 +200,7 @@ function spawnCharacters(
   }
   if (second) {
     for (let index = 0; index < 3; index += 1) {
-      const position = randomCharacterPosition(random, 7, 10, secondPositions);
+      const position = randomCharacterPosition(random, 10, 14, secondPositions);
       secondPositions.push(position);
       characters.push({
         id: index + 3,
@@ -255,7 +255,7 @@ export function createMatchState(
   const players: PlayerState[] = [
     {
       ...first,
-      position: { x: -9, y: integerBetween(random, -4, 4) },
+      position: { x: -12, y: integerBetween(random, -6, 6) },
       radius: 0.32,
       direction: 1,
       connected: true,
@@ -264,7 +264,7 @@ export function createMatchState(
   if (second)
     players.push({
       ...second,
-      position: { x: 9, y: integerBetween(random, -4, 4) },
+      position: { x: 12, y: integerBetween(random, -6, 6) },
       radius: 0.32,
       direction: -1,
       connected: true,
