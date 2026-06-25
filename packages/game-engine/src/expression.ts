@@ -1,6 +1,7 @@
 import { FunctionNode, MathNode, OperatorNode, parse, SymbolNode } from 'mathjs/number';
 
 export const MAX_EXPRESSION_LENGTH = 180;
+const ORIGIN_FALLBACK_SAMPLES = [0.08, 0.16, 0.32, 0.64, 1] as const;
 const FUNCTIONS = new Map([
   ['sin', 'sin'],
   ['cos', 'cos'],
@@ -137,7 +138,10 @@ export function compileExpression(value: string): CompiledExpression {
   }
   validateAst(node);
   const compiled = node.compile();
+  let originValue = 0;
+  let usesOriginFallback = false;
   const evaluate = (x: number): number => {
+    if (usesOriginFallback && x === 0) return originValue;
     let result: unknown;
     try {
       result = compiled.evaluate({ x });
@@ -148,5 +152,19 @@ export function compileExpression(value: string): CompiledExpression {
       throw new ExpressionError('The equation produced a non-finite number.');
     return result;
   };
-  return { source, originValue: evaluate(0), evaluate };
+  try {
+    originValue = evaluate(0);
+  } catch (originError) {
+    const hasFiniteForwardSample = ORIGIN_FALLBACK_SAMPLES.some((sample) => {
+      try {
+        evaluate(sample);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (!hasFiniteForwardSample) throw originError;
+    usesOriginFallback = true;
+  }
+  return { source, originValue, evaluate };
 }

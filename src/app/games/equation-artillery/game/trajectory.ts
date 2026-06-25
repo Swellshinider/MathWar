@@ -8,6 +8,7 @@ import { damageWalls, pointHitsTarget, pointHitsWallPiece } from './collision';
 import { CompiledExpression, ExpressionError } from './expression';
 
 export const WALL_BLAST_RADIUS = 0.75;
+const BOUNDS_EPSILON = 1e-9;
 
 export type ShotImpact = 'target' | 'wall' | 'bounds' | 'invalid' | null;
 
@@ -37,6 +38,46 @@ export function createShot(
   };
 }
 
+function pointInsideBounds(point: Point, bounds: WorldBounds): boolean {
+  return (
+    point.x >= bounds.minX - BOUNDS_EPSILON &&
+    point.x <= bounds.maxX + BOUNDS_EPSILON &&
+    point.y >= bounds.minY - BOUNDS_EPSILON &&
+    point.y <= bounds.maxY + BOUNDS_EPSILON
+  );
+}
+
+function segmentBoundsExitPoint(from: Point, to: Point, bounds: WorldBounds): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const candidates: Point[] = [];
+  const addCandidate = (t: number): void => {
+    if (t <= 0 || t > 1 || !Number.isFinite(t)) return;
+    const point = { x: from.x + dx * t, y: from.y + dy * t };
+    if (pointInsideBounds(point, bounds)) candidates.push(point);
+  };
+
+  if (dx !== 0) {
+    addCandidate((bounds.minX - from.x) / dx);
+    addCandidate((bounds.maxX - from.x) / dx);
+  }
+  if (dy !== 0) {
+    addCandidate((bounds.minY - from.y) / dy);
+    addCandidate((bounds.maxY - from.y) / dy);
+  }
+
+  return (
+    candidates.sort((first, second) => {
+      const firstDistance = Math.hypot(first.x - from.x, first.y - from.y);
+      const secondDistance = Math.hypot(second.x - from.x, second.y - from.y);
+      return firstDistance - secondDistance;
+    })[0] ?? {
+      x: Math.min(Math.max(to.x, bounds.minX), bounds.maxX),
+      y: Math.min(Math.max(to.y, bounds.minY), bounds.maxY),
+    }
+  );
+}
+
 export function advanceShot(
   state: ShotState,
   player: Player,
@@ -59,18 +100,16 @@ export function advanceShot(
     };
   }
   const point = { x: nextX, y: nextY };
-  const inside =
-    point.x >= bounds.minX &&
-    point.x <= bounds.maxX &&
-    point.y >= bounds.minY &&
-    point.y <= bounds.maxY;
-  if (!inside)
+  if (!pointInsideBounds(point, bounds)) {
+    const exitPoint = segmentBoundsExitPoint(state.bullet.position, point, bounds);
     return {
       ...state,
-      bullet: { ...state.bullet, position: point },
+      bullet: { ...state.bullet, position: exitPoint },
+      trail: [...state.trail, exitPoint],
       active: false,
       impact: 'bounds',
     };
+  }
   const hitPiece = state.walls
     .flatMap((wall) => wall.pieces)
     .find((piece) => pointHitsWallPiece(point, piece, state.bullet.radius));

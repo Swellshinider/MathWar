@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - 2026-06-25
+
+- Rendered shots to the board edge when trajectories exit the visible area and anchored
+  launch-singular equations with finite forward paths, such as `log(x)`, at the player.
+- Cleared Angular's prebundle cache and rebuilt the shared game engine before local UI startup and
+  tests so equation changes are not served from stale package output.
+
 ## [0.1.0] - 2026-06-24
 
 ### Added - 2026-06-24
