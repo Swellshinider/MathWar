@@ -15,7 +15,7 @@ describe('trajectory advancement', () => {
     expect(shot.trail).toEqual([player.position, shot.bullet.position]);
   });
 
-  it('ends without adding an out-of-bounds point to the trail', () => {
+  it('clips the trail to the board edge when a shot exits horizontally', () => {
     const edgePlayer: Player = { ...player, position: { x: 11.9, y: 0 } };
     const shot = advanceShot(
       createShot(edgePlayer, [], []),
@@ -25,8 +25,55 @@ describe('trajectory advancement', () => {
       0.2,
     );
     expect(shot.active).toBe(false);
-    expect(shot.trail).toHaveLength(1);
+    expect(shot.bullet.position).toEqual({ x: WORLD_BOUNDS.maxX, y: 0 });
+    expect(shot.trail).toEqual([edgePlayer.position, shot.bullet.position]);
     expect(shot.impact).toBe('bounds');
+  });
+
+  it('clips steep tangent shots to the board edge instead of ending mid-board', () => {
+    const originPlayer: Player = { ...player, position: { x: 0, y: 0 } };
+    const shot = advanceShot(
+      createShot(originPlayer, [], []),
+      originPlayer,
+      compileExpression('tan(x + x)'),
+      WORLD_BOUNDS,
+      0.72,
+    );
+    expect(shot.active).toBe(false);
+    expect(shot.bullet.position.x).toBeCloseTo(0.711);
+    expect(shot.bullet.position.y).toBe(WORLD_BOUNDS.maxY);
+    expect(shot.trail).toEqual([originPlayer.position, shot.bullet.position]);
+    expect(shot.impact).toBe('bounds');
+  });
+
+  it('clips launch-singular logarithmic shots to the board edge', () => {
+    const originPlayer: Player = { ...player, position: { x: 0, y: 0 } };
+    const shot = advanceShot(
+      createShot(originPlayer, [], []),
+      originPlayer,
+      compileExpression('log(x)'),
+      WORLD_BOUNDS,
+      0.0001,
+    );
+    expect(shot.active).toBe(false);
+    expect(shot.bullet.position.x).toBeCloseTo(0.000081);
+    expect(shot.bullet.position.y).toBe(WORLD_BOUNDS.minY);
+    expect(shot.trail).toEqual([originPlayer.position, shot.bullet.position]);
+    expect(shot.impact).toBe('bounds');
+  });
+
+  it('keeps launch-singular logarithmic shots valid at the launch point', () => {
+    const originPlayer: Player = { ...player, position: { x: 0, y: 0 } };
+    const shot = advanceShot(
+      createShot(originPlayer, [], []),
+      originPlayer,
+      compileExpression('log(x)'),
+      WORLD_BOUNDS,
+      0,
+    );
+    expect(shot.active).toBe(true);
+    expect(shot.error).toBeNull();
+    expect(shot.bullet.position).toEqual(originPlayer.position);
   });
 
   it('removes every target hit at a sampled point and keeps flying', () => {

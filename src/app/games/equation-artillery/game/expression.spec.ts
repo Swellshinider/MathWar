@@ -52,7 +52,14 @@ describe('expression compiler', () => {
     expect(() => compileExpression('x'.repeat(MAX_EXPRESSION_LENGTH + 1))).toThrow('too long');
   });
 
-  it('rejects a non-finite launch value', () => {
+  it('allows equations with a non-finite launch value when forward samples are finite', () => {
+    const expression = compileExpression('log(x)');
+    expect(expression.originValue).toBe(0);
+    expect(expression.evaluate(0)).toBe(0);
+    expect(expression.evaluate(1)).toBe(0);
+  });
+
+  it('rejects expressions that never produce finite forward launch samples', () => {
     expect(() => compileExpression('sqrt(-1)')).toThrow('non-finite');
   });
 
