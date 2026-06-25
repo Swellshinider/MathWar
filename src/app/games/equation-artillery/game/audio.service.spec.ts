@@ -111,6 +111,25 @@ describe('EquationArtilleryAudioService', () => {
     );
   });
 
+  it('uses 50 percent volume by default', () => {
+    const service = TestBed.inject(EquationArtilleryAudioService);
+
+    expect(service.muted()).toBe(false);
+    expect(service.volume()).toBe(0.5);
+  });
+
+  it('restores saved volume settings from local storage', () => {
+    localStorage.setItem(
+      'math-war.equation-artillery.audio',
+      JSON.stringify({ muted: false, volume: 0.25 }),
+    );
+
+    const service = TestBed.inject(EquationArtilleryAudioService);
+
+    expect(service.muted()).toBe(false);
+    expect(service.volume()).toBe(0.25);
+  });
+
   it('plays one-shot effects at the configured volume', () => {
     const service = TestBed.inject(EquationArtilleryAudioService);
     service.setVolume(0.5);

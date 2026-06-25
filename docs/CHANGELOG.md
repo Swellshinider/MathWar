@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed - 2026-06-25
 
+- Restored persisted Equation Artillery sound volume on startup and changed the default volume to
+  50%.
 - Rendered shots to the board edge when trajectories exit the visible area and anchored
   launch-singular equations with finite forward paths, such as `log(x)`, at the player.
 - Cleared Angular's prebundle cache and rebuilt the shared game engine before local UI startup and
