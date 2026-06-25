@@ -2,12 +2,14 @@
   display: block;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 section {
   display: flex;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
   flex-direction: column;
   padding: var(--space-4);
 }

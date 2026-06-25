@@ -90,14 +90,20 @@
               </button>
             </div>
           </section>
-          <app-board
-            [player]="playerForBoard()"
-            [characters]="boardCharacters()"
-            [targets]="opponentTarget()"
-            [walls]="state()?.walls ?? []"
-            [bullet]="bullet()"
-            [trail]="trail()"
-          />
+          <div class="board-row">
+            <app-board
+              [player]="playerForBoard()"
+              [characters]="boardCharacters()"
+              [targets]="opponentTarget()"
+              [walls]="state()?.walls ?? []"
+              [bullet]="bullet()"
+              [trail]="trail()"
+            />
+            <app-equation-history
+              [equations]="equationHistory()"
+              (selectEquation)="equation.set($event)"
+            />
+          </div>
           <form class="controls" (submit)="$event.preventDefault(); fire()">
             <label class="field-label" for="mp-equation">f(x)</label>
             <input
@@ -114,11 +120,6 @@
           </form>
           <p class="status" aria-live="polite">{{ status() }}</p>
         </div>
-
-        <app-equation-history
-          [equations]="equationHistory()"
-          (selectEquation)="equation.set($event)"
-        />
       </div>
     }
     @if (error()) {

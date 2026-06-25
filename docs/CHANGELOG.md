@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed multiplayer soldiers to use numbered player-relative names, changed equation history
   into chat-style messages with player and soldier metadata, and made turns alternate fairly
   between players after soldiers are defeated.
+- Constrained Equation Artillery history to the board height so long histories scroll instead of
+  resizing the play layout.
 
 ### Fixed - 2026-06-25
 

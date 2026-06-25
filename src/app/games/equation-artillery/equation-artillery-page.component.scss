@@ -9,17 +9,23 @@ code {
 
 .game-layout {
   display: grid;
+  gap: var(--space-4);
+}
+
+.board-row {
+  display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
   gap: var(--space-4);
   align-items: stretch;
-}
-
-.game-column {
   min-width: 0;
 }
 
+app-equation-history {
+  min-height: 0;
+}
+
 @media (max-width: 56rem) {
-  .game-layout {
+  .board-row {
     grid-template-columns: minmax(0, 1fr);
   }
 

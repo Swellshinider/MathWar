@@ -25,7 +25,7 @@
   </button>
 
   <div class="game-layout">
-    <div class="game-column">
+    <div class="board-row">
       <app-board
         [player]="player()"
         [targets]="targets()"
@@ -34,18 +34,21 @@
         [trail]="trail()"
       />
 
-      <app-equation-controls
-        [(equation)]="equation"
-        [active]="active()"
-        [roundComplete]="roundComplete()"
-        [error]="error()"
-        [status]="status()"
-        (fire)="fire($event)"
-        (newRound)="newRound()"
+      <app-equation-history
+        [equations]="equationHistory()"
+        (selectEquation)="equation.set($event)"
       />
     </div>
 
-    <app-equation-history [equations]="equationHistory()" (selectEquation)="equation.set($event)" />
+    <app-equation-controls
+      [(equation)]="equation"
+      [active]="active()"
+      [roundComplete]="roundComplete()"
+      [error]="error()"
+      [status]="status()"
+      (fire)="fire($event)"
+      (newRound)="newRound()"
+    />
   </div>
 
   <app-equation-help-dialog #helpDialog />
