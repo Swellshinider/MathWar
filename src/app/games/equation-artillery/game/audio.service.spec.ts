@@ -111,6 +111,25 @@ describe('EquationArtilleryAudioService', () => {
     );
   });
 
+  it('uses 50 percent volume by default', () => {
+    const service = TestBed.inject(EquationArtilleryAudioService);
+
+    expect(service.muted()).toBe(false);
+    expect(service.volume()).toBe(0.5);
+  });
+
+  it('restores saved volume settings from local storage', () => {
+    localStorage.setItem(
+      'math-war.equation-artillery.audio',
+      JSON.stringify({ muted: false, volume: 0.25 }),
+    );
+
+    const service = TestBed.inject(EquationArtilleryAudioService);
+
+    expect(service.muted()).toBe(false);
+    expect(service.volume()).toBe(0.25);
+  });
+
   it('plays one-shot effects at the configured volume', () => {
     const service = TestBed.inject(EquationArtilleryAudioService);
     service.setVolume(0.5);
@@ -134,8 +153,8 @@ describe('EquationArtilleryAudioService', () => {
   it('generates, updates, and stops equation travel audio', () => {
     const service = TestBed.inject(EquationArtilleryAudioService);
 
-    service.startEquationSound({ x: -12, y: -7.5 });
-    service.updateEquationSound({ x: 12, y: 7.5 });
+    service.startEquationSound({ x: -16, y: -10 });
+    service.updateEquationSound({ x: 16, y: 10 });
     service.stopEquationSound();
 
     expect(context.resume).toHaveBeenCalled();

@@ -85,7 +85,9 @@ describe('EquationArtilleryPageComponent', () => {
     component.player.set({ position: { x: -2, y: 3 }, radius: 0.3 });
 
     component.fire('0');
-    advanceShot?.(1);
+    for (let index = 0; index < 10; index += 1) {
+      if (advanceShot?.(1) === false) break;
+    }
 
     expect(audio.playEnemyHit).toHaveBeenCalledOnce();
     expect(audio.playWin).toHaveBeenCalledOnce();
@@ -105,7 +107,9 @@ describe('EquationArtilleryPageComponent', () => {
     component.player.set({ position: { x: -2, y: 3 }, radius: 0.3 });
 
     component.fire('0');
-    advanceShot?.(1);
+    for (let index = 0; index < 10; index += 1) {
+      if (advanceShot?.(1) === false) break;
+    }
 
     expect(audio.stopEquationSound).toHaveBeenCalled();
     expect(audio.playWallHit).toHaveBeenCalledOnce();

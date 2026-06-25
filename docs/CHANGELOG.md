@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2026-06-25
+
+- Zoomed out the Equation Artillery coordinate plane from `-12..12` by `-7.5..7.5` to
+  `-16..16` by `-10..10` while keeping the board's physical canvas size unchanged.
+- Expanded local and multiplayer spawn bands so players, enemies, and generated walls use more of
+  the zoomed-out coordinate plane.
+- Remade Equation Artillery shot solving around Graphwar-inspired board-coordinate graph
+  sampling, vertical launch anchoring, tangent launch offsets, and adaptive curve stepping for
+  local and multiplayer shots.
+- Added Graphwar-style expression aliases for `sen(x)`, `tg(x)`, and comma decimal input.
+
 ### Fixed - 2026-06-25
 
+- Restored persisted Equation Artillery sound volume on startup and changed the default volume to
+  50%.
 - Rendered shots to the board edge when trajectories exit the visible area and anchored
   launch-singular equations with finite forward paths, such as `log(x)`, at the player.
 - Cleared Angular's prebundle cache and rebuilt the shared game engine before local UI startup and

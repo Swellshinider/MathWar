@@ -12,7 +12,7 @@ type BrowserAudioContext = AudioContext & {
 };
 
 const STORAGE_KEY = 'math-war.equation-artillery.audio';
-const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 1 };
+const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 0.5 };
 const SOUND_URLS = {
   fire: '/sounds/fire.wav',
   wallHit: '/sounds/wall-hit.wav',
@@ -27,7 +27,8 @@ function clamp(value: number, minimum: number, maximum: number): number {
 
 function readSettings(): AudioSettings {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const storage = globalThis.localStorage;
+    const stored = storage.getItem(STORAGE_KEY);
     if (!stored) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(stored) as Partial<AudioSettings>;
     return {

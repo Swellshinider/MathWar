@@ -28,17 +28,19 @@ describe('spawnRound', () => {
 
   it('places bounded integer entities on the correct halves', () => {
     const round = spawnRound(seededRandom(7));
-    expect(round.player.position.x).toBeGreaterThanOrEqual(-10);
-    expect(round.player.position.x).toBeLessThanOrEqual(-6);
+    expect(round.player.position.x).toBeGreaterThanOrEqual(-14);
+    expect(round.player.position.x).toBeLessThanOrEqual(-9);
+    expect(round.player.position.y).toBeGreaterThanOrEqual(-7);
+    expect(round.player.position.y).toBeLessThanOrEqual(7);
     expect(Number.isInteger(round.player.position.y)).toBe(true);
     expect(round.targets).toHaveLength(3);
     expect(round.walls).toHaveLength(4);
     expect(new Set(round.walls.map((wall) => wall.shape)).size).toBe(4);
     round.targets.forEach((target) => {
-      expect(target.center.x).toBeGreaterThanOrEqual(3);
-      expect(target.center.x).toBeLessThanOrEqual(10);
-      expect(target.center.y).toBeGreaterThanOrEqual(-5);
-      expect(target.center.y).toBeLessThanOrEqual(5);
+      expect(target.center.x).toBeGreaterThanOrEqual(5);
+      expect(target.center.x).toBeLessThanOrEqual(14);
+      expect(target.center.y).toBeGreaterThanOrEqual(-7);
+      expect(target.center.y).toBeLessThanOrEqual(7);
       expect(Number.isInteger(target.center.x)).toBe(true);
       expect(Number.isInteger(target.center.y)).toBe(true);
     });
@@ -46,13 +48,19 @@ describe('spawnRound', () => {
 
   it('places filled wall pieces within bounds without overlaps', () => {
     const round = spawnRound(seededRandom(21));
+    const wallCenters = round.walls.map((wall) => ({
+      x: wall.pieces.reduce((sum, piece) => sum + piece.center.x, 0) / wall.pieces.length,
+      y: wall.pieces.reduce((sum, piece) => sum + piece.center.y, 0) / wall.pieces.length,
+    }));
+    expect(Math.min(...wallCenters.map((center) => center.x))).toBeLessThanOrEqual(-3);
+    expect(Math.max(...wallCenters.map((center) => center.x))).toBeGreaterThanOrEqual(3);
     round.walls.forEach((wall) => {
       expect(wall.pieces.length).toBeGreaterThan(1);
       wall.pieces.forEach((piece) => {
-        expect(piece.center.x - piece.size / 2).toBeGreaterThanOrEqual(-12);
-        expect(piece.center.x + piece.size / 2).toBeLessThanOrEqual(12);
-        expect(piece.center.y - piece.size / 2).toBeGreaterThanOrEqual(-7.5);
-        expect(piece.center.y + piece.size / 2).toBeLessThanOrEqual(7.5);
+        expect(piece.center.x - piece.size / 2).toBeGreaterThanOrEqual(-16);
+        expect(piece.center.x + piece.size / 2).toBeLessThanOrEqual(16);
+        expect(piece.center.y - piece.size / 2).toBeGreaterThanOrEqual(-10);
+        expect(piece.center.y + piece.size / 2).toBeLessThanOrEqual(10);
         expect(round.targets.some((target) => wallPieceOverlapsTarget(piece, target, 0.2))).toBe(
           false,
         );

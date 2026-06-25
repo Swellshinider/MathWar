@@ -18,6 +18,7 @@ describe('expression compiler', () => {
     ['2sin(x)', Math.PI / 2, 2],
     ['xsin(x)', Math.PI / 2, Math.PI / 2],
     ['sin(x)cos(x)', Math.PI / 4, 0.5],
+    ['1,5x', 2, 3],
   ])('normalizes implicit multiplication in %s', (source, x, expected) => {
     expect(compileExpression(source).evaluate(x)).toBeCloseTo(expected);
   });
@@ -31,6 +32,8 @@ describe('expression compiler', () => {
   });
 
   it('evaluates the expanded numeric and hyperbolic functions', () => {
+    expect(compileExpression('sen(1)').evaluate(0)).toBeCloseTo(Math.sin(1));
+    expect(compileExpression('tg(1)').evaluate(0)).toBeCloseTo(Math.tan(1));
     expect(compileExpression('floor(1.8)').evaluate(0)).toBe(1);
     expect(compileExpression('ceil(1.2)').evaluate(0)).toBe(2);
     expect(compileExpression('round(1.6)').evaluate(0)).toBe(2);

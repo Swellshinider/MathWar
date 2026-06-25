@@ -44,6 +44,18 @@ describe('shared multiplayer simulation', () => {
 
     expect(state.characters.map((character) => character.id)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(state.characters.every((character) => character.alive)).toBe(true);
+    state.characters.slice(0, 3).forEach((character) => {
+      expect(character.position.x).toBeGreaterThanOrEqual(-14);
+      expect(character.position.x).toBeLessThanOrEqual(-10);
+      expect(character.position.y).toBeGreaterThanOrEqual(-7);
+      expect(character.position.y).toBeLessThanOrEqual(7);
+    });
+    state.characters.slice(3).forEach((character) => {
+      expect(character.position.x).toBeGreaterThanOrEqual(10);
+      expect(character.position.x).toBeLessThanOrEqual(14);
+      expect(character.position.y).toBeGreaterThanOrEqual(-7);
+      expect(character.position.y).toBeLessThanOrEqual(7);
+    });
     expect(
       new Set(state.characters.slice(0, 3).map((character) => character.position.x)).size,
     ).toBeGreaterThan(1);
@@ -64,6 +76,8 @@ describe('shared multiplayer simulation', () => {
   it('generates two to five multiplayer walls with varied shapes', () => {
     const counts = new Set<number>();
     const shapes = new Set<string>();
+    const wallPieceXs: number[] = [];
+    const wallPieceYs: number[] = [];
     for (let seed = 1; seed <= 100; seed += 1) {
       const state = createMatchState(
         '00000000-0000-4000-8000-000000000001',
@@ -77,10 +91,12 @@ describe('shared multiplayer simulation', () => {
         shapes.add(wall.shape);
         expect(wall.pieces.length).toBeGreaterThan(1);
         wall.pieces.forEach((piece) => {
-          expect(piece.center.x - piece.size / 2).toBeGreaterThanOrEqual(-12);
-          expect(piece.center.x + piece.size / 2).toBeLessThanOrEqual(12);
-          expect(piece.center.y - piece.size / 2).toBeGreaterThanOrEqual(-7.5);
-          expect(piece.center.y + piece.size / 2).toBeLessThanOrEqual(7.5);
+          wallPieceXs.push(piece.center.x);
+          wallPieceYs.push(piece.center.y);
+          expect(piece.center.x - piece.size / 2).toBeGreaterThanOrEqual(-16);
+          expect(piece.center.x + piece.size / 2).toBeLessThanOrEqual(16);
+          expect(piece.center.y - piece.size / 2).toBeGreaterThanOrEqual(-10);
+          expect(piece.center.y + piece.size / 2).toBeLessThanOrEqual(10);
         });
       });
     }
@@ -89,6 +105,10 @@ describe('shared multiplayer simulation', () => {
     expect(Math.max(...counts)).toBeLessThanOrEqual(5);
     expect(counts.size).toBeGreaterThan(1);
     expect(shapes).toEqual(new Set(['vertical', 'circle', 'square', 'triangle']));
+    expect(Math.min(...wallPieceXs)).toBeLessThan(-5);
+    expect(Math.max(...wallPieceXs)).toBeGreaterThan(5);
+    expect(Math.min(...wallPieceYs)).toBeLessThan(-5);
+    expect(Math.max(...wallPieceYs)).toBeGreaterThan(5);
   });
 
   it('removes one character on hit and skips dead characters in turn order', () => {
