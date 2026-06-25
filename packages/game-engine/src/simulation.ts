@@ -16,7 +16,6 @@ export const SHOT_STEP = GRAPH_SHOT_STEP;
 const BULLET_RADIUS = 0.18;
 const WALL_BLAST_RADIUS = 0.75;
 const WALL_PIECE_SIZE = 0.5;
-const TURN_ORDER = [0, 3, 1, 4, 2, 5] as const;
 const WALL_SHAPES: readonly Wall['shape'][] = ['vertical', 'circle', 'square', 'triangle'];
 
 function integerBetween(random: () => number, minimum: number, maximum: number): number {
@@ -191,7 +190,7 @@ function spawnCharacters(
     characters.push({
       id: index,
       ownerUserId: first.userId,
-      displayName: first.displayName,
+      displayName: `${first.displayName}-${index + 1}`,
       position,
       radius: first.radius,
       direction: first.direction,
@@ -205,7 +204,7 @@ function spawnCharacters(
       characters.push({
         id: index + 3,
         ownerUserId: second.userId,
-        displayName: second.displayName,
+        displayName: `${second.displayName}-${index + 1}`,
         position,
         radius: second.radius,
         direction: second.direction,
@@ -216,29 +215,59 @@ function spawnCharacters(
   return characters;
 }
 
-function normalizeCharacters(state: MatchState): readonly CharacterState[] {
-  if (state.characters?.length) return state.characters;
-  return state.players.map((player, index) => ({
-    id: index === 0 ? 0 : 3,
-    ownerUserId: player.userId,
-    displayName: player.displayName,
-    position: player.position,
-    radius: player.radius,
-    direction: player.direction,
-    alive: true,
-  }));
+function normalizeCharacterNames(
+  characters: readonly CharacterState[],
+  players: readonly PlayerState[],
+): readonly CharacterState[] {
+  return players.flatMap((player) =>
+    characters
+      .filter((character) => character.ownerUserId === player.userId)
+      .sort((first, second) => first.id - second.id)
+      .map((character, index) => ({
+        ...character,
+        displayName: `${player.displayName}-${index + 1}`,
+      })),
+  );
 }
 
-function nextTurnCharacterId(
+function normalizeCharacters(state: MatchState): readonly CharacterState[] {
+  if (state.characters?.length) return normalizeCharacterNames(state.characters, state.players);
+  return normalizeCharacterNames(
+    state.players.map((player, index) => ({
+      id: index === 0 ? 0 : 3,
+      ownerUserId: player.userId,
+      displayName: player.displayName,
+      position: player.position,
+      radius: player.radius,
+      direction: player.direction,
+      alive: true,
+    })),
+    state.players,
+  );
+}
+
+function nextLivingCharacterForOwner(
   characters: readonly CharacterState[],
-  currentCharacterId: number,
+  ownerUserId: string,
+  previousCharacterId: number | null,
 ): number | null {
-  const currentIndex = TURN_ORDER.indexOf(currentCharacterId as (typeof TURN_ORDER)[number]);
-  const startIndex = currentIndex >= 0 ? currentIndex : 0;
-  for (let offset = 1; offset <= TURN_ORDER.length; offset += 1) {
-    const candidateId = TURN_ORDER[(startIndex + offset) % TURN_ORDER.length];
-    const candidate = characters.find((character) => character.id === candidateId);
-    if (candidate?.alive) return candidate.id;
+  const livingCharacters = characters
+    .filter((character) => character.ownerUserId === ownerUserId && character.alive)
+    .sort((first, second) => first.id - second.id);
+  if (!livingCharacters.length) return null;
+  const previousIndex = livingCharacters.findIndex(
+    (character) => character.id === previousCharacterId,
+  );
+  if (previousIndex < 0) return livingCharacters[0].id;
+  return livingCharacters[(previousIndex + 1) % livingCharacters.length].id;
+}
+
+function lastShooterCharacterIdForOwner(state: MatchState, ownerUserId: string): number | null {
+  for (let index = (state.equationHistory?.length ?? 0) - 1; index >= 0; index -= 1) {
+    const entry = state.equationHistory[index];
+    if (entry?.shooterUserId === ownerUserId && typeof entry.shooterCharacterId === 'number') {
+      return entry.shooterCharacterId;
+    }
   }
   return null;
 }
@@ -425,9 +454,17 @@ export function resolveShot(
       break;
     }
   }
-  const turnCharacterId = winnerUserId ? null : nextTurnCharacterId(nextCharacters, shooter.id);
+  const nextTurnUserId = state.players.find((player) => player.userId !== shooterUserId)?.userId;
+  const turnCharacterId =
+    winnerUserId || !nextTurnUserId
+      ? null
+      : nextLivingCharacterForOwner(
+          nextCharacters,
+          nextTurnUserId,
+          lastShooterCharacterIdForOwner(state, nextTurnUserId),
+        );
   const turnUserId =
-    turnCharacterId === null
+    turnCharacterId === null || winnerUserId
       ? null
       : (nextCharacters.find((character) => character.id === turnCharacterId)?.ownerUserId ?? null);
   const nextState: MatchState = {

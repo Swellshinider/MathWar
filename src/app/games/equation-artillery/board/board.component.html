@@ -1,1 +1,6 @@
-<canvas #canvas aria-label="Equation Artillery coordinate plane"></canvas>
+<div class="board-shell">
+  <canvas #canvas aria-label="Equation Artillery coordinate plane"></canvas>
+  <div class="board-actions" aria-label="Board actions">
+    <ng-content select="[boardActions]" />
+  </div>
+</div>

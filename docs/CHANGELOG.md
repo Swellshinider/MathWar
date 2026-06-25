@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Graphwar-style expression aliases for `sen(x)`, `tg(x)`, and comma decimal input.
 - Reworked the Equation Artillery help modal into searchable collapsible sections with expanded
   play guidance and complete references for supported constants, operators, and functions.
+- Changed multiplayer soldiers to use numbered player-relative names, changed equation history
+  into chat-style messages with player and soldier metadata, and made turns alternate fairly
+  between players after soldiers are defeated.
+- Constrained Equation Artillery history to the board height so long histories scroll instead of
+  resizing the play layout.
+- Moved Equation Artillery Sound and Help into compact icon controls on the board and reorganized
+  multiplayer utility actions into cleaner toolbars.
 
 ### Fixed - 2026-06-25
 

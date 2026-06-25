@@ -1,4 +1,5 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import { BoardComponent } from './board/board.component';
 import { EquationControlsComponent } from './equation-controls/equation-controls.component';
@@ -14,7 +15,10 @@ import { Target } from './models/target';
 import { Wall } from './models/wall';
 import { WORLD_BOUNDS } from './models/world-bounds';
 import { EquationHelpDialogComponent } from './equation-help-dialog/equation-help-dialog.component';
-import { EquationHistoryComponent } from './equation-history/equation-history.component';
+import {
+  EquationHistoryComponent,
+  EquationHistoryMessage,
+} from './equation-history/equation-history.component';
 import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-settings-dialog.component';
 
 @Component({
@@ -25,6 +29,8 @@ import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-sett
     EquationHelpDialogComponent,
     EquationHistoryComponent,
     GameFrameComponent,
+    LucideCircleHelp,
+    LucideVolume2,
     SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
@@ -44,7 +50,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly active = signal(false);
   readonly error = signal<string | null>(null);
   readonly equation = signal('0.35x');
-  readonly equationHistory = signal<readonly string[]>([]);
+  readonly equationHistory = signal<readonly EquationHistoryMessage[]>([]);
   readonly roundComplete = computed(() => this.targets().length === 0);
   readonly status = computed(() => {
     if (this.roundComplete()) return 'All targets destroyed.';
@@ -65,7 +71,16 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       );
       return;
     }
-    this.equationHistory.update((history) => [...history, equation]);
+    this.equationHistory.update((history) => [
+      ...history,
+      {
+        id: `local-${history.length}`,
+        equation,
+        senderName: 'You',
+        soldierName: null,
+        mine: true,
+      },
+    ]);
     let shot = createShot(this.player(), this.targets(), this.walls());
     this.audio.playFire();
     this.audio.startEquationSound(shot.bullet.position);

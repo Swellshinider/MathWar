@@ -9,21 +9,44 @@ code {
 
 .game-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
   gap: var(--space-4);
-  align-items: stretch;
+  container-type: inline-size;
 }
 
-.game-column {
+.board-row {
+  --history-width: clamp(16rem, 28cqw, 19rem);
+
+  display: grid;
+  height: calc((100cqw - var(--history-width) - var(--space-4)) * 5 / 8);
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) var(--history-width);
+  gap: var(--space-4);
+  align-items: stretch;
   min-width: 0;
+}
+
+app-board {
+  height: 100%;
+  min-height: 0;
+}
+
+app-equation-history {
+  height: 100%;
+  min-height: 0;
 }
 
 @media (max-width: 56rem) {
   .game-layout {
+    container-type: normal;
+  }
+
+  .board-row {
+    height: auto;
     grid-template-columns: minmax(0, 1fr);
   }
 
   app-equation-history {
+    height: auto;
     max-height: 18rem;
   }
 }

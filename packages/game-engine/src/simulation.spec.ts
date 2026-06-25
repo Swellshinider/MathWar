@@ -44,6 +44,14 @@ describe('shared multiplayer simulation', () => {
 
     expect(state.characters.map((character) => character.id)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(state.characters.every((character) => character.alive)).toBe(true);
+    expect(state.characters.map((character) => character.displayName)).toEqual([
+      'Left-1',
+      'Left-2',
+      'Left-3',
+      'Right-1',
+      'Right-2',
+      'Right-3',
+    ]);
     state.characters.slice(0, 3).forEach((character) => {
       expect(character.position.x).toBeGreaterThanOrEqual(-14);
       expect(character.position.x).toBeLessThanOrEqual(-10);
@@ -111,7 +119,7 @@ describe('shared multiplayer simulation', () => {
     expect(Math.max(...wallPieceYs)).toBeGreaterThan(5);
   });
 
-  it('removes one character on hit and skips dead characters in turn order', () => {
+  it('removes one character on hit and gives the next turn to the opposing team', () => {
     const created = createMatchState(
       '00000000-0000-4000-8000-000000000001',
       'ABC123',
@@ -135,8 +143,72 @@ describe('shared multiplayer simulation', () => {
     expect(shot.state.status).toBe('active');
     expect(shot.state.winnerUserId).toBeNull();
     expect(shot.state.characters.find((character) => character.id === 3)?.alive).toBe(false);
-    expect(shot.state.turnCharacterId).toBe(1);
-    expect(shot.state.turnUserId).toBe('left');
+    expect(shot.state.turnCharacterId).toBe(4);
+    expect(shot.state.turnUserId).toBe('right');
+  });
+
+  it('keeps turns alternating by player when one team has fewer living characters', () => {
+    const created = createMatchState(
+      '00000000-0000-4000-8000-000000000001',
+      'ABC123',
+      'fair-turns',
+      { userId: 'left', displayName: 'Left' },
+      { userId: 'right', displayName: 'Right' },
+    );
+    const state = {
+      ...created,
+      walls: [],
+      turnCharacterId: 0,
+      turnUserId: 'left',
+      characters: created.characters.map((character) => {
+        if (character.id === 0) return { ...character, position: { x: -9, y: 0 } };
+        if (character.id === 3) return { ...character, position: { x: 9, y: 0 }, alive: false };
+        if (character.id === 4) return { ...character, position: { x: 9, y: 6 }, alive: false };
+        if (character.id === 5) return { ...character, position: { x: 9, y: 8 }, alive: true };
+        return { ...character, position: { x: character.position.x, y: 6 }, alive: true };
+      }),
+      equationHistory: [
+        { commandId: 'left-0', shooterUserId: 'left', shooterCharacterId: 0, equation: '50' },
+        { commandId: 'right-5', shooterUserId: 'right', shooterCharacterId: 5, equation: '50' },
+      ],
+    };
+
+    const leftShot = resolveShot(state, 'left', 'left-command', '50');
+    expect(leftShot.state.turnUserId).toBe('right');
+    expect(leftShot.state.turnCharacterId).toBe(5);
+
+    const rightShot = resolveShot(leftShot.state, 'right', 'right-command', '50');
+    expect(rightShot.state.turnUserId).toBe('left');
+    expect(rightShot.state.turnCharacterId).toBe(1);
+  });
+
+  it('normalizes legacy character display names to player-relative soldier names', () => {
+    const created = createMatchState(
+      '00000000-0000-4000-8000-000000000001',
+      'ABC123',
+      'legacy-names',
+      { userId: 'left', displayName: 'Left' },
+      { userId: 'right', displayName: 'Right' },
+    );
+    const legacy = {
+      ...created,
+      walls: [],
+      characters: created.characters.map((character) => ({
+        ...character,
+        displayName: character.ownerUserId === 'left' ? 'Left' : 'Right',
+      })),
+    };
+
+    const shot = resolveShot(legacy, 'left', 'command', '50');
+
+    expect(shot.state.characters.map((character) => character.displayName)).toEqual([
+      'Left-1',
+      'Left-2',
+      'Left-3',
+      'Right-1',
+      'Right-2',
+      'Right-3',
+    ]);
   });
 
   it('ends the match after the last opposing character is hit', () => {

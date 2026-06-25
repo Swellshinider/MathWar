@@ -31,6 +31,13 @@ describe('EquationArtilleryPageComponent', () => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
     advanceShot = undefined;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
     TestBed.overrideComponent(EquationArtilleryPageComponent, {
       set: {
         providers: [{ provide: AnimationService, useValue: animation }],
@@ -42,17 +49,38 @@ describe('EquationArtilleryPageComponent', () => {
     }).compileComponents();
   });
 
+  afterEach(() => vi.unstubAllGlobals());
+
   it('records only equations that successfully start a shot', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;
 
     component.fire('sin(x)');
-    expect(component.equationHistory()).toEqual(['sin(x)']);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['sin(x)']);
+    expect(component.equationHistory()[0]).toMatchObject({
+      senderName: 'You',
+      soldierName: null,
+      mine: true,
+    });
 
     component.active.set(false);
     component.fire('x+(');
-    expect(component.equationHistory()).toEqual(['sin(x)']);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['sin(x)']);
     expect(component.error()).not.toBeNull();
+  });
+
+  it('places sound and help controls on the board instead of the page header', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    fixture.detectChanges();
+
+    const introActions = fixture.nativeElement.querySelector('.intro-actions');
+    const board = fixture.nativeElement.querySelector('app-board');
+
+    expect(introActions.textContent).toContain('Play 1v1');
+    expect(introActions.textContent).not.toContain('Sound');
+    expect(introActions.textContent).not.toContain('Help');
+    expect(board.querySelector('[aria-label="Open sound settings"]')).not.toBeNull();
+    expect(board.querySelector('[aria-label="Open equation help"]')).not.toBeNull();
   });
 
   it('retains history across new rounds', () => {
@@ -62,7 +90,7 @@ describe('EquationArtilleryPageComponent', () => {
     component.fire('x^2');
     component.newRound();
 
-    expect(component.equationHistory()).toEqual(['x^2']);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['x^2']);
     expect(component.active()).toBe(false);
     expect(audio.stopEquationSound).toHaveBeenCalled();
   });

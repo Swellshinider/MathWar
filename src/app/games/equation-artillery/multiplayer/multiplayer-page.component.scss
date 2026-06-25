@@ -3,14 +3,34 @@
 }
 
 .game-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem);
-  gap: var(--space-4);
-  align-items: stretch;
+  display: block;
 }
 
 .game-column {
   min-width: 0;
+  container-type: inline-size;
+}
+
+.board-row {
+  --history-width: clamp(16rem, 28cqw, 19rem);
+
+  display: grid;
+  height: calc((100cqw - var(--history-width) - var(--space-4)) * 5 / 8);
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) var(--history-width);
+  gap: var(--space-4);
+  align-items: stretch;
+  min-width: 0;
+}
+
+app-board {
+  height: 100%;
+  min-height: 0;
+}
+
+app-equation-history {
+  height: 100%;
+  min-height: 0;
 }
 
 .panel {
@@ -43,17 +63,17 @@
 
 .account,
 .match-meta {
-  display: flex;
+  display: grid;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.match-actions {
+.match-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -108,11 +128,33 @@
 }
 
 @media (max-width: 56rem) {
-  .game-layout {
+  .game-column {
+    container-type: normal;
+  }
+
+  .board-row {
+    height: auto;
     grid-template-columns: minmax(0, 1fr);
   }
 
   app-equation-history {
+    height: auto;
     max-height: 18rem;
+  }
+}
+
+@media (max-width: 37.5rem) {
+  .account,
+  .match-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account .btn,
+  .match-toolbar .btn {
+    width: 100%;
+  }
+
+  .match-toolbar {
+    justify-content: stretch;
   }
 }

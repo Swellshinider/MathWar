@@ -1,6 +1,7 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
 import {
   CharacterState,
   MatchEndedEvent,
@@ -11,7 +12,10 @@ import {
 import { GameFrameComponent } from '../../../shared/game-frame/game-frame.component';
 import { BoardComponent } from '../board/board.component';
 import { EquationHelpDialogComponent } from '../equation-help-dialog/equation-help-dialog.component';
-import { EquationHistoryComponent } from '../equation-history/equation-history.component';
+import {
+  EquationHistoryComponent,
+  EquationHistoryMessage,
+} from '../equation-history/equation-history.component';
 import { AnimationService } from '../game/animation.service';
 import { EquationArtilleryAudioService } from '../game/audio.service';
 import { BoardCharacter } from '../game/board-renderer.service';
@@ -39,6 +43,8 @@ function formatRoomCode(value: string): string {
     EquationHistoryComponent,
     FormsModule,
     GameFrameComponent,
+    LucideCircleHelp,
+    LucideVolume2,
     SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
@@ -118,9 +124,26 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly isMyTurn = computed(
     () => this.state()?.status === 'active' && this.state()?.turnUserId === this.userId(),
   );
-  readonly equationHistory = computed(
-    () => this.state()?.equationHistory?.map((entry) => entry.equation) ?? [],
-  );
+  readonly equationHistory = computed<readonly EquationHistoryMessage[]>(() => {
+    const state = this.state();
+    const userId = this.userId();
+    if (!state) return [];
+    const characters = this.charactersForState(state);
+    return (state.equationHistory ?? []).map((entry, index) => {
+      const player = state.players.find((candidate) => candidate.userId === entry.shooterUserId);
+      const character =
+        typeof entry.shooterCharacterId === 'number'
+          ? characters.find((candidate) => candidate.id === entry.shooterCharacterId)
+          : null;
+      return {
+        id: entry.commandId ?? `history-${index}`,
+        equation: entry.equation,
+        senderName: player?.displayName ?? 'Opponent',
+        soldierName: character?.displayName ?? null,
+        mine: entry.shooterUserId === userId,
+      };
+    });
+  });
   readonly rememberedEquations = computed(() => {
     const state = this.state();
     const userId = this.userId();
@@ -388,15 +411,25 @@ export class MultiplayerPageComponent implements OnDestroy {
 
   private charactersForState(state: MatchState | null | undefined): readonly CharacterState[] {
     if (!state) return [];
-    if (state.characters?.length) return state.characters;
-    return state.players.map((player, index) => ({
-      id: index === 0 ? 0 : 3,
-      ownerUserId: player.userId,
-      displayName: player.displayName,
-      position: player.position,
-      radius: player.radius,
-      direction: player.direction,
-      alive: true,
-    }));
+    const characters = state.characters?.length
+      ? state.characters
+      : state.players.map((player, index) => ({
+          id: index === 0 ? 0 : 3,
+          ownerUserId: player.userId,
+          displayName: player.displayName,
+          position: player.position,
+          radius: player.radius,
+          direction: player.direction,
+          alive: true,
+        }));
+    return state.players.flatMap((player) =>
+      characters
+        .filter((character) => character.ownerUserId === player.userId)
+        .sort((first, second) => first.id - second.id)
+        .map((character, index) => ({
+          ...character,
+          displayName: `${player.displayName}-${index + 1}`,
+        })),
+    );
   }
 }

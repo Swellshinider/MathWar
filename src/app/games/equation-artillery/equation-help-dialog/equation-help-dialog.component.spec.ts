@@ -35,7 +35,7 @@ describe('EquationHelpDialogComponent', () => {
     const text = fixture.nativeElement.textContent;
 
     expect(text).toContain('same trajectory as the function graph');
-    expect(text).toContain('y = f(x) + c');
+    expect(text).toContain('f(x) = x + c');
     expect(text).toContain('2x + 3');
     CONSTANT_REFERENCES.forEach((reference) => expect(text).toContain(reference.syntax));
     OPERATOR_REFERENCES.forEach((reference) => expect(text).toContain(reference.syntax));
