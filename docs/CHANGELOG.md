@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sampling, vertical launch anchoring, tangent launch offsets, and adaptive curve stepping for
   local and multiplayer shots.
 - Added Graphwar-style expression aliases for `sen(x)`, `tg(x)`, and comma decimal input.
+- Reworked the Equation Artillery help modal into searchable collapsible sections with expanded
+  play guidance and complete references for supported constants, operators, and functions.
 
 ### Fixed - 2026-06-25
 

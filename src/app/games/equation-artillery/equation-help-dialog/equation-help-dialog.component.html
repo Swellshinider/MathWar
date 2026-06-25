@@ -1,26 +1,67 @@
 <dialog #dialog aria-labelledby="equation-help-title">
   <header>
     <h2 id="equation-help-title">Equation help</h2>
-    <button
-      type="button"
-      class="btn btn--ghost"
-      aria-label="Close equation help"
-      (click)="close()"
-    >
+    <button type="button" class="btn btn--ghost" aria-label="Close equation help" (click)="close()">
       Close
     </button>
   </header>
 
-  <div class="references">
-    <p class="help-note">
-      Shots evaluate f(x) against the board's x-coordinate, then shift vertically to launch from
-      the active player.
-    </p>
-    <app-function-reference title="Trigonometry" [functions]="trigonometryFunctions" />
-    <app-function-reference
-      title="Numbers and logs"
-      [functions]="numericFunctions"
-      [showSyntax]="true"
+  <label class="search-field" for="equation-help-search">
+    <span>Search references</span>
+    <input
+      id="equation-help-search"
+      class="field"
+      type="search"
+      [value]="searchQuery()"
+      autocomplete="off"
+      spellcheck="false"
+      (input)="setSearchQuery($any($event.target).value)"
     />
+  </label>
+
+  <div class="dialog-body">
+    @for (section of visibleSections(); track section.id) {
+      <section class="help-section">
+        <h3>
+          <button
+            type="button"
+            [attr.aria-expanded]="isSectionOpen(section.id)"
+            [attr.aria-controls]="'equation-help-section-' + section.id"
+            (click)="toggleSection(section.id)"
+          >
+            <span>
+              <strong>{{ section.title }}</strong>
+              <small>{{ section.summary }}</small>
+            </span>
+            <span class="chevron" aria-hidden="true"></span>
+          </button>
+        </h3>
+
+        @if (isSectionOpen(section.id)) {
+          <div class="section-content" [id]="'equation-help-section-' + section.id">
+            @if (section.kind === 'content') {
+              @for (paragraph of section.paragraphs; track paragraph) {
+                <p>{{ paragraph }}</p>
+              }
+            } @else {
+              <table>
+                <tbody>
+                  @for (entry of section.entries; track entry.syntax) {
+                    <tr>
+                      <th scope="row">
+                        <code>{{ entry.syntax }}</code>
+                      </th>
+                      <td>{{ entry.description }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        }
+      </section>
+    } @empty {
+      <p class="empty-state">No matching references.</p>
+    }
   </div>
 </dialog>
