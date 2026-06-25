@@ -141,4 +141,96 @@ describe('EquationArtilleryPageComponent', () => {
     expect(audio.stopEquationSound).toHaveBeenCalled();
     expect(audio.playWallHit).toHaveBeenCalledOnce();
   });
+
+  it('shows CPU setup only after selecting single player without starting a match', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(fixture.nativeElement.querySelector('.difficulty-control')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Start Single Player');
+
+    const modeTabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.mode-tab'),
+    ) as HTMLButtonElement[];
+    const singlePlayerTab = modeTabs.find((button) =>
+      button.textContent?.includes('Single Player'),
+    )!;
+    singlePlayerTab.click();
+    fixture.detectChanges();
+
+    expect(component.gameMode()).toBe('single-player');
+    expect(component.singlePlayerState()).toBeNull();
+    expect(fixture.nativeElement.querySelector('.difficulty-control')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Start Single Player');
+
+    const startButton = fixture.nativeElement.querySelector(
+      '.difficulty-control .btn',
+    ) as HTMLButtonElement;
+    startButton.click();
+    fixture.detectChanges();
+
+    expect(component.singlePlayerState()).not.toBeNull();
+    expect(component.status()).toBe('Your turn.');
+  });
+
+  it('starts single player with six soldiers and no square targets', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+
+    component.cpuDifficulty.set(7);
+    component.startCpuMatch();
+
+    expect(component.gameMode()).toBe('single-player');
+    expect(component.cpuDifficulty()).toBe(7);
+    expect(component.boardCharacters().map((character) => character.displayName)).toEqual([
+      'You-1',
+      'You-2',
+      'You-3',
+      'CPU-1',
+      'CPU-2',
+      'CPU-3',
+    ]);
+    expect(component.targetsForBoard()).toEqual([]);
+    expect(component.status()).toBe('Your turn.');
+  });
+
+  it('records player soldier metadata in single player history', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.startCpuMatch();
+
+    component.fire('0');
+    for (let index = 0; index < 500; index += 1) {
+      if (advanceShot?.(1) === false) break;
+    }
+
+    expect(component.equationHistory()[0]).toMatchObject({
+      equation: '0',
+      senderName: 'You',
+      soldierName: 'You-1',
+      mine: true,
+    });
+  });
+
+  it('fires the CPU turn after the player shot animation finishes', () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.startCpuMatch();
+
+    component.fire('50');
+    for (let index = 0; index < 500; index += 1) {
+      if (advanceShot?.(1) === false) break;
+    }
+    vi.runOnlyPendingTimers();
+    for (let index = 0; index < 500; index += 1) {
+      if (advanceShot?.(1) === false) break;
+    }
+
+    expect(component.cpuThinking()).toBe(false);
+    expect(audio.playFire).toHaveBeenCalledTimes(2);
+    expect(component.equationHistory().some((entry) => entry.senderName === 'CPU')).toBe(true);
+    vi.useRealTimers();
+  });
 });

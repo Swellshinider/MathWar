@@ -6,6 +6,59 @@
   margin-bottom: var(--space-4);
 }
 
+.mode-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.mode-panel__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.mode-tab {
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.8rem;
+  color: var(--text-2);
+  background: var(--surface-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mode-tab--active {
+  border-color: var(--accent);
+  color: var(--text-1);
+  background: var(--surface-3);
+}
+
+.difficulty-control {
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 12rem) 2ch auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.difficulty-control label,
+.difficulty-control output {
+  color: var(--text-2);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.difficulty-control input {
+  accent-color: var(--accent);
+}
+
 code {
   color: var(--accent);
   font-family: var(--font-mono);
@@ -52,5 +105,14 @@ app-equation-history {
   app-equation-history {
     height: auto;
     max-height: 18rem;
+  }
+
+  .difficulty-control {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) 2ch;
+  }
+
+  .difficulty-control .btn {
+    grid-column: 1 / -1;
   }
 }

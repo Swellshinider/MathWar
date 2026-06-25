@@ -1,18 +1,55 @@
-<app-game-frame
-  eyebrow="Functions and graphs"
-  title="Equation Artillery"
-  [wide]="true"
->
+<app-game-frame eyebrow="Functions and graphs" title="Equation Artillery" [wide]="true">
   <div class="multiplayer-launch">
     <app-multiplayer-lobby (play)="enterMultiplayer()" />
   </div>
 
+  <section class="mode-panel" aria-label="Offline mode">
+    <div class="mode-panel__tabs" role="tablist" aria-label="Offline game modes">
+      <button
+        type="button"
+        class="mode-tab"
+        [class.mode-tab--active]="gameMode() === 'target-practice'"
+        (click)="selectTargetPractice()"
+      >
+        Target Practice
+      </button>
+      <button
+        type="button"
+        class="mode-tab"
+        [class.mode-tab--active]="gameMode() === 'single-player'"
+        (click)="selectSinglePlayerMode()"
+      >
+        Single Player
+      </button>
+    </div>
+    @if (gameMode() === 'single-player') {
+      <div class="difficulty-control">
+        <label for="cpu-difficulty">CPU level</label>
+        <input
+          id="cpu-difficulty"
+          type="range"
+          min="0"
+          max="10"
+          step="1"
+          [value]="cpuDifficulty()"
+          [disabled]="cpuDifficultyLocked()"
+          (input)="cpuDifficulty.set($any($event.target).valueAsNumber)"
+        />
+        <output for="cpu-difficulty">{{ cpuDifficulty() }}</output>
+        <button type="button" class="btn btn--subtle" (click)="startCpuMatch()">
+          Start Single Player
+        </button>
+      </div>
+    }
+  </section>
+
   <div class="game-layout">
     <div class="board-row">
       <app-board
-        [player]="player()"
-        [targets]="targets()"
-        [walls]="walls()"
+        [player]="playerForBoard()"
+        [characters]="boardCharacters()"
+        [targets]="targetsForBoard()"
+        [walls]="wallsForBoard()"
         [bullet]="bullet()"
         [trail]="trail()"
       >
@@ -50,7 +87,7 @@
 
     <app-equation-controls
       [(equation)]="equation"
-      [active]="active()"
+      [active]="controlsActive()"
       [roundComplete]="roundComplete()"
       [error]="error()"
       [status]="status()"

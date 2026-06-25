@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-25
+
+- Added an offline Single Player Equation Artillery mode with CPU soldier squads, local turn
+  resolution, and a pre-match CPU difficulty selector from 0 to 10.
+
 ### Changed - 2026-06-25
 
 - Stretched the site header and footer to the full viewport width.
