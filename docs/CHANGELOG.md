@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed - 2026-06-25
 
+- Reworked Single Player CPU aiming with Graphwar-inspired per-soldier evolutionary search,
+  difficulty-scaled calculations, and penalties for repeating missed equations.
 - Stretched the site header and footer to the full viewport width.
 - Redesigned the landing catalog into clickable game cards with preview imagery and animated hover.
 - Renamed the "Math War" brand to "MathWar" across the app, README, and architecture docs.

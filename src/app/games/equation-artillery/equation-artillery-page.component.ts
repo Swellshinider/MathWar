@@ -14,7 +14,12 @@ import { EquationControlsComponent } from './equation-controls/equation-controls
 import { AnimationService } from './game/animation.service';
 import { EquationArtilleryAudioService } from './game/audio.service';
 import { BoardCharacter } from './game/board-renderer.service';
-import { chooseCpuEquation } from './game/cpu-opponent';
+import {
+  chooseCpuMove,
+  createCpuOpponentMemory,
+  CpuOpponentMemory,
+  recordCpuShotOutcome,
+} from './game/cpu-opponent';
 import { compileExpression, ExpressionError } from './game/expression';
 import { spawnRound } from './game/spawning';
 import { advanceShot, createShot } from './game/trajectory';
@@ -79,6 +84,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly activeShotCharacterId = signal<number | null>(null);
   readonly activeShotEquation = signal<string | null>(null);
   readonly lastShotLabel = signal<{ characterId: number; equation: string } | null>(null);
+  readonly cpuOpponentMemory = signal<CpuOpponentMemory | null>(null);
   readonly error = signal<string | null>(null);
   readonly equation = signal('0.35x');
   private readonly targetPracticeHistory = signal<readonly EquationHistoryMessage[]>([]);
@@ -243,6 +249,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.audio.stopEquationSound();
     this.gameMode.set('target-practice');
     this.singlePlayerState.set(null);
+    this.cpuOpponentMemory.set(null);
     this.pendingSinglePlayerState = null;
     this.activeShot.set(false);
     this.cpuThinking.set(false);
@@ -257,6 +264,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.audio.stopEquationSound();
     this.gameMode.set('single-player');
     this.singlePlayerState.set(null);
+    this.cpuOpponentMemory.set(null);
     this.pendingSinglePlayerState = null;
     this.active.set(false);
     this.activeShot.set(false);
@@ -283,6 +291,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     );
     this.gameMode.set('single-player');
     this.singlePlayerState.set(state);
+    this.cpuOpponentMemory.set(createCpuOpponentMemory(state));
     this.pendingSinglePlayerState = null;
     this.active.set(false);
     this.activeShot.set(false);
@@ -333,8 +342,18 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       this.cpuThinking.set(false);
       return;
     }
-    const equation = chooseCpuEquation(state, this.cpuDifficulty());
+    const memory = this.cpuOpponentMemory() ?? createCpuOpponentMemory(state);
+    const decision = chooseCpuMove(state, this.cpuDifficulty(), memory);
+    this.cpuOpponentMemory.set(decision.memory);
+    const equation = decision.equation;
     const event = resolveShot(state, CPU_USER_ID, this.nextCommandId('cpu'), equation);
+    this.cpuOpponentMemory.update((currentMemory) =>
+      recordCpuShotOutcome(currentMemory ?? decision.memory, {
+        shooterCharacterId: event.shooterCharacterId,
+        equation: event.equation,
+        impact: event.impact,
+      }),
+    );
     this.cpuThinking.set(false);
     if (event.error) {
       this.error.set(event.error);

@@ -195,6 +195,24 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.status()).toBe('Your turn.');
   });
 
+  it('initializes and resets CPU memory for each single player match', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.cpuOpponentMemory()).toBeNull();
+
+    component.startCpuMatch();
+    const firstMemory = component.cpuOpponentMemory();
+
+    expect(firstMemory).not.toBeNull();
+    expect(firstMemory?.populations.size).toBe(3);
+
+    component.startCpuMatch();
+
+    expect(component.cpuOpponentMemory()).not.toBe(firstMemory);
+    expect(component.cpuOpponentMemory()?.recentMisses.size).toBe(0);
+  });
+
   it('records player soldier metadata in single player history', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;
@@ -231,6 +249,41 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.cpuThinking()).toBe(false);
     expect(audio.playFire).toHaveBeenCalledTimes(2);
     expect(component.equationHistory().some((entry) => entry.senderName === 'CPU')).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('records CPU shot outcomes in CPU memory', () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    component.cpuDifficulty.set(0);
+    component.startCpuMatch();
+    component.singlePlayerState.update((state) =>
+      state
+        ? {
+            ...state,
+            characters: state.characters.map((character) => {
+              if (character.ownerUserId === 'human') {
+                return { ...character, position: { x: -12 + character.id, y: 7 } };
+              }
+              if (character.id === 3) return { ...character, position: { x: 12, y: -7 } };
+              return { ...character, position: { x: 10 + (character.id - 3), y: -8 } };
+            }),
+          }
+        : state,
+    );
+
+    component.fire('50');
+    for (let index = 0; index < 500; index += 1) {
+      if (advanceShot?.(1) === false) break;
+    }
+    vi.runOnlyPendingTimers();
+    for (let index = 0; index < 500; index += 1) {
+      if (advanceShot?.(1) === false) break;
+    }
+
+    expect(component.cpuOpponentMemory()?.recentMisses.size).toBeGreaterThanOrEqual(1);
     vi.useRealTimers();
   });
 });
