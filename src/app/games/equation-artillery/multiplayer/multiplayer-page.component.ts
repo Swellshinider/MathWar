@@ -1,6 +1,7 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
 import {
   CharacterState,
   MatchEndedEvent,
@@ -42,6 +43,8 @@ function formatRoomCode(value: string): string {
     EquationHistoryComponent,
     FormsModule,
     GameFrameComponent,
+    LucideCircleHelp,
+    LucideVolume2,
     SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],

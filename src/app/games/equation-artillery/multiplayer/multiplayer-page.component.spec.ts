@@ -217,6 +217,24 @@ describe('MultiplayerPageComponent', () => {
     expect(text).not.toContain('Version 1');
   });
 
+  it('keeps sound and help on the board while match actions remain text controls', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    handlers.state(matchState());
+    fixture.detectChanges();
+
+    const introActions = fixture.nativeElement.querySelector('.intro-actions');
+    const board = fixture.nativeElement.querySelector('app-board');
+    const matchToolbar = fixture.nativeElement.querySelector('.match-toolbar');
+
+    expect(introActions.textContent).not.toContain('Sound');
+    expect(introActions.textContent).not.toContain('Help');
+    expect(board.querySelector('[aria-label="Open sound settings"]')).not.toBeNull();
+    expect(board.querySelector('[aria-label="Open equation help"]')).not.toBeNull();
+    expect(matchToolbar.textContent).toContain('Share link');
+    expect(matchToolbar.textContent).toContain('Leave match');
+  });
+
   it('reveals the newest authoritative result only after the shot animation finishes', () => {
     const fixture = TestBed.createComponent(MultiplayerPageComponent);
     fixture.detectChanges();

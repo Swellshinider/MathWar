@@ -5,24 +5,6 @@
   [wide]="true"
 >
   <a gameActions class="btn btn--ghost" href="/games/equation-artillery/multiplayer"> Play 1v1 </a>
-  <button
-    gameActions
-    type="button"
-    class="btn btn--ghost"
-    aria-haspopup="dialog"
-    (click)="soundDialog.open()"
-  >
-    Sound
-  </button>
-  <button
-    gameActions
-    type="button"
-    class="btn btn--ghost"
-    aria-haspopup="dialog"
-    (click)="helpDialog.open()"
-  >
-    Help
-  </button>
 
   <div class="game-layout">
     <div class="board-row">
@@ -32,7 +14,32 @@
         [walls]="walls()"
         [bullet]="bullet()"
         [trail]="trail()"
-      />
+      >
+        <button
+          boardActions
+          type="button"
+          class="board-action"
+          aria-label="Open sound settings"
+          aria-describedby="local-sound-tooltip"
+          aria-haspopup="dialog"
+          (click)="soundDialog.open()"
+        >
+          <svg lucideVolume2 aria-hidden="true"></svg>
+          <span id="local-sound-tooltip" class="board-action__tooltip" role="tooltip">Sound</span>
+        </button>
+        <button
+          boardActions
+          type="button"
+          class="board-action"
+          aria-label="Open equation help"
+          aria-describedby="local-help-tooltip"
+          aria-haspopup="dialog"
+          (click)="helpDialog.open()"
+        >
+          <svg lucideCircleHelp aria-hidden="true"></svg>
+          <span id="local-help-tooltip" class="board-action__tooltip" role="tooltip">Help</span>
+        </button>
+      </app-board>
 
       <app-equation-history
         [equations]="equationHistory()"

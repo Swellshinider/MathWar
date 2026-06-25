@@ -4,25 +4,6 @@
   objective="Hit the opposing player with a function before they hit you."
   [wide]="true"
 >
-  <button
-    gameActions
-    type="button"
-    class="btn btn--ghost"
-    aria-haspopup="dialog"
-    (click)="soundDialog.open()"
-  >
-    Sound
-  </button>
-  <button
-    gameActions
-    type="button"
-    class="btn btn--ghost"
-    aria-haspopup="dialog"
-    (click)="helpDialog.open()"
-  >
-    Help
-  </button>
-
   @if (!auth.ready()) {
     <p class="loading">Loading authentication…</p>
   } @else if (!auth.session()) {
@@ -45,7 +26,7 @@
       }
     </section>
   } @else {
-    <div class="account">
+    <div class="account toolbar">
       <span class="account-name">{{ auth.session()?.user?.displayName }}</span>
       <button type="button" class="btn btn--subtle" (click)="auth.signOut()">Reset session</button>
     </div>
@@ -76,7 +57,7 @@
         <div class="game-column">
           <section class="match-meta">
             <strong>Room {{ state()?.roomCode }}</strong>
-            <div class="match-actions">
+            <div class="match-toolbar">
               <button type="button" class="btn btn--subtle" (click)="shareRoomLink()">
                 Share link
               </button>
@@ -98,7 +79,36 @@
               [walls]="state()?.walls ?? []"
               [bullet]="bullet()"
               [trail]="trail()"
-            />
+            >
+              <button
+                boardActions
+                type="button"
+                class="board-action"
+                aria-label="Open sound settings"
+                aria-describedby="multiplayer-sound-tooltip"
+                aria-haspopup="dialog"
+                (click)="soundDialog.open()"
+              >
+                <svg lucideVolume2 aria-hidden="true"></svg>
+                <span id="multiplayer-sound-tooltip" class="board-action__tooltip" role="tooltip">
+                  Sound
+                </span>
+              </button>
+              <button
+                boardActions
+                type="button"
+                class="board-action"
+                aria-label="Open equation help"
+                aria-describedby="multiplayer-help-tooltip"
+                aria-haspopup="dialog"
+                (click)="helpDialog.open()"
+              >
+                <svg lucideCircleHelp aria-hidden="true"></svg>
+                <span id="multiplayer-help-tooltip" class="board-action__tooltip" role="tooltip">
+                  Help
+                </span>
+              </button>
+            </app-board>
             <app-equation-history
               [equations]="equationHistory()"
               (selectEquation)="equation.set($event)"

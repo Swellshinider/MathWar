@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   between players after soldiers are defeated.
 - Constrained Equation Artillery history to the board height so long histories scroll instead of
   resizing the play layout.
+- Moved Equation Artillery Sound and Help into compact icon controls on the board and reorganized
+  multiplayer utility actions into cleaner toolbars.
 
 ### Fixed - 2026-06-25
 

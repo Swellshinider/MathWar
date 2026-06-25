@@ -1,4 +1,5 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import { BoardComponent } from './board/board.component';
 import { EquationControlsComponent } from './equation-controls/equation-controls.component';
@@ -28,6 +29,8 @@ import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-sett
     EquationHelpDialogComponent,
     EquationHistoryComponent,
     GameFrameComponent,
+    LucideCircleHelp,
+    LucideVolume2,
     SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
