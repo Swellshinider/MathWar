@@ -6,10 +6,9 @@ import { Wall } from '../models/wall';
 import { WorldBounds } from '../models/world-bounds';
 import { damageWalls, pointHitsTarget, pointHitsWallPiece } from './collision';
 import { CompiledExpression, ExpressionError } from './expression';
+import { createGraphShotCursor, GraphShotCursor } from '@math-war/game-engine';
 
 export const WALL_BLAST_RADIUS = 0.75;
-const BOUNDS_EPSILON = 1e-9;
-
 export type ShotImpact = 'target' | 'wall' | 'bounds' | 'invalid' | null;
 
 export interface ShotState {
@@ -20,6 +19,7 @@ export interface ShotState {
   readonly active: boolean;
   readonly error: string | null;
   readonly impact: ShotImpact;
+  readonly cursor: GraphShotCursor | null;
 }
 
 export function createShot(
@@ -35,47 +35,8 @@ export function createShot(
     active: true,
     error: null,
     impact: null,
+    cursor: null,
   };
-}
-
-function pointInsideBounds(point: Point, bounds: WorldBounds): boolean {
-  return (
-    point.x >= bounds.minX - BOUNDS_EPSILON &&
-    point.x <= bounds.maxX + BOUNDS_EPSILON &&
-    point.y >= bounds.minY - BOUNDS_EPSILON &&
-    point.y <= bounds.maxY + BOUNDS_EPSILON
-  );
-}
-
-function segmentBoundsExitPoint(from: Point, to: Point, bounds: WorldBounds): Point {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const candidates: Point[] = [];
-  const addCandidate = (t: number): void => {
-    if (t <= 0 || t > 1 || !Number.isFinite(t)) return;
-    const point = { x: from.x + dx * t, y: from.y + dy * t };
-    if (pointInsideBounds(point, bounds)) candidates.push(point);
-  };
-
-  if (dx !== 0) {
-    addCandidate((bounds.minX - from.x) / dx);
-    addCandidate((bounds.maxX - from.x) / dx);
-  }
-  if (dy !== 0) {
-    addCandidate((bounds.minY - from.y) / dy);
-    addCandidate((bounds.maxY - from.y) / dy);
-  }
-
-  return (
-    candidates.sort((first, second) => {
-      const firstDistance = Math.hypot(first.x - from.x, first.y - from.y);
-      const secondDistance = Math.hypot(second.x - from.x, second.y - from.y);
-      return firstDistance - secondDistance;
-    })[0] ?? {
-      x: Math.min(Math.max(to.x, bounds.minX), bounds.maxX),
-      y: Math.min(Math.max(to.y, bounds.minY), bounds.maxY),
-    }
-  );
 }
 
 export function advanceShot(
@@ -86,11 +47,19 @@ export function advanceShot(
   step: number,
 ): ShotState {
   if (!state.active) return state;
-  const nextX = state.bullet.position.x + step;
-  let nextY: number;
+  let cursor = state.cursor;
+  let next;
   try {
-    nextY =
-      player.position.y + expression.evaluate(nextX - player.position.x) - expression.originValue;
+    cursor ??= createGraphShotCursor({
+      expression,
+      shooter: player.position,
+      shooterRadius: player.radius,
+      direction: 1,
+      bounds,
+      step,
+      maxSegmentLength: state.bullet.radius * 2,
+    });
+    next = cursor.next();
   } catch (error) {
     return {
       ...state,
@@ -99,13 +68,33 @@ export function advanceShot(
       impact: 'invalid',
     };
   }
-  const point = { x: nextX, y: nextY };
-  if (!pointInsideBounds(point, bounds)) {
-    const exitPoint = segmentBoundsExitPoint(state.bullet.position, point, bounds);
+
+  if (next.kind === 'invalid') {
     return {
       ...state,
-      bullet: { ...state.bullet, position: exitPoint },
-      trail: [...state.trail, exitPoint],
+      cursor,
+      active: false,
+      error: next.error,
+      impact: 'invalid',
+    };
+  }
+
+  if (next.kind === 'done') {
+    return {
+      ...state,
+      cursor,
+      active: false,
+      impact: 'bounds',
+    };
+  }
+
+  const point = next.point;
+  if (next.kind === 'bounds') {
+    return {
+      ...state,
+      cursor,
+      bullet: { ...state.bullet, position: point },
+      trail: [...state.trail, point],
       active: false,
       impact: 'bounds',
     };
@@ -116,6 +105,7 @@ export function advanceShot(
   if (hitPiece) {
     return {
       ...state,
+      cursor,
       bullet: { ...state.bullet, position: point },
       trail: [...state.trail, point],
       walls: damageWalls(state.walls, point, WALL_BLAST_RADIUS),
@@ -126,6 +116,7 @@ export function advanceShot(
   const targets = state.targets.filter((target) => !pointHitsTarget(point, target));
   return {
     ...state,
+    cursor,
     bullet: { ...state.bullet, position: point },
     trail: [...state.trail, point],
     targets,

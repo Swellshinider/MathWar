@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2026-06-25
+
+- Remade Equation Artillery shot solving around Graphwar-inspired board-coordinate graph
+  sampling, vertical launch anchoring, tangent launch offsets, and adaptive curve stepping for
+  local and multiplayer shots.
+- Added Graphwar-style expression aliases for `sen(x)`, `tg(x)`, and comma decimal input.
+
 ### Fixed - 2026-06-25
 
 - Rendered shots to the board edge when trajectories exit the visible area and anchored

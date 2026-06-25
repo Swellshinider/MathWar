@@ -17,6 +17,8 @@ const FUNCTIONS = new Map([
   ['exp', 'exp'],
   ['log', 'log'],
   ['ln', 'log'],
+  ['sen', 'sin'],
+  ['tg', 'tan'],
   ['log2', 'log2'],
   ['log10', 'log10'],
   ['floor', 'floor'],
@@ -90,6 +92,7 @@ export function normalizeExpression(value: string): string {
     .replace(/÷/g, '/')
     .replace(/[−–—]/g, '-')
     .replace(/π/g, 'pi')
+    .replace(/,/g, '.')
     .replace(/\s+/g, '');
   if (!compact) throw new ExpressionError('Enter an equation before firing.');
   if (compact.length > MAX_EXPRESSION_LENGTH)

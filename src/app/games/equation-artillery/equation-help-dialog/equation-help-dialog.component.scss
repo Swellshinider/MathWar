@@ -53,6 +53,13 @@ h2 {
   gap: var(--space-3);
 }
 
+.help-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
 @media (max-width: 37.5rem) {
   .references {
     grid-template-columns: minmax(0, 1fr);

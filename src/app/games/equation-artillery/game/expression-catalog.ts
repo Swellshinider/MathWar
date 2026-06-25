@@ -17,6 +17,13 @@ export const FUNCTION_REFERENCES: readonly FunctionReference[] = [
     category: 'trigonometry',
   },
   {
+    name: 'sen',
+    evaluatorName: 'sin',
+    syntax: 'sen(x)',
+    description: 'Sine alias',
+    category: 'trigonometry',
+  },
+  {
     name: 'cos',
     evaluatorName: 'cos',
     syntax: 'cos(x)',
@@ -28,6 +35,13 @@ export const FUNCTION_REFERENCES: readonly FunctionReference[] = [
     evaluatorName: 'tan',
     syntax: 'tan(x)',
     description: 'Tangent',
+    category: 'trigonometry',
+  },
+  {
+    name: 'tg',
+    evaluatorName: 'tan',
+    syntax: 'tg(x)',
+    description: 'Tangent alias',
     category: 'trigonometry',
   },
   {

@@ -1,4 +1,5 @@
 import { compileExpression, ExpressionError } from './expression.js';
+import { createGraphShotCursor, GRAPH_SHOT_STEP } from './graph-shot.js';
 import { createSeededRandom } from './random.js';
 import {
   CharacterState,
@@ -11,7 +12,7 @@ import {
 } from './types.js';
 
 export const WORLD_BOUNDS: WorldBounds = { minX: -12, maxX: 12, minY: -7.5, maxY: 7.5 };
-export const SHOT_STEP = 0.08;
+export const SHOT_STEP = GRAPH_SHOT_STEP;
 const BULLET_RADIUS = 0.18;
 const WALL_BLAST_RADIUS = 0.75;
 const WALL_PIECE_SIZE = 0.5;
@@ -349,12 +350,36 @@ export function resolveShot(
   let impact: ShotResolvedEvent['impact'] = 'bounds';
   let nextCharacters = characters;
   let winnerUserId: string | null = null;
-  for (let sample = 1; sample <= 1000; sample += 1) {
-    const distance = sample * SHOT_STEP;
-    let y: number;
-    try {
-      y = shooter.position.y + expression.evaluate(distance) - expression.originValue;
-    } catch (error) {
+  let cursor;
+  try {
+    cursor = createGraphShotCursor({
+      expression,
+      shooter: shooter.position,
+      shooterRadius: shooter.radius,
+      direction: shooter.direction,
+      bounds: WORLD_BOUNDS,
+      step: SHOT_STEP,
+      maxSteps: 1000,
+      maxSegmentLength: BULLET_RADIUS * 2,
+    });
+  } catch (error) {
+    return {
+      commandId,
+      matchId: state.id,
+      version: state.version,
+      shooterUserId,
+      shooterCharacterId: shooter.id,
+      equation,
+      trail,
+      impact: 'invalid',
+      error: error instanceof Error ? error.message : 'The equation is invalid.',
+      state,
+    };
+  }
+  while (true) {
+    const next = cursor.next();
+    if (next.kind === 'done') break;
+    if (next.kind === 'invalid') {
       return {
         commandId,
         matchId: state.id,
@@ -364,19 +389,13 @@ export function resolveShot(
         equation,
         trail,
         impact: 'invalid',
-        error: error instanceof Error ? error.message : 'The equation is invalid.',
+        error: next.error,
         state,
       };
     }
-    const point = { x: shooter.position.x + distance * shooter.direction, y };
-    if (
-      point.x < WORLD_BOUNDS.minX ||
-      point.x > WORLD_BOUNDS.maxX ||
-      point.y < WORLD_BOUNDS.minY ||
-      point.y > WORLD_BOUNDS.maxY
-    )
-      break;
+    const point = next.point;
     trail.push(point);
+    if (next.kind === 'bounds') break;
     const hitCharacter = opponents.find((opponent) => pointHitsCharacter(point, opponent));
     if (hitCharacter) {
       impact = 'opponent';
