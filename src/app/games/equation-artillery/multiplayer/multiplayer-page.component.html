@@ -2,51 +2,10 @@
   title="Equation Artillery Multiplayer"
   [wide]="true"
 >
-  @if (!auth.ready()) {
-    <p class="loading">Loading authentication…</p>
-  } @else if (!auth.session()) {
-    <section class="panel glass auth-panel">
-      <p>Enter a display name to create or join a private match.</p>
-      <form (submit)="$event.preventDefault(); signIn()">
-        <label class="field-label" for="display-name">Display name</label>
-        <input
-          id="display-name"
-          class="field"
-          maxlength="80"
-          [(ngModel)]="displayName"
-          name="displayName"
-          placeholder="Your name"
-        />
-        <button type="submit" class="btn btn--primary">Continue</button>
-      </form>
-      @if (auth.error()) {
-        <p class="error" role="alert">{{ auth.error() }}</p>
-      }
-    </section>
+  @if (!state()) {
+    <app-multiplayer-lobby [manageSocket]="false" (roomJoined)="onRoomJoined($event)" />
   } @else {
-    @if (!state()) {
-      <form class="panel glass lobby" (submit)="$event.preventDefault(); joinRoom()">
-        <button type="button" class="btn btn--primary" (click)="createRoom()">
-          Create private room
-        </button>
-        <span class="or">or</span>
-        <label class="field-label" for="room-code">Room code</label>
-        <input
-          id="room-code"
-          class="field"
-          maxlength="9"
-          name="roomCode"
-          [ngModel]="roomCode()"
-          (ngModelChange)="setRoomCode($event)"
-          placeholder="ABCD-EFGH"
-          autocomplete="off"
-          autocapitalize="characters"
-          spellcheck="false"
-        />
-        <button type="submit" class="btn btn--primary">Join room</button>
-      </form>
-    } @else {
-      <div class="game-layout">
+    <div class="game-layout">
         <div class="game-column">
           <section class="match-meta">
             <strong>Room {{ state()?.roomCode }}</strong>
@@ -128,7 +87,6 @@
     @if (error()) {
       <p class="error" role="alert">{{ error() }}</p>
     }
-  }
 
   <app-equation-help-dialog #helpDialog />
   <app-sound-settings-dialog #soundDialog />

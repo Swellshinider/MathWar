@@ -18,7 +18,10 @@ interface Harness {
 
 const harnesses: Harness[] = [];
 
-async function createHarness(reconnectWindowMs = 60_000): Promise<Harness> {
+async function createHarness(
+  reconnectWindowMs = 60_000,
+  idleCleanupMs = 40,
+): Promise<Harness> {
   const repository = new InMemoryMatchRepository();
   const server = await createMultiplayerServer({
     repository,
@@ -26,6 +29,7 @@ async function createHarness(reconnectWindowMs = 60_000): Promise<Harness> {
     issueGuestSession: createGuestTokenIssuer('test-secret'),
     allowedOrigin: '*',
     reconnectWindowMs,
+    idleCleanupMs,
     sweepIntervalMs: 10,
   });
   const address = await server.listen(0, '127.0.0.1');
@@ -206,7 +210,8 @@ describe('multiplayer socket server', () => {
         status: string;
         winnerUserId: string | null;
         turnCharacterId: number;
-        characters: { id: number; alive: boolean }[];
+        turnUserId: string | null;
+        characters: { id: number; ownerUserId: string; alive: boolean }[];
       };
     }>(right, 'shot:resolved');
     const fired = await emit<{ ok: true }>(left, 'match:fire', {
@@ -219,10 +224,13 @@ describe('multiplayer socket server', () => {
     expect(shot.impact).toBe('opponent');
     expect(shot.shooterCharacterId).toBe(0);
     expect(shot.state).toMatchObject({ status: 'active', winnerUserId: null });
-    expect(shot.state.turnCharacterId).toBe(
-      [3, 1, 4, 2, 5].find((id) =>
-        shot.state.characters.some((character) => character.id === id && character.alive),
-      ),
+    expect(shot.state.turnUserId).toBe('right');
+    expect(shot.state.characters).toContainEqual(
+      expect.objectContaining({
+        id: shot.state.turnCharacterId,
+        ownerUserId: 'right',
+        alive: true,
+      }),
     );
   });
 
@@ -253,6 +261,43 @@ describe('multiplayer socket server', () => {
     }
   });
 
+  it('allows joining a waiting room after the host reconnects', async () => {
+    const harness = await createHarness();
+    const host = await connect(harness, 'host');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(host, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    host.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await connect(harness, 'host');
+    const waitingState = await harness.repository.findByCode(created.data.roomCode);
+    expect(waitingState).toMatchObject({ status: 'waiting', version: 1 });
+
+    const guest = await connect(harness, 'guest');
+    const joined = await emit<{ ok: boolean; code?: string; error?: string }>(guest, 'room:join', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      roomCode: created.data.roomCode,
+    });
+
+    expect(joined).toMatchObject({ ok: true });
+  });
+
+  it('stores canonical room codes with the separator', async () => {
+    const harness = await createHarness();
+    const host = await connect(harness, 'host');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(host, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+
+    expect(created.data.roomCode).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+    expect(created.data.roomCode).toHaveLength(9);
+    expect(await harness.repository.findByCode(created.data.roomCode)).not.toBeNull();
+  });
+
   it('restores a paused match on reconnect and ends it after the deadline', async () => {
     const harness = await createHarness(40);
     const left = await connect(harness, 'left');
@@ -275,6 +320,92 @@ describe('multiplayer socket server', () => {
     reconnected.disconnect();
     const ended = await once<{ reason: string; winnerUserId: string }>(left, 'match:ended');
     expect(ended).toMatchObject({ reason: 'abandonment', winnerUserId: 'left' });
+  });
+
+  it('deletes an abandoned waiting room after the idle grace period', async () => {
+    const harness = await createHarness();
+    const host = await connect(harness, 'host');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(host, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    expect(created.ok).toBe(true);
+    host.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const remaining = await harness.repository.findByCode(created.data.roomCode);
+    expect(remaining).toBeNull();
+  });
+
+  it('keeps an empty waiting room until the full idle grace period elapses', async () => {
+    const harness = await createHarness(60_000, 120);
+    const host = await connect(harness, 'host');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(host, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    expect(created.ok).toBe(true);
+
+    host.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const remaining = await harness.repository.findByCode(created.data.roomCode);
+    expect(remaining).not.toBeNull();
+  });
+
+  it('keeps a room whose player is still connected past the idle grace period', async () => {
+    const harness = await createHarness();
+    const host = await connect(harness, 'host');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(host, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const remaining = await harness.repository.findByCode(created.data.roomCode);
+    expect(remaining?.status).toBe('waiting');
+    host.disconnect();
+  });
+
+  it('deletes an active match once both players leave', async () => {
+    const harness = await createHarness();
+    const left = await connect(harness, 'left');
+    const right = await connect(harness, 'right');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    await emit(right, 'room:join', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      roomCode: created.data.roomCode,
+    });
+    right.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    left.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const remaining = await harness.repository.findByCode(created.data.roomCode);
+    expect(remaining).toBeNull();
+  });
+
+  it('keeps an active match until all players have been gone for the idle grace period', async () => {
+    const harness = await createHarness(60_000, 120);
+    const left = await connect(harness, 'left');
+    const right = await connect(harness, 'right');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    await emit(right, 'room:join', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      roomCode: created.data.roomCode,
+    });
+
+    right.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    left.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    const remaining = await harness.repository.findByCode(created.data.roomCode);
+    expect(remaining).not.toBeNull();
   });
 
   it('supports 25 rooms and 50 simultaneous connections', async () => {

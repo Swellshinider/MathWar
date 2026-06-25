@@ -129,12 +129,42 @@ export class PostgresMatchRepository implements MatchRepository {
     return result.rows.map((row) => row.state as MatchState);
   }
 
+  async markRoomEmpty(id: string, emptySince: Date): Promise<void> {
+    await this.pool.query(
+      `update private.multiplayer_matches set empty_since = $2 where id = $1`,
+      [id, emptySince],
+    );
+  }
+
+  async clearRoomEmpty(id: string): Promise<void> {
+    await this.pool.query(
+      `update private.multiplayer_matches set empty_since = null where id = $1`,
+      [id],
+    );
+  }
+
+  async deleteEmptyBefore(cutoff: Date): Promise<number> {
+    const result = await this.pool.query(
+      `delete from private.multiplayer_matches where empty_since is not null and empty_since <= $1`,
+      [cutoff],
+    );
+    return result.rowCount ?? 0;
+  }
+
   async deleteFinishedBefore(cutoff: Date): Promise<number> {
     const result = await this.pool.query(
       `delete from private.multiplayer_matches where status = 'ended' and updated_at < $1`,
       [cutoff],
     );
     return result.rowCount ?? 0;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `delete from private.multiplayer_matches where id = $1`,
+      [id],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async close(): Promise<void> {

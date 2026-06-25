@@ -17,13 +17,18 @@ export interface MatchRepository {
     transform: (state: MatchState) => MatchState,
   ): Promise<UpdateResult>;
   listExpiredReconnects(now: Date): Promise<readonly MatchState[]>;
+  markRoomEmpty(id: string, emptySince: Date): Promise<void>;
+  clearRoomEmpty(id: string): Promise<void>;
+  deleteEmptyBefore(cutoff: Date): Promise<number>;
   deleteFinishedBefore(cutoff: Date): Promise<number>;
+  delete(id: string): Promise<boolean>;
   close(): Promise<void>;
 }
 
 export class InMemoryMatchRepository implements MatchRepository {
   private readonly matches = new Map<string, MatchState>();
   private readonly commands = new Set<string>();
+  private readonly emptySince = new Map<string, number>();
 
   async initialize(): Promise<void> {}
 
@@ -31,6 +36,7 @@ export class InMemoryMatchRepository implements MatchRepository {
     if ([...this.matches.values()].some((match) => match.roomCode === state.roomCode)) return false;
     this.matches.set(state.id, structuredClone(state));
     this.commands.add(`${state.id}:${commandId}`);
+    this.emptySince.delete(state.id);
     return true;
   }
 
@@ -80,15 +86,47 @@ export class InMemoryMatchRepository implements MatchRepository {
       .map((match) => structuredClone(match));
   }
 
+  async markRoomEmpty(id: string, emptySince: Date): Promise<void> {
+    if (this.matches.has(id)) this.emptySince.set(id, emptySince.getTime());
+  }
+
+  async clearRoomEmpty(id: string): Promise<void> {
+    this.emptySince.delete(id);
+  }
+
+  async deleteEmptyBefore(cutoff: Date): Promise<number> {
+    const cutoffTime = cutoff.getTime();
+    let deleted = 0;
+    for (const [id, emptySince] of this.emptySince) {
+      if (emptySince <= cutoffTime && this.deleteMatch(id)) deleted += 1;
+    }
+    return deleted;
+  }
+
   async deleteFinishedBefore(cutoff: Date): Promise<number> {
     let deleted = 0;
     for (const [id, match] of this.matches) {
       if (match.status === 'ended' && new Date(match.updatedAt) < cutoff) {
-        this.matches.delete(id);
+        this.deleteMatch(id);
         deleted += 1;
       }
     }
     return deleted;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.deleteMatch(id);
+  }
+
+  private deleteMatch(id: string): boolean {
+    if (!this.matches.has(id)) return false;
+    this.matches.delete(id);
+    this.emptySince.delete(id);
+    const prefix = `${id}:`;
+    for (const key of [...this.commands].filter((command) => command.startsWith(prefix))) {
+      this.commands.delete(key);
+    }
+    return true;
   }
 
   async close(): Promise<void> {}

@@ -76,7 +76,6 @@ describe('EquationArtilleryPageComponent', () => {
     const introActions = fixture.nativeElement.querySelector('.intro-actions');
     const board = fixture.nativeElement.querySelector('app-board');
 
-    expect(introActions.textContent).toContain('Play 1v1');
     expect(introActions.textContent).not.toContain('Sound');
     expect(introActions.textContent).not.toContain('Help');
     expect(board.querySelector('[aria-label="Open sound settings"]')).not.toBeNull();

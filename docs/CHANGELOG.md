@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resizing the play layout.
 - Moved Equation Artillery Sound and Help into compact icon controls on the board and reorganized
   multiplayer utility actions into cleaner toolbars.
+- Replaced the Equation Artillery "Play 1v1" action with the private-room create and join lobby.
+- Added 10-minute cleanup for multiplayer rooms after the last player disconnects.
+- Added the Equation Artillery preview image to the game catalog.
 
 ### Fixed - 2026-06-25
 
@@ -42,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   launch-singular equations with finite forward paths, such as `log(x)`, at the player.
 - Cleared Angular's prebundle cache and rebuilt the shared game engine before local UI startup and
   tests so equation changes are not served from stale package output.
+- Allowed share-link joins for waiting multiplayer rooms after the host reconnects.
 
 ## [0.1.0] - 2026-06-24
 

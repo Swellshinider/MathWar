@@ -1,4 +1,5 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import { BoardComponent } from './board/board.component';
@@ -20,6 +21,7 @@ import {
   EquationHistoryMessage,
 } from './equation-history/equation-history.component';
 import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-settings-dialog.component';
+import { MultiplayerLobbyComponent } from './multiplayer/multiplayer-lobby.component';
 
 @Component({
   selector: 'app-equation-artillery-page',
@@ -31,6 +33,7 @@ import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-sett
     GameFrameComponent,
     LucideCircleHelp,
     LucideVolume2,
+    MultiplayerLobbyComponent,
     SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
@@ -40,6 +43,7 @@ import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-sett
 export class EquationArtilleryPageComponent implements OnDestroy {
   private readonly animation = inject(AnimationService);
   private readonly audio = inject(EquationArtilleryAudioService);
+  private readonly router = inject(Router);
   private readonly initialRound = spawnRound();
   private wonRound = false;
   readonly player = signal<Player>(this.initialRound.player);
@@ -122,6 +126,10 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.active.set(false);
     this.error.set(null);
     this.wonRound = false;
+  }
+
+  enterMultiplayer(): void {
+    void this.router.navigate(['/games/equation-artillery/multiplayer']);
   }
 
   ngOnDestroy(): void {

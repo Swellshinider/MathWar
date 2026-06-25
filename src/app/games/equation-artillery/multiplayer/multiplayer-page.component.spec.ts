@@ -276,7 +276,7 @@ describe('MultiplayerPageComponent', () => {
     };
 
     handlers.state(initial);
-    handlers.shot(event);
+    handlers.shot?.(event);
     handlers.state(resolved);
     handlers.state(paused);
 
@@ -321,7 +321,7 @@ describe('MultiplayerPageComponent', () => {
     const state = matchState();
     handlers.state(state);
 
-    handlers.shot({
+    handlers.shot?.({
       commandId: 'invalid-shot',
       matchId: state.id,
       version: state.version,
@@ -349,7 +349,7 @@ describe('MultiplayerPageComponent', () => {
 
     await fixture.componentInstance.fire();
     const commandId = socket.fire.mock.calls[0][0].commandId;
-    handlers.shot({
+    handlers.shot?.({
       commandId,
       matchId: state.id,
       version: 2,
@@ -378,7 +378,7 @@ describe('MultiplayerPageComponent', () => {
       turnCharacterId: null,
     });
     handlers.state(state);
-    handlers.shot({
+    handlers.shot?.({
       commandId: 'right-final',
       matchId: state.id,
       version: ended.version,
@@ -557,23 +557,6 @@ describe('MultiplayerPageComponent', () => {
     expect(characters.every((character) => character.functionLabel === null)).toBe(true);
   });
 
-  it('submits the lobby room code with Enter', async () => {
-    socket.join.mockResolvedValue({ ok: true, data: matchState({ roomCode: 'ABCD-EFGH' }) });
-    const fixture = TestBed.createComponent(MultiplayerPageComponent);
-    fixture.detectChanges();
-    const component = fixture.componentInstance;
-    component.setRoomCode('abcd-efgh');
-
-    fixture.nativeElement.querySelector('.lobby').dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
-
-    expect(socket.join).toHaveBeenCalledWith({
-      commandId: expect.any(String),
-      expectedVersion: 0,
-      roomCode: 'ABCD-EFGH',
-    });
-  });
-
   it('auto-joins an invite room after the socket connects', async () => {
     routeParams = { room: 'abcd-efgh' };
     socket.join.mockResolvedValue({ ok: true, data: matchState({ roomCode: 'ABCD-EFGH' }) });
@@ -583,7 +566,6 @@ describe('MultiplayerPageComponent', () => {
     handlers.connected?.();
     await fixture.whenStable();
 
-    expect(fixture.componentInstance.roomCode()).toBe('ABCD-EFGH');
     expect(socket.join).toHaveBeenCalledWith({
       commandId: expect.any(String),
       expectedVersion: 0,
@@ -591,17 +573,16 @@ describe('MultiplayerPageComponent', () => {
     });
   });
 
-  it('auto-joins an invite room after display-name sign-in', async () => {
+  it('auto-joins an invite room once a guest session becomes available', async () => {
     routeParams = { room: 'abcd-efgh' };
     auth.session.set(null);
-    auth.signIn.mockImplementation(async () => {
-      auth.session.set({ token: 'token', user: { id: 'left', displayName: 'Left' } });
-    });
     socket.join.mockResolvedValue({ ok: true, data: matchState({ roomCode: 'ABCD-EFGH' }) });
     const fixture = TestBed.createComponent(MultiplayerPageComponent);
     fixture.detectChanges();
 
-    await fixture.componentInstance.signIn();
+    // The embedded lobby completes sign-in, which makes a session available and
+    // lets the page open its socket.
+    auth.session.set({ token: 'token', user: { id: 'left', displayName: 'Left' } });
     fixture.detectChanges();
     handlers.connected?.();
     await fixture.whenStable();
