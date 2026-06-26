@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Matched Equation Artillery shot animation speed across Free Practice, target practice,
   single-player, and multiplayer by shortening close-hit animations.
 - Delayed multiplayer win and lose sounds until the final shot animation finishes.
+- Returned players to the main Equation Artillery page after leaving a multiplayer match.
+- Allowed pasted multiplayer invite links in the join-room field to extract the room code.
 - Fired Free Practice attacks leftward when the player is moved to the right side of the board.
 - Replaced raw multiplayer websocket errors with friendlier reconnect copy and cleared the message
   after reconnection.

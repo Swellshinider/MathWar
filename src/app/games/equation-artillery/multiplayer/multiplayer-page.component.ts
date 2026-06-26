@@ -1,6 +1,6 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
 import {
   CharacterState,
@@ -51,6 +51,7 @@ import { formatRoomCode } from './room-code';
 export class MultiplayerPageComponent implements OnDestroy {
   readonly auth = inject(MultiplayerAuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly socket = inject(MultiplayerSocketService);
   private readonly animation = inject(AnimationService);
   private readonly audio = inject(EquationArtilleryAudioService);
@@ -248,8 +249,12 @@ export class MultiplayerPageComponent implements OnDestroy {
       commandId: crypto.randomUUID(),
       expectedVersion: state.version,
     });
-    if (response.ok) this.state.set(null);
-    else this.error.set(response.error ?? 'Could not leave the match.');
+    if (!response.ok) {
+      this.error.set(response.error ?? 'Could not leave the match.');
+      return;
+    }
+    this.state.set(null);
+    void this.router.navigate(['/games/equation-artillery']);
   }
 
   requestLeave(dialog: HTMLDialogElement): void {
