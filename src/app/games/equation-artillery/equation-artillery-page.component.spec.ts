@@ -10,7 +10,7 @@ describe('EquationArtilleryPageComponent', () => {
     start: vi.fn((advance: (step: number) => boolean) => {
       advanceShot = advance;
     }),
-    startTimeline: vi.fn((render: (progress: number) => boolean) => {
+    startTimeline: vi.fn((render: (progress: number) => boolean, _duration?: number) => {
       renderTimeline = render;
       advanceShot = () => render(1);
     }),
@@ -124,6 +124,19 @@ describe('EquationArtilleryPageComponent', () => {
 
     expect(audio.playEnemyHit).toHaveBeenCalledOnce();
     expect(audio.playWin).toHaveBeenCalledOnce();
+  });
+
+  it('shortens close target-practice shot animations instead of using the full duration', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.targets.set([{ id: 1, center: { x: -1, y: 3 }, width: 1, height: 1 }]);
+    component.walls.set([]);
+    component.player.set({ position: { x: -2, y: 3 }, radius: 0.3 });
+
+    component.fire('0');
+
+    expect(animation.startTimeline).toHaveBeenCalledWith(expect.any(Function), expect.any(Number));
+    expect(animation.startTimeline.mock.calls.at(-1)?.[1]).toBeLessThan(3000);
   });
 
   it('plays the wall hit sound and stops generated audio when a shot hits a wall', () => {

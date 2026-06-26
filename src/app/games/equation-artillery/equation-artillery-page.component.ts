@@ -39,6 +39,7 @@ import {
   SandboxTool,
   SandboxWallSize,
 } from './game/free-practice-sandbox';
+import { shotAnimationDuration } from './game/shot-animation';
 import { spawnRound } from './game/spawning';
 import { advanceShot, createShot, ShotState } from './game/trajectory';
 import { Bullet } from './models/bullet';
@@ -63,7 +64,6 @@ const HUMAN_USER_ID = 'human';
 const CPU_USER_ID = 'cpu';
 const CPU_THINK_DELAY_MS = 500;
 const BULLET_RADIUS = 0.18;
-const ATTACK_ANIMATION_DURATION_MS = 3000;
 const LOCAL_SHOT_STEP = 0.08;
 const LOCAL_SHOT_MAX_FRAMES = 2000;
 
@@ -275,38 +275,41 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.trail.set(shotFrames[0].trail);
     let renderedIndex = 0;
     let previousTargetCount = shotFrames[0].targets.length;
-    this.animation.startTimeline((progress) => {
-      const frameIndex = Math.min(
-        Math.floor(progress * (shotFrames.length - 1)),
-        shotFrames.length - 1,
-      );
-      if (frameIndex === renderedIndex && progress < 1) return true;
-      renderedIndex = frameIndex;
-      shot = shotFrames[frameIndex];
-      this.bullet.set(shot.bullet);
-      this.trail.set(shot.trail);
-      if (practiceMode) {
-        this.freePracticeTargets.set(shot.targets);
-        this.freePracticeWalls.set(shot.walls);
-      } else {
-        this.targets.set(shot.targets);
-        this.walls.set(shot.walls);
-      }
-      this.error.set(shot.error);
-      this.active.set(shot.active);
-      this.audio.updateEquationSound(shot.bullet.position);
-      if (shot.targets.length < previousTargetCount) this.audio.playEnemyHit();
-      previousTargetCount = shot.targets.length;
-      if (!practiceMode && shot.targets.length === 0 && !this.wonRound) {
-        this.wonRound = true;
-        this.audio.playWin();
-      }
-      if (!shot.active || progress >= 1) {
-        this.audio.stopEquationSound();
-        if (shot.impact === 'wall') this.audio.playWallHit();
-      }
-      return shot.active && progress < 1;
-    }, ATTACK_ANIMATION_DURATION_MS);
+    this.animation.startTimeline(
+      (progress) => {
+        const frameIndex = Math.min(
+          Math.floor(progress * (shotFrames.length - 1)),
+          shotFrames.length - 1,
+        );
+        if (frameIndex === renderedIndex && progress < 1) return true;
+        renderedIndex = frameIndex;
+        shot = shotFrames[frameIndex];
+        this.bullet.set(shot.bullet);
+        this.trail.set(shot.trail);
+        if (practiceMode) {
+          this.freePracticeTargets.set(shot.targets);
+          this.freePracticeWalls.set(shot.walls);
+        } else {
+          this.targets.set(shot.targets);
+          this.walls.set(shot.walls);
+        }
+        this.error.set(shot.error);
+        this.active.set(shot.active);
+        this.audio.updateEquationSound(shot.bullet.position);
+        if (shot.targets.length < previousTargetCount) this.audio.playEnemyHit();
+        previousTargetCount = shot.targets.length;
+        if (!practiceMode && shot.targets.length === 0 && !this.wonRound) {
+          this.wonRound = true;
+          this.audio.playWin();
+        }
+        if (!shot.active || progress >= 1) {
+          this.audio.stopEquationSound();
+          if (shot.impact === 'wall') this.audio.playWallHit();
+        }
+        return shot.active && progress < 1;
+      },
+      shotAnimationDuration(shotFrames.map((frame) => frame.bullet.position)),
+    );
   }
 
   newRound(): void {
@@ -552,7 +555,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         return false;
       }
       return true;
-    }, ATTACK_ANIMATION_DURATION_MS);
+    }, shotAnimationDuration(event.trail));
   }
 
   private finishSinglePlayerShot(event: ShotResolvedEvent): void {

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { MatchState, ShotResolvedEvent } from '@math-war/game-engine';
 import { AnimationService } from '../game/animation.service';
+import { shotAnimationDuration } from '../game/shot-animation';
 import { MultiplayerGuestSession } from './multiplayer-auth.service';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerPageComponent } from './multiplayer-page.component';
@@ -288,6 +289,10 @@ describe('MultiplayerPageComponent', () => {
 
     expect(audio.playFire).toHaveBeenCalledOnce();
     expect(audio.startEquationSound).toHaveBeenCalledWith(event.trail[0]);
+    expect(animation.startTimeline).toHaveBeenCalledWith(
+      expect.any(Function),
+      shotAnimationDuration(event.trail),
+    );
     expect(component.activeShot()).toBe(true);
     expect(component.status()).toBe('Shot in flight.');
     expect(component.state()?.walls).toHaveLength(1);

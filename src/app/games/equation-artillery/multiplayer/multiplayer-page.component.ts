@@ -21,6 +21,7 @@ import { mapEquationHistoryMessages } from '../equation-history/equation-history
 import { AnimationService } from '../game/animation.service';
 import { EquationArtilleryAudioService } from '../game/audio.service';
 import { BoardCharacter } from '../game/board-renderer.service';
+import { shotAnimationDuration } from '../game/shot-animation';
 import { Bullet } from '../models/bullet';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
@@ -29,8 +30,6 @@ import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerLobbyComponent } from './multiplayer-lobby.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
 import { formatRoomCode } from './room-code';
-
-const ATTACK_ANIMATION_DURATION_MS = 3000;
 
 @Component({
   selector: 'app-multiplayer-page',
@@ -363,7 +362,7 @@ export class MultiplayerPageComponent implements OnDestroy {
         return false;
       }
       return true;
-    }, ATTACK_ANIMATION_DURATION_MS);
+    }, shotAnimationDuration(event.trail));
   }
 
   private receiveState(state: MatchState): void {
