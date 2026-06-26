@@ -39,6 +39,7 @@ export class MultiplayerLobbyComponent implements OnDestroy {
       this.socket.connect(token, {
         state: (state) => this.room.set(state),
         error: (message) => this.error.set(message),
+        connected: () => this.error.set(null),
       });
     });
   }

@@ -29,6 +29,8 @@ import { MultiplayerLobbyComponent } from './multiplayer-lobby.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
 import { formatRoomCode } from './room-code';
 
+const ATTACK_ANIMATION_DURATION_MS = 3000;
+
 @Component({
   selector: 'app-multiplayer-page',
   imports: [
@@ -182,7 +184,10 @@ export class MultiplayerPageComponent implements OnDestroy {
         shot: (event) => this.animateShot(event),
         ended: (event) => this.playMatchResult(event),
         error: (message) => this.error.set(message),
-        connected: () => void this.joinInviteRoom(),
+        connected: () => {
+          this.error.set(null);
+          void this.joinInviteRoom();
+        },
       });
     });
     effect(() => {
@@ -344,8 +349,13 @@ export class MultiplayerPageComponent implements OnDestroy {
     this.trail.set([firstPoint]);
     this.bullet.set({ position: firstPoint, radius: 0.18 });
     this.audio.startEquationSound(firstPoint);
-    this.animation.start(() => {
-      index += 1;
+    this.animation.startTimeline((progress) => {
+      const nextIndex = Math.min(
+        Math.floor(progress * (event.trail.length - 1)),
+        event.trail.length - 1,
+      );
+      if (nextIndex === index && progress < 1) return true;
+      index = nextIndex;
       const point = event.trail[index];
       if (!point) {
         this.finishShot(event);
@@ -354,8 +364,12 @@ export class MultiplayerPageComponent implements OnDestroy {
       this.trail.set(event.trail.slice(0, index + 1));
       this.bullet.set({ position: point, radius: 0.18 });
       this.audio.updateEquationSound(point);
+      if (progress >= 1) {
+        this.finishShot(event);
+        return false;
+      }
       return true;
-    });
+    }, ATTACK_ANIMATION_DURATION_MS);
   }
 
   private receiveState(state: MatchState): void {

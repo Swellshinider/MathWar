@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2026-06-26
+
+- Changed Equation Artillery attack animations to resolve over a fixed 3000ms duration.
+
+### Fixed - 2026-06-26
+
+- Prevented in-flight attack audio and line animation from freezing across hidden browser tabs.
+- Fired Free Practice attacks leftward when the player is moved to the right side of the board.
+- Replaced raw multiplayer websocket errors with friendlier reconnect copy and cleared the message
+  after reconnection.
+
 ### Added - 2026-06-25
 
 - Added a Free Practice Equation Artillery mode with no targets, walls, or enemies, and click or

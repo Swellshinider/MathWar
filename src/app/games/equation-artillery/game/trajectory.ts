@@ -45,6 +45,7 @@ export function advanceShot(
   expression: CompiledExpression,
   bounds: WorldBounds,
   step: number,
+  direction: 1 | -1 = 1,
 ): ShotState {
   if (!state.active) return state;
   let cursor = state.cursor;
@@ -54,7 +55,7 @@ export function advanceShot(
       expression,
       shooter: player.position,
       shooterRadius: player.radius,
-      direction: 1,
+      direction,
       bounds,
       step,
       maxSegmentLength: state.bullet.radius * 2,

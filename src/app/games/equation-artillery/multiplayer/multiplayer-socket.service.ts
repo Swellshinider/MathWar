@@ -11,6 +11,8 @@ import {
 import { io, Socket } from 'socket.io-client';
 import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 
+const CONNECTION_ERROR_MESSAGE = 'Connection interrupted. Trying to reconnect...';
+
 @Injectable({ providedIn: 'root' })
 export class MultiplayerSocketService {
   private readonly config = inject(MULTIPLAYER_CONFIG);
@@ -39,7 +41,9 @@ export class MultiplayerSocketService {
     if (handlers.shot) this.socket.on('shot:resolved', run(handlers.shot));
     if (handlers.ended) this.socket.on('match:ended', run(handlers.ended));
     this.socket.on('connect', () => this.zone.run(() => handlers.connected?.()));
-    this.socket.on('connect_error', (error) => this.zone.run(() => handlers.error(error.message)));
+    this.socket.on('connect_error', () =>
+      this.zone.run(() => handlers.error(CONNECTION_ERROR_MESSAGE)),
+    );
   }
 
   disconnect(): void {
