@@ -17,6 +17,7 @@ import {
   EquationHistoryComponent,
   EquationHistoryMessage,
 } from '../equation-history/equation-history.component';
+import { mapEquationHistoryMessages } from '../equation-history/equation-history-message';
 import { AnimationService } from '../game/animation.service';
 import { EquationArtilleryAudioService } from '../game/audio.service';
 import { BoardCharacter } from '../game/board-renderer.service';
@@ -124,20 +125,13 @@ export class MultiplayerPageComponent implements OnDestroy {
     const state = this.state();
     const userId = this.userId();
     if (!state) return [];
-    const characters = this.charactersForState(state);
-    return (state.equationHistory ?? []).map((entry, index) => {
-      const player = state.players.find((candidate) => candidate.userId === entry.shooterUserId);
-      const character =
-        typeof entry.shooterCharacterId === 'number'
-          ? characters.find((candidate) => candidate.id === entry.shooterCharacterId)
-          : null;
-      return {
-        id: entry.commandId ?? `history-${index}`,
-        equation: entry.equation,
-        senderName: player?.displayName ?? 'Opponent',
-        soldierName: character?.displayName ?? null,
-        mine: entry.shooterUserId === userId,
-      };
+    return mapEquationHistoryMessages({
+      entries: state.equationHistory ?? [],
+      players: state.players,
+      characters: this.charactersForState(state),
+      currentUserId: userId,
+      fallbackIdPrefix: 'history',
+      fallbackSenderName: 'Opponent',
     });
   });
   readonly rememberedEquations = computed(() => {

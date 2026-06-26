@@ -53,6 +53,7 @@ import {
   EquationHistoryComponent,
   EquationHistoryMessage,
 } from './equation-history/equation-history.component';
+import { mapEquationHistoryMessages } from './equation-history/equation-history-message';
 import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-settings-dialog.component';
 import { MultiplayerLobbyComponent } from './multiplayer/multiplayer-lobby.component';
 
@@ -192,20 +193,13 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly equationHistory = computed<readonly EquationHistoryMessage[]>(() => {
     const state = this.singlePlayerState();
     if (this.gameMode() !== 'single-player' || !state) return this.targetPracticeHistory();
-    const characters = this.charactersForState(state);
-    return state.equationHistory.map((entry, index) => {
-      const player = state.players.find((candidate) => candidate.userId === entry.shooterUserId);
-      const character =
-        typeof entry.shooterCharacterId === 'number'
-          ? characters.find((candidate) => candidate.id === entry.shooterCharacterId)
-          : null;
-      return {
-        id: entry.commandId ?? `local-cpu-history-${index}`,
-        equation: entry.equation,
-        senderName: player?.displayName ?? 'CPU',
-        soldierName: character?.displayName ?? null,
-        mine: entry.shooterUserId === HUMAN_USER_ID,
-      };
+    return mapEquationHistoryMessages({
+      entries: state.equationHistory,
+      players: state.players,
+      characters: this.charactersForState(state),
+      currentUserId: HUMAN_USER_ID,
+      fallbackIdPrefix: 'local-cpu-history',
+      fallbackSenderName: 'CPU',
     });
   });
   readonly roundComplete = computed(() => {
