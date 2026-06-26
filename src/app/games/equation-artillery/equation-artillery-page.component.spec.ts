@@ -174,6 +174,69 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.status()).toBe('Your turn.');
   });
 
+  it('shows a selectable free practice mode without targets, walls, or CPU setup', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    const modeTabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.mode-tab'),
+    ) as HTMLButtonElement[];
+    const freePracticeTab = modeTabs.find((button) =>
+      button.textContent?.includes('Free Practice'),
+    )!;
+    freePracticeTab.click();
+    fixture.detectChanges();
+
+    expect(component.gameMode()).toBe('free-practice');
+    expect(component.targetsForBoard()).toEqual([]);
+    expect(component.wallsForBoard()).toEqual([]);
+    expect(component.boardCharacters()).toEqual([]);
+    expect(component.roundComplete()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.difficulty-control')).toBeNull();
+    expect(component.status()).toContain('Click the board to move');
+  });
+
+  it('fires equations in free practice without needing targets', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.selectFreePractice();
+
+    component.fire('0');
+
+    expect(audio.playFire).toHaveBeenCalledOnce();
+    expect(audio.startEquationSound).toHaveBeenCalledWith(component.playerForBoard().position);
+    expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['0']);
+    expect(component.roundComplete()).toBe(false);
+  });
+
+  it('moves only the free practice player from board clicks', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    const targetPracticePlayer = component.player();
+    component.selectFreePractice();
+
+    component.moveFreePracticePlayer({ x: 4, y: -2 });
+
+    expect(component.playerForBoard().position).toEqual({ x: 4, y: -2 });
+    expect(component.player()).toBe(targetPracticePlayer);
+  });
+
+  it('preserves target practice entities after visiting free practice', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    const targetPracticeTargets = component.targets();
+    const targetPracticeWalls = component.walls();
+
+    component.selectFreePractice();
+    component.moveFreePracticePlayer({ x: 1, y: 1 });
+    component.selectTargetPractice();
+
+    expect(component.targetsForBoard()).toBe(targetPracticeTargets);
+    expect(component.wallsForBoard()).toBe(targetPracticeWalls);
+    expect(component.playerForBoard()).toBe(component.player());
+  });
+
   it('starts single player with six soldiers and no square targets', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;

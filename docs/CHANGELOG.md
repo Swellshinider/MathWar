@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - 2026-06-25
 
+- Added a Free Practice Equation Artillery mode with no targets, walls, or enemies, and click or
+  tap movement for the player character.
 - Added an offline Single Player Equation Artillery mode with CPU soldier squads, local turn
   resolution, and a pre-match CPU difficulty selector from 0 to 10.
 

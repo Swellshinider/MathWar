@@ -16,6 +16,14 @@
       <button
         type="button"
         class="mode-tab"
+        [class.mode-tab--active]="gameMode() === 'free-practice'"
+        (click)="selectFreePractice()"
+      >
+        Free Practice
+      </button>
+      <button
+        type="button"
+        class="mode-tab"
         [class.mode-tab--active]="gameMode() === 'single-player'"
         (click)="selectSinglePlayerMode()"
       >
@@ -52,6 +60,8 @@
         [walls]="wallsForBoard()"
         [bullet]="bullet()"
         [trail]="trail()"
+        [movementEnabled]="movementEnabled()"
+        (move)="moveFreePracticePlayer($event)"
       >
         <button
           boardActions

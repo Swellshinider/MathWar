@@ -7,6 +7,7 @@ import {
   effect,
   inject,
   input,
+  output,
 } from '@angular/core';
 import { Bullet } from '../models/bullet';
 import { Player } from '../models/player';
@@ -15,6 +16,7 @@ import { Target } from '../models/target';
 import { Wall } from '../models/wall';
 import { WORLD_BOUNDS } from '../models/world-bounds';
 import { BoardCharacter, BoardRenderer } from '../game/board-renderer.service';
+import { canvasToWorld } from '../game/coordinates';
 
 @Component({
   selector: 'app-board',
@@ -28,6 +30,8 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
   readonly walls = input.required<readonly Wall[]>();
   readonly bullet = input<Bullet | null>(null);
   readonly trail = input<readonly Point[]>([]);
+  readonly movementEnabled = input(false);
+  readonly move = output<Point>();
   @ViewChild('canvas', { static: true }) private canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private readonly renderer = inject(BoardRenderer);
@@ -53,6 +57,23 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
+  }
+
+  movePlayer(event: PointerEvent): void {
+    if (!this.movementEnabled()) return;
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const position = canvasToWorld(
+      { x: event.clientX - rect.left, y: event.clientY - rect.top },
+      WORLD_BOUNDS,
+      { width: rect.width, height: rect.height },
+    );
+    const radius = this.player().radius;
+    this.move.emit({
+      x: Math.min(WORLD_BOUNDS.maxX - radius, Math.max(WORLD_BOUNDS.minX + radius, position.x)),
+      y: Math.min(WORLD_BOUNDS.maxY - radius, Math.max(WORLD_BOUNDS.minY + radius, position.y)),
+    });
   }
 
   private draw(): void {
