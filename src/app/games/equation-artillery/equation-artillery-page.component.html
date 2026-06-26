@@ -52,6 +52,126 @@
   </section>
 
   <div class="game-layout">
+    @if (gameMode() === 'free-practice') {
+      <section class="sandbox-tools" aria-label="Free Practice sandbox tools">
+        <div class="sandbox-tools__group" role="group" aria-label="Board tool">
+          <button
+            type="button"
+            class="tool-button"
+            [class.tool-button--active]="selectedSandboxTool() === 'move'"
+            aria-label="Move player"
+            (click)="selectedSandboxTool.set('move')"
+          >
+            <svg lucideMove aria-hidden="true"></svg>
+            <span class="tool-button__label">Move</span>
+          </button>
+          <button
+            type="button"
+            class="tool-button"
+            [class.tool-button--active]="selectedSandboxTool() === 'enemy'"
+            aria-label="Place enemy"
+            (click)="selectedSandboxTool.set('enemy')"
+          >
+            <svg lucideTarget aria-hidden="true"></svg>
+            <span class="tool-button__label">Enemy</span>
+          </button>
+          <button
+            type="button"
+            class="tool-button"
+            [class.tool-button--active]="selectedSandboxTool() === 'wall'"
+            aria-label="Place wall"
+            (click)="selectedSandboxTool.set('wall')"
+          >
+            <svg lucideBrickWall aria-hidden="true"></svg>
+            <span class="tool-button__label">Wall</span>
+          </button>
+          <button
+            type="button"
+            class="tool-button"
+            [class.tool-button--active]="selectedSandboxTool() === 'delete'"
+            aria-label="Delete nearest object"
+            (click)="selectedSandboxTool.set('delete')"
+          >
+            <svg lucideTrash2 aria-hidden="true"></svg>
+            <span class="tool-button__label">Delete</span>
+          </button>
+        </div>
+
+        <div class="sandbox-tools__group" role="group" aria-label="Wall shape">
+          <button
+            type="button"
+            class="icon-button"
+            [class.icon-button--active]="selectedWallShape() === 'vertical'"
+            aria-label="Vertical wall"
+            [disabled]="selectedSandboxTool() !== 'wall'"
+            (click)="selectedWallShape.set('vertical')"
+          >
+            <svg lucideBrickWall aria-hidden="true"></svg>
+          </button>
+          <button
+            type="button"
+            class="icon-button"
+            [class.icon-button--active]="selectedWallShape() === 'circle'"
+            aria-label="Circle wall"
+            [disabled]="selectedSandboxTool() !== 'wall'"
+            (click)="selectedWallShape.set('circle')"
+          >
+            <svg lucideCircle aria-hidden="true"></svg>
+          </button>
+          <button
+            type="button"
+            class="icon-button"
+            [class.icon-button--active]="selectedWallShape() === 'square'"
+            aria-label="Square wall"
+            [disabled]="selectedSandboxTool() !== 'wall'"
+            (click)="selectedWallShape.set('square')"
+          >
+            <svg lucideSquare aria-hidden="true"></svg>
+          </button>
+          <button
+            type="button"
+            class="icon-button"
+            [class.icon-button--active]="selectedWallShape() === 'triangle'"
+            aria-label="Triangle wall"
+            [disabled]="selectedSandboxTool() !== 'wall'"
+            (click)="selectedWallShape.set('triangle')"
+          >
+            <svg lucideTriangle aria-hidden="true"></svg>
+          </button>
+        </div>
+
+        <div class="sandbox-tools__group sandbox-tools__sizes" role="group" aria-label="Wall size">
+          <button
+            type="button"
+            class="size-button"
+            [class.size-button--active]="selectedWallSize() === 'small'"
+            [disabled]="selectedSandboxTool() !== 'wall'"
+            (click)="selectedWallSize.set('small')"
+          >
+            S
+          </button>
+          <button
+            type="button"
+            class="size-button"
+            [class.size-button--active]="selectedWallSize() === 'medium'"
+            [disabled]="selectedSandboxTool() !== 'wall'"
+            (click)="selectedWallSize.set('medium')"
+          >
+            M
+          </button>
+          <button
+            type="button"
+            class="size-button"
+            [class.size-button--active]="selectedWallSize() === 'large'"
+            [disabled]="selectedSandboxTool() !== 'wall'"
+            (click)="selectedWallSize.set('large')"
+          >
+            L
+          </button>
+        </div>
+      </section>
+    }
+
     <div class="board-row">
       <app-board
         [player]="playerForBoard()"
@@ -59,9 +179,11 @@
         [targets]="targetsForBoard()"
         [walls]="wallsForBoard()"
         [bullet]="bullet()"
+        [previewTrail]="previewTrail()"
         [trail]="trail()"
         [movementEnabled]="movementEnabled()"
-        (move)="moveFreePracticePlayer($event)"
+        [pointSelectionEnabled]="pointSelectionEnabled()"
+        (boardPoint)="handleFreePracticeBoardPoint($event)"
       >
         <button
           boardActions
@@ -95,15 +217,18 @@
       />
     </div>
 
-    <app-equation-controls
-      [(equation)]="equation"
-      [active]="controlsActive()"
-      [roundComplete]="roundComplete()"
-      [error]="error()"
-      [status]="status()"
-      (fire)="fire($event)"
-      (newRound)="newRound()"
-    />
+    <div class="controls-row">
+      <app-equation-controls
+        [(equation)]="equation"
+        [active]="controlsActive()"
+        [roundComplete]="roundComplete()"
+        [error]="error()"
+        [status]="status()"
+        [showPreview]="gameMode() !== 'free-practice'"
+        (fire)="fire($event)"
+        (newRound)="newRound()"
+      />
+    </div>
   </div>
 
   <app-equation-help-dialog #helpDialog />

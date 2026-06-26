@@ -10,6 +10,7 @@ export const BOARD_PALETTE = {
   gridLabel: '#8295aa',
   trail: '#f8c15c',
   trailGlow: 'rgba(248, 193, 92, 0.45)',
+  previewTrail: 'rgba(248, 193, 92, 0.62)',
   player: '#45d483',
   characterColors: ['#2dd4bf', '#38bdf8', '#818cf8', '#fb7185', '#f97316', '#facc15'],
   characterGlows: [

@@ -2,7 +2,7 @@
   <canvas
     #canvas
     aria-label="Equation Artillery coordinate plane"
-    (pointerdown)="movePlayer($event)"
+    (pointerdown)="handlePointer($event)"
   ></canvas>
   <div class="board-actions" aria-label="Board actions">
     <ng-content select="[boardActions]" />

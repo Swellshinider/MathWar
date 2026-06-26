@@ -1,6 +1,16 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
+import {
+  LucideBrickWall,
+  LucideCircle,
+  LucideCircleHelp,
+  LucideMove,
+  LucideSquare,
+  LucideTarget,
+  LucideTrash2,
+  LucideTriangle,
+  LucideVolume2,
+} from '@lucide/angular';
 import {
   CharacterState,
   createMatchState,
@@ -21,6 +31,14 @@ import {
   recordCpuShotOutcome,
 } from './game/cpu-opponent';
 import { compileExpression, ExpressionError } from './game/expression';
+import {
+  buildFreePracticePreviewTrail,
+  deleteNearestSandboxObject,
+  placeSandboxTarget,
+  placeSandboxWall,
+  SandboxTool,
+  SandboxWallSize,
+} from './game/free-practice-sandbox';
 import { spawnRound } from './game/spawning';
 import { advanceShot, createShot, ShotState } from './game/trajectory';
 import { Bullet } from './models/bullet';
@@ -28,6 +46,7 @@ import { Player } from './models/player';
 import { Point } from './models/point';
 import { Target } from './models/target';
 import { Wall } from './models/wall';
+import { WallShape } from './models/wall';
 import { WORLD_BOUNDS } from './models/world-bounds';
 import { EquationHelpDialogComponent } from './equation-help-dialog/equation-help-dialog.component';
 import {
@@ -55,7 +74,14 @@ const LOCAL_SHOT_MAX_FRAMES = 2000;
     EquationHelpDialogComponent,
     EquationHistoryComponent,
     GameFrameComponent,
+    LucideBrickWall,
+    LucideCircle,
     LucideCircleHelp,
+    LucideMove,
+    LucideSquare,
+    LucideTarget,
+    LucideTrash2,
+    LucideTriangle,
     LucideVolume2,
     MultiplayerLobbyComponent,
     SoundSettingsDialogComponent,
@@ -78,6 +104,11 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly singlePlayerState = signal<MatchState | null>(null);
   readonly player = signal<Player>(this.initialRound.player);
   readonly freePracticePlayer = signal<Player>(this.initialRound.player);
+  readonly freePracticeTargets = signal<readonly Target[]>([]);
+  readonly freePracticeWalls = signal<readonly Wall[]>([]);
+  readonly selectedSandboxTool = signal<SandboxTool>('move');
+  readonly selectedWallShape = signal<WallShape>('vertical');
+  readonly selectedWallSize = signal<SandboxWallSize>('small');
   readonly targets = signal<readonly Target[]>(this.initialRound.targets);
   readonly walls = signal<readonly Wall[]>(this.initialRound.walls);
   readonly bullet = signal<Bullet | null>(null);
@@ -116,17 +147,37 @@ export class EquationArtilleryPageComponent implements OnDestroy {
               : null,
       }));
   });
-  readonly targetsForBoard = computed<readonly Target[]>(() =>
-    this.gameMode() === 'target-practice' ? this.targets() : [],
-  );
+  readonly targetsForBoard = computed<readonly Target[]>(() => {
+    if (this.gameMode() === 'target-practice') return this.targets();
+    if (this.gameMode() === 'free-practice') return this.freePracticeTargets();
+    return [];
+  });
   readonly wallsForBoard = computed<readonly Wall[]>(() => {
     if (this.gameMode() === 'single-player') return this.singlePlayerState()?.walls ?? [];
-    if (this.gameMode() === 'free-practice') return [];
+    if (this.gameMode() === 'free-practice') return this.freePracticeWalls();
     return this.walls();
   });
   readonly movementEnabled = computed(
+    () =>
+      this.gameMode() === 'free-practice' &&
+      this.selectedSandboxTool() === 'move' &&
+      !this.active() &&
+      !this.activeShot(),
+  );
+  readonly pointSelectionEnabled = computed(
     () => this.gameMode() === 'free-practice' && !this.active() && !this.activeShot(),
   );
+  readonly previewTrail = computed<readonly Point[]>(() => {
+    if (this.gameMode() !== 'free-practice' || this.active() || this.activeShot()) return [];
+    const shooter = this.freePracticePlayer();
+    return buildFreePracticePreviewTrail({
+      equation: this.equation(),
+      player: shooter,
+      direction: this.freePracticeDirection(shooter),
+      targets: this.freePracticeTargets(),
+      walls: this.freePracticeWalls(),
+    });
+  });
   readonly controlsActive = computed(
     () =>
       this.active() ||
@@ -176,7 +227,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     }
     if (this.gameMode() === 'free-practice') {
       if (this.active()) return 'Shot in flight.';
-      return 'Click the board to move. Fire any equation to test its path.';
+      return 'Click the board to move or use sandbox tools. Fire any equation to test its path.';
     }
     if (this.roundComplete()) return 'All targets destroyed.';
     if (this.active())
@@ -212,11 +263,11 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     ]);
     const practiceMode = this.gameMode() === 'free-practice';
     const shooter = practiceMode ? this.freePracticePlayer() : this.player();
-    const direction = practiceMode && shooter.position.x >= 0 ? -1 : 1;
+    const direction = practiceMode ? this.freePracticeDirection(shooter) : 1;
     let shot = createShot(
       shooter,
-      practiceMode ? [] : this.targets(),
-      practiceMode ? [] : this.walls(),
+      practiceMode ? this.freePracticeTargets() : this.targets(),
+      practiceMode ? this.freePracticeWalls() : this.walls(),
     );
     const shotFrames: ShotState[] = [shot];
     for (let index = 0; index < LOCAL_SHOT_MAX_FRAMES && shot.active; index += 1) {
@@ -240,7 +291,10 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       shot = shotFrames[frameIndex];
       this.bullet.set(shot.bullet);
       this.trail.set(shot.trail);
-      if (!practiceMode) {
+      if (practiceMode) {
+        this.freePracticeTargets.set(shot.targets);
+        this.freePracticeWalls.set(shot.walls);
+      } else {
         this.targets.set(shot.targets);
         this.walls.set(shot.walls);
       }
@@ -374,6 +428,46 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.freePracticePlayer.update((player) => ({ ...player, position }));
   }
 
+  handleFreePracticeBoardPoint(position: Point): void {
+    if (this.gameMode() !== 'free-practice' || this.active() || this.activeShot()) return;
+    const tool = this.selectedSandboxTool();
+    if (tool === 'move') {
+      this.moveFreePracticePlayer(position);
+      return;
+    }
+    if (tool === 'enemy') {
+      const target = placeSandboxTarget({
+        point: position,
+        player: this.freePracticePlayer(),
+        targets: this.freePracticeTargets(),
+        walls: this.freePracticeWalls(),
+      });
+      if (target) this.freePracticeTargets.update((targets) => [...targets, target]);
+      return;
+    }
+    if (tool === 'wall') {
+      const wall = placeSandboxWall({
+        point: position,
+        shape: this.selectedWallShape(),
+        size: this.selectedWallSize(),
+        player: this.freePracticePlayer(),
+        targets: this.freePracticeTargets(),
+        walls: this.freePracticeWalls(),
+      });
+      if (wall) this.freePracticeWalls.update((walls) => [...walls, wall]);
+      return;
+    }
+    const result = deleteNearestSandboxObject({
+      point: position,
+      targets: this.freePracticeTargets(),
+      walls: this.freePracticeWalls(),
+    });
+    if (result.deleted) {
+      this.freePracticeTargets.set(result.targets);
+      this.freePracticeWalls.set(result.walls);
+    }
+  }
+
   enterMultiplayer(): void {
     void this.router.navigate(['/games/equation-artillery/multiplayer']);
   }
@@ -505,6 +599,10 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   private isHumanTurn(): boolean {
     const state = this.singlePlayerState();
     return state?.status === 'active' && state.turnUserId === HUMAN_USER_ID;
+  }
+
+  private freePracticeDirection(player: Player): 1 | -1 {
+    return player.position.x >= 0 ? -1 : 1;
   }
 
   private nextCommandId(prefix: string): string {

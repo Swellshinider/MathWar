@@ -14,6 +14,7 @@ export class EquationControlsComponent {
   readonly roundComplete = input(false);
   readonly error = input<string | null>(null);
   readonly status = input('Ready');
+  readonly showPreview = input(true);
   readonly fire = output<string>();
   readonly newRound = output<void>();
   readonly equation = model('0.35x');

@@ -70,6 +70,71 @@ code {
   container-type: inline-size;
 }
 
+.sandbox-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+}
+
+.sandbox-tools__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.tool-button,
+.icon-button,
+.size-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: var(--surface-2);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tool-button {
+  gap: 0.45rem;
+  padding: 0 0.7rem;
+}
+
+.icon-button,
+.size-button {
+  width: 2.35rem;
+}
+
+.tool-button svg,
+.icon-button svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.tool-button--active,
+.icon-button--active,
+.size-button--active {
+  border-color: var(--accent);
+  color: var(--text-1);
+  background: var(--surface-3);
+}
+
+.tool-button:disabled,
+.icon-button:disabled,
+.size-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .board-row {
   --history-width: clamp(16rem, 28cqw, 19rem);
 
@@ -80,6 +145,17 @@ code {
   gap: var(--space-4);
   align-items: stretch;
   min-width: 0;
+}
+
+.controls-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--history-width, clamp(16rem, 28cqw, 19rem));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.controls-row app-equation-controls {
+  grid-column: 1;
 }
 
 app-board {
@@ -99,6 +175,10 @@ app-equation-history {
 
   .board-row {
     height: auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .controls-row {
     grid-template-columns: minmax(0, 1fr);
   }
 

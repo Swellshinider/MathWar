@@ -114,4 +114,60 @@ describe('BoardRenderer', () => {
     expect(context.fillText).toHaveBeenCalledWith('Right', expect.any(Number), expect.any(Number));
     expect(fillStyles).toContain(BOARD_PALETTE.activePlayerText);
   });
+
+  it('draws a dashed preview trail before the active shot trail and resets the dash', () => {
+    const setLineDash = vi.fn();
+    const strokeStyles: string[] = [];
+    const context = {
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      strokeRect: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 80 })),
+      setLineDash,
+      fillStyle: '',
+      get strokeStyle() {
+        return strokeStyles.at(-1) ?? '';
+      },
+      set strokeStyle(value: string) {
+        strokeStyles.push(value);
+      },
+      lineWidth: 0,
+      shadowColor: '',
+      shadowBlur: 0,
+      font: '',
+      textAlign: '',
+      textBaseline: '',
+      lineCap: '',
+      lineJoin: '',
+    } as unknown as CanvasRenderingContext2D;
+
+    new BoardRenderer().draw(context, { width: 800, height: 500 }, WORLD_BOUNDS, {
+      player: { position: { x: -8, y: 0 }, radius: 0.3 },
+      characters: [],
+      targets: [],
+      walls: [],
+      bullet: null,
+      previewTrail: [
+        { x: -8, y: 0 },
+        { x: -5, y: 1 },
+      ],
+      trail: [
+        { x: -8, y: 0 },
+        { x: -4, y: 2 },
+      ],
+    });
+
+    expect(setLineDash).toHaveBeenNthCalledWith(1, [8, 6]);
+    expect(setLineDash).toHaveBeenNthCalledWith(2, []);
+    expect(context.stroke).toHaveBeenCalled();
+    expect(strokeStyles).toContain(BOARD_PALETTE.previewTrail);
+    expect(strokeStyles).toContain(BOARD_PALETTE.trail);
+  });
 });
