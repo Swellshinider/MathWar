@@ -119,6 +119,7 @@ function matchState(overrides: Partial<MatchState> = {}): MatchState {
 describe('MultiplayerPageComponent', () => {
   let handlers: SocketHandlers;
   let advanceShot: (() => boolean) | undefined;
+  let renderTimeline: ((progress: number) => boolean) | undefined;
   let routeParams: Record<string, string>;
   const auth = {
     ready: signal(true),
@@ -144,6 +145,10 @@ describe('MultiplayerPageComponent', () => {
   const animation = {
     start: vi.fn((advance: () => boolean) => {
       advanceShot = advance;
+    }),
+    startTimeline: vi.fn((render: (progress: number) => boolean) => {
+      renderTimeline = render;
+      advanceShot = () => render(1);
     }),
     cancel: vi.fn(),
   };
@@ -176,6 +181,7 @@ describe('MultiplayerPageComponent', () => {
     auth.error.set(null);
     auth.signIn.mockResolvedValue(undefined);
     advanceShot = undefined;
+    renderTimeline = undefined;
     vi.stubGlobal(
       'ResizeObserver',
       class {
@@ -292,9 +298,8 @@ describe('MultiplayerPageComponent', () => {
     );
     expect(component.equationHistory()).toEqual([]);
 
-    expect(advanceShot?.()).toBe(true);
+    expect(renderTimeline?.(1)).toBe(false);
     expect(audio.updateEquationSound).toHaveBeenCalledWith(event.trail[1]);
-    expect(advanceShot?.()).toBe(false);
 
     expect(audio.stopEquationSound).toHaveBeenCalled();
     expect(audio.playWallHit).toHaveBeenCalledOnce();
@@ -391,8 +396,7 @@ describe('MultiplayerPageComponent', () => {
       state: ended,
     });
 
-    advanceShot?.();
-    advanceShot?.();
+    renderTimeline?.(1);
 
     expect(audio.playEnemyHit).toHaveBeenCalledOnce();
     expect(audio.playLose).toHaveBeenCalledOnce();
@@ -571,6 +575,17 @@ describe('MultiplayerPageComponent', () => {
       expectedVersion: 0,
       roomCode: 'ABCD-EFGH',
     });
+  });
+
+  it('clears a connection error after the socket reconnects', async () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+
+    handlers.error('Connection interrupted. Trying to reconnect...');
+    handlers.connected?.();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.error()).toBeNull();
   });
 
   it('auto-joins an invite room once a guest session becomes available', async () => {

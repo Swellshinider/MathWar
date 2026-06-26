@@ -137,6 +137,17 @@ describe('MultiplayerLobbyComponent', () => {
     expect(component.error()).toBe('Leave the current match first.');
   });
 
+  it('clears a connection error after the socket reconnects', () => {
+    const fixture = TestBed.createComponent(MultiplayerLobbyComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    handlers.error('Connection interrupted. Trying to reconnect...');
+    handlers.connected?.();
+
+    expect(component.error()).toBeNull();
+  });
+
   it('copies the room invite link', async () => {
     const writeText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });

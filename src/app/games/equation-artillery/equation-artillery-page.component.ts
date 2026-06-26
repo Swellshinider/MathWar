@@ -22,7 +22,7 @@ import {
 } from './game/cpu-opponent';
 import { compileExpression, ExpressionError } from './game/expression';
 import { spawnRound } from './game/spawning';
-import { advanceShot, createShot } from './game/trajectory';
+import { advanceShot, createShot, ShotState } from './game/trajectory';
 import { Bullet } from './models/bullet';
 import { Player } from './models/player';
 import { Point } from './models/point';
@@ -43,6 +43,9 @@ const HUMAN_USER_ID = 'human';
 const CPU_USER_ID = 'cpu';
 const CPU_THINK_DELAY_MS = 500;
 const BULLET_RADIUS = 0.18;
+const ATTACK_ANIMATION_DURATION_MS = 3000;
+const LOCAL_SHOT_STEP = 0.08;
+const LOCAL_SHOT_MAX_FRAMES = 2000;
 
 @Component({
   selector: 'app-equation-artillery-page',
@@ -209,19 +212,32 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     ]);
     const practiceMode = this.gameMode() === 'free-practice';
     const shooter = practiceMode ? this.freePracticePlayer() : this.player();
+    const direction = practiceMode && shooter.position.x >= 0 ? -1 : 1;
     let shot = createShot(
       shooter,
       practiceMode ? [] : this.targets(),
       practiceMode ? [] : this.walls(),
     );
+    const shotFrames: ShotState[] = [shot];
+    for (let index = 0; index < LOCAL_SHOT_MAX_FRAMES && shot.active; index += 1) {
+      shot = advanceShot(shot, shooter, expression, WORLD_BOUNDS, LOCAL_SHOT_STEP, direction);
+      shotFrames.push(shot);
+    }
     this.audio.playFire();
-    this.audio.startEquationSound(shot.bullet.position);
+    this.audio.startEquationSound(shotFrames[0].bullet.position);
     this.active.set(true);
-    this.bullet.set(shot.bullet);
-    this.trail.set(shot.trail);
-    this.animation.start((step) => {
-      const previousTargetCount = shot.targets.length;
-      shot = advanceShot(shot, shooter, expression, WORLD_BOUNDS, step);
+    this.bullet.set(shotFrames[0].bullet);
+    this.trail.set(shotFrames[0].trail);
+    let renderedIndex = 0;
+    let previousTargetCount = shotFrames[0].targets.length;
+    this.animation.startTimeline((progress) => {
+      const frameIndex = Math.min(
+        Math.floor(progress * (shotFrames.length - 1)),
+        shotFrames.length - 1,
+      );
+      if (frameIndex === renderedIndex && progress < 1) return true;
+      renderedIndex = frameIndex;
+      shot = shotFrames[frameIndex];
       this.bullet.set(shot.bullet);
       this.trail.set(shot.trail);
       if (!practiceMode) {
@@ -232,16 +248,17 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       this.active.set(shot.active);
       this.audio.updateEquationSound(shot.bullet.position);
       if (shot.targets.length < previousTargetCount) this.audio.playEnemyHit();
+      previousTargetCount = shot.targets.length;
       if (!practiceMode && shot.targets.length === 0 && !this.wonRound) {
         this.wonRound = true;
         this.audio.playWin();
       }
-      if (!shot.active) {
+      if (!shot.active || progress >= 1) {
         this.audio.stopEquationSound();
         if (shot.impact === 'wall') this.audio.playWallHit();
       }
-      return shot.active;
-    });
+      return shot.active && progress < 1;
+    }, ATTACK_ANIMATION_DURATION_MS);
   }
 
   newRound(): void {
@@ -427,8 +444,13 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.trail.set([firstPoint]);
     this.bullet.set({ position: firstPoint, radius: BULLET_RADIUS });
     this.audio.startEquationSound(firstPoint);
-    this.animation.start(() => {
-      index += 1;
+    this.animation.startTimeline((progress) => {
+      const nextIndex = Math.min(
+        Math.floor(progress * (event.trail.length - 1)),
+        event.trail.length - 1,
+      );
+      if (nextIndex === index && progress < 1) return true;
+      index = nextIndex;
       const point = event.trail[index];
       if (!point) {
         this.finishSinglePlayerShot(event);
@@ -437,8 +459,12 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       this.trail.set(event.trail.slice(0, index + 1));
       this.bullet.set({ position: point, radius: BULLET_RADIUS });
       this.audio.updateEquationSound(point);
+      if (progress >= 1) {
+        this.finishSinglePlayerShot(event);
+        return false;
+      }
       return true;
-    });
+    }, ATTACK_ANIMATION_DURATION_MS);
   }
 
   private finishSinglePlayerShot(event: ShotResolvedEvent): void {

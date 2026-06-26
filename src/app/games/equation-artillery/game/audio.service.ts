@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, OnDestroy, computed, signal } from '@angular/core';
 import { Point } from '../models/point';
 import { WORLD_BOUNDS } from '../models/world-bounds';
 
@@ -41,7 +41,7 @@ function readSettings(): AudioSettings {
 }
 
 @Injectable({ providedIn: 'root' })
-export class EquationArtilleryAudioService {
+export class EquationArtilleryAudioService implements OnDestroy {
   private readonly settingsState = signal<AudioSettings>(readSettings());
   private context: BrowserAudioContext | null = null;
   private travelOscillator: OscillatorNode | null = null;
@@ -52,6 +52,12 @@ export class EquationArtilleryAudioService {
   readonly settings = this.settingsState.asReadonly();
   readonly muted = computed(() => this.settings().muted);
   readonly volume = computed(() => this.settings().volume);
+
+  constructor() {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+  }
 
   setMuted(muted: boolean): void {
     this.updateSettings({ ...this.settings(), muted });
@@ -165,6 +171,13 @@ export class EquationArtilleryAudioService {
     await this.ensureContext()?.resume?.();
   }
 
+  ngOnDestroy(): void {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+    this.stopEquationSound();
+  }
+
   private playOneShot(url: string): void {
     if (this.muted()) return;
     try {
@@ -179,6 +192,12 @@ export class EquationArtilleryAudioService {
   private effectiveTravelVolume(): number {
     return this.muted() ? 0 : this.volume() * 0.12;
   }
+
+  private readonly handleVisibilityChange = (): void => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      this.stopEquationSound();
+    }
+  };
 
   private ensureContext(): BrowserAudioContext | null {
     if (this.context) return this.context;

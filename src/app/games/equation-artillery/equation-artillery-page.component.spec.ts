@@ -5,9 +5,14 @@ import { EquationArtilleryAudioService } from './game/audio.service';
 
 describe('EquationArtilleryPageComponent', () => {
   let advanceShot: ((step: number) => boolean) | undefined;
+  let renderTimeline: ((progress: number) => boolean) | undefined;
   const animation = {
     start: vi.fn((advance: (step: number) => boolean) => {
       advanceShot = advance;
+    }),
+    startTimeline: vi.fn((render: (progress: number) => boolean) => {
+      renderTimeline = render;
+      advanceShot = () => render(1);
     }),
     cancel: vi.fn(),
   };
@@ -31,6 +36,7 @@ describe('EquationArtilleryPageComponent', () => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
     advanceShot = undefined;
+    renderTimeline = undefined;
     vi.stubGlobal(
       'ResizeObserver',
       class {
@@ -208,6 +214,18 @@ describe('EquationArtilleryPageComponent', () => {
     expect(audio.startEquationSound).toHaveBeenCalledWith(component.playerForBoard().position);
     expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['0']);
     expect(component.roundComplete()).toBe(false);
+  });
+
+  it('fires free practice shots leftward when the player is on the right side', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.selectFreePractice();
+    component.moveFreePracticePlayer({ x: 4, y: 1 });
+
+    component.fire('0');
+    renderTimeline?.(1);
+
+    expect(component.trail().at(-1)?.x).toBeLessThan(4);
   });
 
   it('moves only the free practice player from board clicks', () => {

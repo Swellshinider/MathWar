@@ -31,6 +31,21 @@ describe('trajectory advancement', () => {
     expect(shot.impact).toBe('bounds');
   });
 
+  it('samples local shots toward decreasing x when direction is left', () => {
+    const rightPlayer: Player = { position: { x: 4, y: 1 }, radius: 0 };
+    const shot = advanceShot(
+      createShot(rightPlayer, [], []),
+      rightPlayer,
+      compileExpression('0'),
+      WORLD_BOUNDS,
+      0.5,
+      -1,
+    );
+
+    expect(shot.bullet.position.x).toBeLessThan(rightPlayer.position.x);
+    expect(shot.bullet.position.y).toBeCloseTo(1);
+  });
+
   it('reduces steep tangent shots instead of ending mid-board', () => {
     const originPlayer: Player = { position: { x: 0, y: 0 }, radius: 0 };
     const shot = advanceShot(
