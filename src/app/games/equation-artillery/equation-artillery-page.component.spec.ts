@@ -203,6 +203,27 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.status()).toContain('Click the board to move');
   });
 
+  it('shows sandbox tools and hides the separate function preview in free practice', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+
+    component.selectFreePractice();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.sandbox-tools')).not.toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-equation-controls app-function-preview'),
+    ).toBeNull();
+
+    component.selectTargetPractice();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.sandbox-tools')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-equation-controls app-function-preview'),
+    ).not.toBeNull();
+  });
+
   it('fires equations in free practice without needing targets', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;
@@ -240,6 +261,70 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.player()).toBe(targetPracticePlayer);
   });
 
+  it('routes free practice board clicks through Move, Enemy, Wall, and Delete tools', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.selectFreePractice();
+
+    component.handleFreePracticeBoardPoint({ x: 1, y: 1 });
+    expect(component.playerForBoard().position).toEqual({ x: 1, y: 1 });
+
+    component.selectedSandboxTool.set('enemy');
+    component.handleFreePracticeBoardPoint({ x: 5, y: 1 });
+    expect(component.freePracticeTargets()).toEqual([
+      { id: 1, center: { x: 5, y: 1 }, width: 1, height: 1 },
+    ]);
+
+    component.selectedSandboxTool.set('wall');
+    component.selectedWallShape.set('square');
+    component.selectedWallSize.set('small');
+    component.handleFreePracticeBoardPoint({ x: 7, y: 1 });
+    expect(component.freePracticeWalls()).toHaveLength(1);
+    expect(component.freePracticeWalls()[0].shape).toBe('square');
+
+    component.selectedSandboxTool.set('delete');
+    component.handleFreePracticeBoardPoint({ x: 5, y: 1 });
+    expect(component.freePracticeTargets()).toEqual([]);
+    expect(component.freePracticeWalls()).toHaveLength(1);
+  });
+
+  it('rejects invalid free practice enemy and wall placements', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.selectFreePractice();
+
+    component.selectedSandboxTool.set('enemy');
+    component.handleFreePracticeBoardPoint(component.freePracticePlayer().position);
+    expect(component.freePracticeTargets()).toEqual([]);
+
+    component.handleFreePracticeBoardPoint({ x: 4, y: 0 });
+    component.selectedSandboxTool.set('wall');
+    component.selectedWallShape.set('circle');
+    component.selectedWallSize.set('large');
+    component.handleFreePracticeBoardPoint({ x: 16, y: 10 });
+    component.handleFreePracticeBoardPoint({ x: 4, y: 0 });
+
+    expect(component.freePracticeTargets()).toHaveLength(1);
+    expect(component.freePracticeWalls()).toEqual([]);
+  });
+
+  it('passes a live free practice preview trail to the board without mutating objects', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.selectFreePractice();
+    component.freePracticePlayer.set({ position: { x: -2, y: 0 }, radius: 0.32 });
+    component.selectedSandboxTool.set('enemy');
+    component.handleFreePracticeBoardPoint({ x: -1, y: 0 });
+    const targets = component.freePracticeTargets();
+
+    component.equation.set('0');
+    fixture.detectChanges();
+
+    expect(component.previewTrail().length).toBeGreaterThan(1);
+    expect(component.freePracticeTargets()).toBe(targets);
+    expect(fixture.nativeElement.querySelector('app-board')).not.toBeNull();
+  });
+
   it('preserves target practice entities after visiting free practice', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;
@@ -253,6 +338,31 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.targetsForBoard()).toBe(targetPracticeTargets);
     expect(component.wallsForBoard()).toBe(targetPracticeWalls);
     expect(component.playerForBoard()).toBe(component.player());
+  });
+
+  it('free practice shots collide with manually placed enemies and walls', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+    component.selectFreePractice();
+    component.freePracticePlayer.set({ position: { x: -2, y: 0 }, radius: 0.32 });
+    component.selectedSandboxTool.set('enemy');
+    component.handleFreePracticeBoardPoint({ x: -1, y: 0 });
+    component.selectedSandboxTool.set('wall');
+    component.selectedWallShape.set('vertical');
+    component.selectedWallSize.set('small');
+    component.handleFreePracticeBoardPoint({ x: 2, y: 0 });
+
+    component.fire('0');
+    renderTimeline?.(1);
+
+    expect(component.freePracticeTargets()).toEqual([]);
+    expect(audio.playEnemyHit).toHaveBeenCalledOnce();
+
+    component.fire('0');
+    renderTimeline?.(1);
+
+    expect(component.freePracticeWalls()[0].pieces.length).toBeLessThan(5);
+    expect(audio.playWallHit).toHaveBeenCalledOnce();
   });
 
   it('starts single player with six soldiers and no square targets', () => {

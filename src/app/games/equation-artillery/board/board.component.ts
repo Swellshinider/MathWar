@@ -29,8 +29,11 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
   readonly targets = input.required<readonly Target[]>();
   readonly walls = input.required<readonly Wall[]>();
   readonly bullet = input<Bullet | null>(null);
+  readonly previewTrail = input<readonly Point[]>([]);
   readonly trail = input<readonly Point[]>([]);
   readonly movementEnabled = input(false);
+  readonly pointSelectionEnabled = input(false);
+  readonly boardPoint = output<Point>();
   readonly move = output<Point>();
   @ViewChild('canvas', { static: true }) private canvasRef!: ElementRef<HTMLCanvasElement>;
 
@@ -44,6 +47,7 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
       this.targets();
       this.walls();
       this.bullet();
+      this.previewTrail();
       this.trail();
       queueMicrotask(() => this.draw());
     });
@@ -59,8 +63,8 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
     this.resizeObserver?.disconnect();
   }
 
-  movePlayer(event: PointerEvent): void {
-    if (!this.movementEnabled()) return;
+  handlePointer(event: PointerEvent): void {
+    if (!this.movementEnabled() && !this.pointSelectionEnabled()) return;
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
@@ -70,10 +74,12 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
       { width: rect.width, height: rect.height },
     );
     const radius = this.player().radius;
-    this.move.emit({
+    const point = {
       x: Math.min(WORLD_BOUNDS.maxX - radius, Math.max(WORLD_BOUNDS.minX + radius, position.x)),
       y: Math.min(WORLD_BOUNDS.maxY - radius, Math.max(WORLD_BOUNDS.minY + radius, position.y)),
-    });
+    };
+    if (this.pointSelectionEnabled()) this.boardPoint.emit(point);
+    if (this.movementEnabled()) this.move.emit(point);
   }
 
   private draw(): void {
@@ -94,6 +100,7 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
       targets: this.targets(),
       walls: this.walls(),
       bullet: this.bullet(),
+      previewTrail: this.previewTrail(),
       trail: this.trail(),
     });
   }

@@ -10,6 +10,14 @@
   align-items: start;
 }
 
+.controls-layout--full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.control-content {
+  min-width: 0;
+}
+
 form,
 .entry-row {
   display: grid;

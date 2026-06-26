@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { EquationArtilleryAudioService } from './audio.service';
+import { EquationArtilleryAudioService, TRAVEL_AUDIO_PITCH_CONFIG } from './audio.service';
 
 describe('EquationArtilleryAudioService', () => {
   const createdAudio: Array<{ src: string; volume: number; play: ReturnType<typeof vi.fn> }> = [];
@@ -164,6 +164,44 @@ describe('EquationArtilleryAudioService', () => {
     expect(panner.pan.setTargetAtTime).toHaveBeenCalled();
     expect(gain.gain.setTargetAtTime).toHaveBeenCalledWith(0, context.currentTime, 0.02);
     expect(oscillator.stop).toHaveBeenCalled();
+  });
+
+  it('derives travel audio pitch from the named tuning config and clamps the range', () => {
+    const service = TestBed.inject(EquationArtilleryAudioService);
+
+    service.startEquationSound({ x: -16, y: -10 });
+    service.updateEquationSound({ x: 16, y: 10 });
+    service.updateEquationSound({ x: 16.1, y: 20 });
+    service.updateEquationSound({ x: -17, y: 10 });
+    service.updateEquationSound({ x: -16, y: -10 });
+
+    expect(oscillator.frequency.setTargetAtTime).toHaveBeenNthCalledWith(
+      1,
+      TRAVEL_AUDIO_PITCH_CONFIG.minFrequency,
+      context.currentTime,
+      TRAVEL_AUDIO_PITCH_CONFIG.smoothingTime,
+    );
+    expect(oscillator.frequency.setTargetAtTime).toHaveBeenNthCalledWith(
+      2,
+      TRAVEL_AUDIO_PITCH_CONFIG.baseFrequency +
+        TRAVEL_AUDIO_PITCH_CONFIG.yInfluence +
+        TRAVEL_AUDIO_PITCH_CONFIG.xInfluence +
+        TRAVEL_AUDIO_PITCH_CONFIG.slopeInfluence * 0.625,
+      context.currentTime,
+      TRAVEL_AUDIO_PITCH_CONFIG.smoothingTime,
+    );
+    const generatedFrequencies = oscillator.frequency.setTargetAtTime.mock.calls.map(
+      ([frequency]) => frequency,
+    );
+    expect(Math.max(...generatedFrequencies)).toBeLessThanOrEqual(
+      TRAVEL_AUDIO_PITCH_CONFIG.maxFrequency,
+    );
+    expect(oscillator.frequency.setTargetAtTime).toHaveBeenNthCalledWith(
+      5,
+      TRAVEL_AUDIO_PITCH_CONFIG.minFrequency,
+      context.currentTime,
+      TRAVEL_AUDIO_PITCH_CONFIG.smoothingTime,
+    );
   });
 
   it('stops generated travel audio when the document becomes hidden', () => {

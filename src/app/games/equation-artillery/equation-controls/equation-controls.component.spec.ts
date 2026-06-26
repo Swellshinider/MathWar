@@ -65,6 +65,18 @@ describe('EquationControlsComponent', () => {
     expect(preview.textContent).not.toContain('Position and scale hidden');
   });
 
+  it('can hide the separate function preview for canvas-based previews', () => {
+    const fixture = TestBed.createComponent(EquationControlsComponent);
+    fixture.componentRef.setInput('showPreview', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-function-preview')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.control-content')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.controls-layout').classList).toContain(
+      'controls-layout--full',
+    );
+  });
+
   it('explains that the shape preview is visually stretched', () => {
     const fixture = TestBed.createComponent(EquationControlsComponent);
     fixture.detectChanges();
@@ -72,9 +84,7 @@ describe('EquationControlsComponent', () => {
     const button = fixture.nativeElement.querySelector(
       'app-function-preview .info-button',
     ) as HTMLButtonElement;
-    const note = fixture.nativeElement.querySelector(
-      '#function-preview-note',
-    ) as HTMLElement;
+    const note = fixture.nativeElement.querySelector('#function-preview-note') as HTMLElement;
 
     expect(button.textContent?.trim()).toBe('?');
     expect(button.getAttribute('aria-label')).toBe('About the function shape preview');

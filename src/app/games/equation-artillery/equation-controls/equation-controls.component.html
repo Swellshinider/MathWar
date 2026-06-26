@@ -1,5 +1,7 @@
-<div class="controls-layout">
-  <app-function-preview [equation]="equationValue()" />
+<div class="controls-layout" [class.controls-layout--full]="!showPreview()">
+  @if (showPreview()) {
+    <app-function-preview [equation]="equationValue()" />
+  }
   <div class="control-content">
     <form (submit)="submit($event)">
       <label for="equation">Trajectory equation</label>

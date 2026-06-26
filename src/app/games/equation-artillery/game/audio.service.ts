@@ -20,6 +20,16 @@ const SOUND_URLS = {
   win: '/sounds/win.wav',
   lose: '/sounds/lose.wav',
 } as const;
+export const TRAVEL_AUDIO_PITCH_CONFIG = {
+  baseFrequency: 100,
+  yInfluence: 520,
+  xInfluence: 180,
+  slopeInfluence: 18,
+  minFrequency: 120,
+  maxFrequency: 920,
+  smoothingTime: 0.025,
+  slopeLimit: 4,
+} as const;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -138,12 +148,24 @@ export class EquationArtilleryAudioService implements OnDestroy {
       1,
     );
     const previousPoint = this.previousPoint;
+    const slopeLimit = TRAVEL_AUDIO_PITCH_CONFIG.slopeLimit;
     const slope =
       previousPoint && point.x !== previousPoint.x
-        ? clamp((point.y - previousPoint.y) / (point.x - previousPoint.x), -4, 4)
+        ? clamp((point.y - previousPoint.y) / (point.x - previousPoint.x), -slopeLimit, slopeLimit)
         : 0;
-    const frequency = clamp(140 + normalizedY * 520 + normalizedX * 180 + slope * 18, 120, 920);
-    oscillator.frequency.setTargetAtTime(frequency, context.currentTime, 0.025);
+    const frequency = clamp(
+      TRAVEL_AUDIO_PITCH_CONFIG.baseFrequency +
+        normalizedY * TRAVEL_AUDIO_PITCH_CONFIG.yInfluence +
+        normalizedX * TRAVEL_AUDIO_PITCH_CONFIG.xInfluence +
+        slope * TRAVEL_AUDIO_PITCH_CONFIG.slopeInfluence,
+      TRAVEL_AUDIO_PITCH_CONFIG.minFrequency,
+      TRAVEL_AUDIO_PITCH_CONFIG.maxFrequency,
+    );
+    oscillator.frequency.setTargetAtTime(
+      frequency,
+      context.currentTime,
+      TRAVEL_AUDIO_PITCH_CONFIG.smoothingTime,
+    );
     this.travelPanner?.pan.setTargetAtTime(normalizedX * 2 - 1, context.currentTime, 0.04);
     this.previousPoint = point;
   }

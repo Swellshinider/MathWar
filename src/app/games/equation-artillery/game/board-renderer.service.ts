@@ -14,6 +14,7 @@ export interface BoardScene {
   readonly targets: readonly Target[];
   readonly walls: readonly Wall[];
   readonly bullet: Bullet | null;
+  readonly previewTrail?: readonly Point[];
   readonly trail: readonly Point[];
 }
 
@@ -39,6 +40,7 @@ export class BoardRenderer {
     context.fillStyle = BOARD_PALETTE.background;
     context.fillRect(0, 0, size.width, size.height);
     this.drawGrid(context, size, bounds);
+    this.drawPreviewTrail(context, size, bounds, scene.previewTrail ?? []);
     this.drawTrail(context, size, bounds, scene.trail, glow);
     scene.walls.forEach((wall) =>
       wall.pieces.forEach((piece) => this.drawWallPiece(context, size, bounds, piece)),
@@ -123,6 +125,29 @@ export class BoardRenderer {
     }
     context.stroke();
     context.shadowBlur = 0;
+  }
+
+  private drawPreviewTrail(
+    context: CanvasRenderingContext2D,
+    size: CanvasSize,
+    bounds: WorldBounds,
+    trail: readonly Point[],
+  ): void {
+    if (trail.length < 2) return;
+    context.beginPath();
+    const first = worldToCanvas(trail[0], bounds, size);
+    context.moveTo(first.x, first.y);
+    trail.slice(1).forEach((point) => {
+      const screen = worldToCanvas(point, bounds, size);
+      context.lineTo(screen.x, screen.y);
+    });
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = BOARD_PALETTE.previewTrail;
+    context.lineWidth = 2;
+    context.setLineDash([8, 6]);
+    context.stroke();
+    context.setLineDash([]);
   }
 
   private drawPlayer(

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-26
+
+- Upgraded Equation Artillery Free Practice into a sandbox with canvas trajectory previews, enemy
+  placement, wall stamps, delete tooling, and collisions against manually placed objects.
+
 ### Changed - 2026-06-26
 
 - Changed Equation Artillery attack animations to resolve over a fixed 3000ms duration.
