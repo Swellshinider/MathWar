@@ -11,6 +11,7 @@ import {
 } from './collision';
 import { compileExpression } from './expression';
 import { advanceShot, createShot } from './trajectory';
+import { buildWallShapeOffsets } from './wall-shape-offsets';
 
 export type SandboxTool = 'move' | 'enemy' | 'wall' | 'delete';
 export type SandboxWallSize = 'small' | 'medium' | 'large';
@@ -67,47 +68,8 @@ export interface FreePracticePreviewOptions {
   readonly bounds?: WorldBounds;
 }
 
-function centeredOffset(index: number, count: number): number {
-  return (index - (count - 1) / 2) * WALL_PIECE_SIZE;
-}
-
 function buildLocalWallPoints(shape: WallShape, size: SandboxWallSize): readonly Point[] {
-  const units = WALL_SIZE_UNITS[size];
-  if (shape === 'vertical') {
-    return Array.from({ length: units }, (_, row) => ({ x: 0, y: centeredOffset(row, units) }));
-  }
-  if (shape === 'square') {
-    return Array.from({ length: units * units }, (_, index) => ({
-      x: centeredOffset(index % units, units),
-      y: centeredOffset(Math.floor(index / units), units),
-    }));
-  }
-  if (shape === 'circle') {
-    const radius = (units - 1) / 2;
-    const points: Point[] = [];
-    for (let row = 0; row < units; row += 1) {
-      for (let column = 0; column < units; column += 1) {
-        const x = column - radius;
-        const y = row - radius;
-        if (x * x + y * y <= radius * radius) {
-          points.push({ x: x * WALL_PIECE_SIZE, y: y * WALL_PIECE_SIZE });
-        }
-      }
-    }
-    return points;
-  }
-
-  const points: Point[] = [];
-  for (let row = 0; row < units; row += 1) {
-    const width = row + 1;
-    for (let column = 0; column < width; column += 1) {
-      points.push({
-        x: centeredOffset(column, width),
-        y: centeredOffset(row, units),
-      });
-    }
-  }
-  return points;
+  return buildWallShapeOffsets(shape, WALL_SIZE_UNITS[size], WALL_PIECE_SIZE);
 }
 
 function nextTargetId(targets: readonly Target[]): number {

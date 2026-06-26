@@ -1,8 +1,9 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { MatchState, ShotResolvedEvent } from '@math-war/game-engine';
 import { AnimationService } from '../game/animation.service';
+import { shotAnimationDuration } from '../game/shot-animation';
 import { MultiplayerGuestSession } from './multiplayer-auth.service';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerPageComponent } from './multiplayer-page.component';
@@ -142,6 +143,9 @@ describe('MultiplayerPageComponent', () => {
     fire: vi.fn(),
     leave: vi.fn(),
   };
+  const router = {
+    navigate: vi.fn(),
+  };
   const animation = {
     start: vi.fn((advance: () => boolean) => {
       advanceShot = advance;
@@ -180,6 +184,8 @@ describe('MultiplayerPageComponent', () => {
     auth.storedDisplayName.set('');
     auth.error.set(null);
     auth.signIn.mockResolvedValue(undefined);
+    socket.leave.mockResolvedValue({ ok: true });
+    router.navigate.mockResolvedValue(true);
     advanceShot = undefined;
     renderTimeline = undefined;
     vi.stubGlobal(
@@ -198,6 +204,7 @@ describe('MultiplayerPageComponent', () => {
         { provide: EquationArtilleryAudioService, useValue: audio },
         { provide: MultiplayerAuthService, useValue: auth },
         { provide: MultiplayerSocketService, useValue: socket },
+        { provide: Router, useValue: router },
         {
           provide: ActivatedRoute,
           useFactory: () => ({ snapshot: { queryParamMap: convertToParamMap(routeParams) } }),
@@ -207,6 +214,21 @@ describe('MultiplayerPageComponent', () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it('returns to the Equation Artillery page after leaving a match', async () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const state = matchState();
+    handlers.state(state);
+
+    await fixture.componentInstance.leave();
+
+    expect(socket.leave).toHaveBeenCalledWith({
+      commandId: expect.any(String),
+      expectedVersion: state.version,
+    });
+    expect(router.navigate).toHaveBeenCalledWith(['/games/equation-artillery']);
+  });
 
   it('shows Help and Equation history without technical server messages', () => {
     const fixture = TestBed.createComponent(MultiplayerPageComponent);
@@ -288,6 +310,10 @@ describe('MultiplayerPageComponent', () => {
 
     expect(audio.playFire).toHaveBeenCalledOnce();
     expect(audio.startEquationSound).toHaveBeenCalledWith(event.trail[0]);
+    expect(animation.startTimeline).toHaveBeenCalledWith(
+      expect.any(Function),
+      shotAnimationDuration(event.trail),
+    );
     expect(component.activeShot()).toBe(true);
     expect(component.status()).toBe('Shot in flight.');
     expect(component.state()?.walls).toHaveLength(1);
@@ -395,6 +421,47 @@ describe('MultiplayerPageComponent', () => {
       error: null,
       state: ended,
     });
+
+    renderTimeline?.(1);
+
+    expect(audio.playEnemyHit).toHaveBeenCalledOnce();
+    expect(audio.playLose).toHaveBeenCalledOnce();
+  });
+
+  it('defers match result sounds until an active final shot animation finishes', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const state = matchState();
+    const ended = matchState({
+      version: 2,
+      status: 'ended',
+      winnerUserId: 'right',
+      endReason: 'hit',
+      turnUserId: null,
+      turnCharacterId: null,
+    });
+    handlers.state(state);
+    handlers.shot?.({
+      commandId: 'right-final',
+      matchId: state.id,
+      version: ended.version,
+      shooterUserId: 'right',
+      shooterCharacterId: 3,
+      equation: '0',
+      trail: [state.characters[3].position, { x: -9, y: 0 }],
+      impact: 'opponent',
+      error: null,
+      state: ended,
+    });
+
+    handlers.ended?.({
+      matchId: state.id,
+      version: ended.version,
+      winnerUserId: 'right',
+      reason: 'hit',
+    });
+
+    expect(audio.playLose).not.toHaveBeenCalled();
 
     renderTimeline?.(1);
 

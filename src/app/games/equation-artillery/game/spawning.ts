@@ -9,6 +9,7 @@ import {
   wallPieceOverlapsTarget,
   wallPiecesOverlap,
 } from './collision';
+import { buildWallShapeOffsets } from './wall-shape-offsets';
 
 export interface RoundEntities {
   readonly player: Player;
@@ -26,55 +27,21 @@ const integerBetween = (random: () => number, minimum: number, maximum: number):
 const halfStepBetween = (random: () => number, minimum: number, maximum: number): number =>
   integerBetween(random, minimum * 2, maximum * 2) / 2;
 
-function centeredOffset(index: number, count: number): number {
-  return (index - (count - 1) / 2) * WALL_PIECE_SIZE;
-}
-
 function createLocalPieces(shape: WallShape, random: () => number): readonly Point[] {
   if (shape === 'vertical') {
-    const height = integerBetween(random, 8, 13);
-    return Array.from({ length: height }, (_, row) => ({
-      x: 0,
-      y: centeredOffset(row, height),
-    }));
+    return buildWallShapeOffsets(shape, integerBetween(random, 8, 13), WALL_PIECE_SIZE);
   }
 
   if (shape === 'square') {
-    const side = integerBetween(random, 5, 8);
-    return Array.from({ length: side * side }, (_, index) => ({
-      x: centeredOffset(index % side, side),
-      y: centeredOffset(Math.floor(index / side), side),
-    }));
+    return buildWallShapeOffsets(shape, integerBetween(random, 5, 8), WALL_PIECE_SIZE);
   }
 
   if (shape === 'circle') {
     const radius = integerBetween(random, 3, 4);
-    const diameter = radius * 2 + 1;
-    const points: Point[] = [];
-    for (let row = 0; row < diameter; row += 1) {
-      for (let column = 0; column < diameter; column += 1) {
-        const x = column - radius;
-        const y = row - radius;
-        if (x * x + y * y <= radius * radius) {
-          points.push({ x: x * WALL_PIECE_SIZE, y: y * WALL_PIECE_SIZE });
-        }
-      }
-    }
-    return points;
+    return buildWallShapeOffsets(shape, radius * 2 + 1, WALL_PIECE_SIZE);
   }
 
-  const height = integerBetween(random, 6, 9);
-  const points: Point[] = [];
-  for (let row = 0; row < height; row += 1) {
-    const width = row + 1;
-    for (let column = 0; column < width; column += 1) {
-      points.push({
-        x: centeredOffset(column, width),
-        y: centeredOffset(row, height),
-      });
-    }
-  }
-  return points;
+  return buildWallShapeOffsets(shape, integerBetween(random, 6, 9), WALL_PIECE_SIZE);
 }
 
 function selectWallShapes(random: () => number): readonly WallShape[] {

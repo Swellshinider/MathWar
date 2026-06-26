@@ -1,6 +1,6 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
 import {
   CharacterState,
@@ -17,9 +17,11 @@ import {
   EquationHistoryComponent,
   EquationHistoryMessage,
 } from '../equation-history/equation-history.component';
+import { mapEquationHistoryMessages } from '../equation-history/equation-history-message';
 import { AnimationService } from '../game/animation.service';
 import { EquationArtilleryAudioService } from '../game/audio.service';
 import { BoardCharacter } from '../game/board-renderer.service';
+import { shotAnimationDuration } from '../game/shot-animation';
 import { Bullet } from '../models/bullet';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
@@ -28,8 +30,6 @@ import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerLobbyComponent } from './multiplayer-lobby.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
 import { formatRoomCode } from './room-code';
-
-const ATTACK_ANIMATION_DURATION_MS = 3000;
 
 @Component({
   selector: 'app-multiplayer-page',
@@ -51,6 +51,7 @@ const ATTACK_ANIMATION_DURATION_MS = 3000;
 export class MultiplayerPageComponent implements OnDestroy {
   readonly auth = inject(MultiplayerAuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly socket = inject(MultiplayerSocketService);
   private readonly animation = inject(AnimationService);
   private readonly audio = inject(EquationArtilleryAudioService);
@@ -68,6 +69,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   private readonly pendingLocalShotCommandIds = new Set<string>();
   private lastEndedSoundKey: string | null = null;
   private recalledTurnKey: string | null = null;
+  private pendingMatchResult: MatchState | MatchEndedEvent | null = null;
   private inviteJoinPending = false;
   private inviteJoinInFlight = false;
   private inviteRoomCode: string | null = null;
@@ -124,20 +126,13 @@ export class MultiplayerPageComponent implements OnDestroy {
     const state = this.state();
     const userId = this.userId();
     if (!state) return [];
-    const characters = this.charactersForState(state);
-    return (state.equationHistory ?? []).map((entry, index) => {
-      const player = state.players.find((candidate) => candidate.userId === entry.shooterUserId);
-      const character =
-        typeof entry.shooterCharacterId === 'number'
-          ? characters.find((candidate) => candidate.id === entry.shooterCharacterId)
-          : null;
-      return {
-        id: entry.commandId ?? `history-${index}`,
-        equation: entry.equation,
-        senderName: player?.displayName ?? 'Opponent',
-        soldierName: character?.displayName ?? null,
-        mine: entry.shooterUserId === userId,
-      };
+    return mapEquationHistoryMessages({
+      entries: state.equationHistory ?? [],
+      players: state.players,
+      characters: this.charactersForState(state),
+      currentUserId: userId,
+      fallbackIdPrefix: 'history',
+      fallbackSenderName: 'Opponent',
     });
   });
   readonly rememberedEquations = computed(() => {
@@ -182,7 +177,7 @@ export class MultiplayerPageComponent implements OnDestroy {
       this.socket.connect(token, {
         state: (state) => this.receiveState(state),
         shot: (event) => this.animateShot(event),
-        ended: (event) => this.playMatchResult(event),
+        ended: (event) => this.queueOrPlayMatchResult(event),
         error: (message) => this.error.set(message),
         connected: () => {
           this.error.set(null);
@@ -254,8 +249,12 @@ export class MultiplayerPageComponent implements OnDestroy {
       commandId: crypto.randomUUID(),
       expectedVersion: state.version,
     });
-    if (response.ok) this.state.set(null);
-    else this.error.set(response.error ?? 'Could not leave the match.');
+    if (!response.ok) {
+      this.error.set(response.error ?? 'Could not leave the match.');
+      return;
+    }
+    this.state.set(null);
+    void this.router.navigate(['/games/equation-artillery']);
   }
 
   requestLeave(dialog: HTMLDialogElement): void {
@@ -369,7 +368,7 @@ export class MultiplayerPageComponent implements OnDestroy {
         return false;
       }
       return true;
-    }, ATTACK_ANIMATION_DURATION_MS);
+    }, shotAnimationDuration(event.trail));
   }
 
   private receiveState(state: MatchState): void {
@@ -395,11 +394,27 @@ export class MultiplayerPageComponent implements OnDestroy {
     this.audio.stopEquationSound();
     if (event.impact === 'wall') this.audio.playWallHit();
     if (event.impact === 'opponent') this.audio.playEnemyHit();
+    this.flushPendingMatchResult();
   }
 
   private setState(state: MatchState): void {
     this.state.set(state);
-    if (state.status === 'ended') this.playMatchResult(state);
+    if (state.status === 'ended') this.queueOrPlayMatchResult(state);
+  }
+
+  private queueOrPlayMatchResult(event: MatchState | MatchEndedEvent): void {
+    if (this.activeShot()) {
+      this.pendingMatchResult = event;
+      return;
+    }
+    this.playMatchResult(event);
+  }
+
+  private flushPendingMatchResult(): void {
+    const event = this.pendingMatchResult;
+    if (!event) return;
+    this.pendingMatchResult = null;
+    this.playMatchResult(event);
   }
 
   private playMatchResult(event: MatchState | MatchEndedEvent): void {
