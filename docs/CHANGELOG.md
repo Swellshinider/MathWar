@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevented in-flight attack audio and line animation from freezing across hidden browser tabs.
 - Matched Equation Artillery shot animation speed across Free Practice, target practice,
   single-player, and multiplayer by shortening close-hit animations.
+- Delayed multiplayer win and lose sounds until the final shot animation finishes.
 - Fired Free Practice attacks leftward when the player is moved to the right side of the board.
 - Replaced raw multiplayer websocket errors with friendlier reconnect copy and cleared the message
   after reconnection.

@@ -407,6 +407,47 @@ describe('MultiplayerPageComponent', () => {
     expect(audio.playLose).toHaveBeenCalledOnce();
   });
 
+  it('defers match result sounds until an active final shot animation finishes', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const state = matchState();
+    const ended = matchState({
+      version: 2,
+      status: 'ended',
+      winnerUserId: 'right',
+      endReason: 'hit',
+      turnUserId: null,
+      turnCharacterId: null,
+    });
+    handlers.state(state);
+    handlers.shot?.({
+      commandId: 'right-final',
+      matchId: state.id,
+      version: ended.version,
+      shooterUserId: 'right',
+      shooterCharacterId: 3,
+      equation: '0',
+      trail: [state.characters[3].position, { x: -9, y: 0 }],
+      impact: 'opponent',
+      error: null,
+      state: ended,
+    });
+
+    handlers.ended?.({
+      matchId: state.id,
+      version: ended.version,
+      winnerUserId: 'right',
+      reason: 'hit',
+    });
+
+    expect(audio.playLose).not.toHaveBeenCalled();
+
+    renderTimeline?.(1);
+
+    expect(audio.playEnemyHit).toHaveBeenCalledOnce();
+    expect(audio.playLose).toHaveBeenCalledOnce();
+  });
+
   it('recovers the current player equation for each active character', () => {
     const fixture = TestBed.createComponent(MultiplayerPageComponent);
     fixture.detectChanges();

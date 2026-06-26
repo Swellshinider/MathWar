@@ -68,6 +68,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   private readonly pendingLocalShotCommandIds = new Set<string>();
   private lastEndedSoundKey: string | null = null;
   private recalledTurnKey: string | null = null;
+  private pendingMatchResult: MatchState | MatchEndedEvent | null = null;
   private inviteJoinPending = false;
   private inviteJoinInFlight = false;
   private inviteRoomCode: string | null = null;
@@ -175,7 +176,7 @@ export class MultiplayerPageComponent implements OnDestroy {
       this.socket.connect(token, {
         state: (state) => this.receiveState(state),
         shot: (event) => this.animateShot(event),
-        ended: (event) => this.playMatchResult(event),
+        ended: (event) => this.queueOrPlayMatchResult(event),
         error: (message) => this.error.set(message),
         connected: () => {
           this.error.set(null);
@@ -388,11 +389,27 @@ export class MultiplayerPageComponent implements OnDestroy {
     this.audio.stopEquationSound();
     if (event.impact === 'wall') this.audio.playWallHit();
     if (event.impact === 'opponent') this.audio.playEnemyHit();
+    this.flushPendingMatchResult();
   }
 
   private setState(state: MatchState): void {
     this.state.set(state);
-    if (state.status === 'ended') this.playMatchResult(state);
+    if (state.status === 'ended') this.queueOrPlayMatchResult(state);
+  }
+
+  private queueOrPlayMatchResult(event: MatchState | MatchEndedEvent): void {
+    if (this.activeShot()) {
+      this.pendingMatchResult = event;
+      return;
+    }
+    this.playMatchResult(event);
+  }
+
+  private flushPendingMatchResult(): void {
+    const event = this.pendingMatchResult;
+    if (!event) return;
+    this.pendingMatchResult = null;
+    this.playMatchResult(event);
   }
 
   private playMatchResult(event: MatchState | MatchEndedEvent): void {
