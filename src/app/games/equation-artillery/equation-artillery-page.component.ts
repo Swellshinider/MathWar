@@ -37,7 +37,7 @@ import {
 import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-settings-dialog.component';
 import { MultiplayerLobbyComponent } from './multiplayer/multiplayer-lobby.component';
 
-type GameMode = 'target-practice' | 'single-player';
+type GameMode = 'target-practice' | 'free-practice' | 'single-player';
 
 const HUMAN_USER_ID = 'human';
 const CPU_USER_ID = 'cpu';
@@ -74,6 +74,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly cpuDifficulty = signal(5);
   readonly singlePlayerState = signal<MatchState | null>(null);
   readonly player = signal<Player>(this.initialRound.player);
+  readonly freePracticePlayer = signal<Player>(this.initialRound.player);
   readonly targets = signal<readonly Target[]>(this.initialRound.targets);
   readonly walls = signal<readonly Wall[]>(this.initialRound.walls);
   readonly bullet = signal<Bullet | null>(null);
@@ -113,10 +114,15 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       }));
   });
   readonly targetsForBoard = computed<readonly Target[]>(() =>
-    this.gameMode() === 'single-player' ? [] : this.targets(),
+    this.gameMode() === 'target-practice' ? this.targets() : [],
   );
-  readonly wallsForBoard = computed<readonly Wall[]>(() =>
-    this.gameMode() === 'single-player' ? (this.singlePlayerState()?.walls ?? []) : this.walls(),
+  readonly wallsForBoard = computed<readonly Wall[]>(() => {
+    if (this.gameMode() === 'single-player') return this.singlePlayerState()?.walls ?? [];
+    if (this.gameMode() === 'free-practice') return [];
+    return this.walls();
+  });
+  readonly movementEnabled = computed(
+    () => this.gameMode() === 'free-practice' && !this.active() && !this.activeShot(),
   );
   readonly controlsActive = computed(
     () =>
@@ -151,6 +157,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly roundComplete = computed(() => {
     const state = this.singlePlayerState();
     if (this.gameMode() === 'single-player') return state?.status === 'ended';
+    if (this.gameMode() === 'free-practice') return false;
     return this.targets().length === 0;
   });
   readonly status = computed(() => {
@@ -163,6 +170,10 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         return state.winnerUserId === HUMAN_USER_ID ? 'You won.' : 'You lost.';
       }
       return this.isHumanTurn() ? 'Your turn.' : 'CPU is aiming.';
+    }
+    if (this.gameMode() === 'free-practice') {
+      if (this.active()) return 'Shot in flight.';
+      return 'Click the board to move. Fire any equation to test its path.';
     }
     if (this.roundComplete()) return 'All targets destroyed.';
     if (this.active())
@@ -196,7 +207,13 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         mine: true,
       },
     ]);
-    let shot = createShot(this.player(), this.targets(), this.walls());
+    const practiceMode = this.gameMode() === 'free-practice';
+    const shooter = practiceMode ? this.freePracticePlayer() : this.player();
+    let shot = createShot(
+      shooter,
+      practiceMode ? [] : this.targets(),
+      practiceMode ? [] : this.walls(),
+    );
     this.audio.playFire();
     this.audio.startEquationSound(shot.bullet.position);
     this.active.set(true);
@@ -204,16 +221,18 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.trail.set(shot.trail);
     this.animation.start((step) => {
       const previousTargetCount = shot.targets.length;
-      shot = advanceShot(shot, this.player(), expression, WORLD_BOUNDS, step);
+      shot = advanceShot(shot, shooter, expression, WORLD_BOUNDS, step);
       this.bullet.set(shot.bullet);
       this.trail.set(shot.trail);
-      this.targets.set(shot.targets);
-      this.walls.set(shot.walls);
+      if (!practiceMode) {
+        this.targets.set(shot.targets);
+        this.walls.set(shot.walls);
+      }
       this.error.set(shot.error);
       this.active.set(shot.active);
       this.audio.updateEquationSound(shot.bullet.position);
       if (shot.targets.length < previousTargetCount) this.audio.playEnemyHit();
-      if (shot.targets.length === 0 && !this.wonRound) {
+      if (!practiceMode && shot.targets.length === 0 && !this.wonRound) {
         this.wonRound = true;
         this.audio.playWin();
       }
@@ -253,6 +272,25 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.pendingSinglePlayerState = null;
     this.activeShot.set(false);
     this.cpuThinking.set(false);
+    this.bullet.set(null);
+    this.trail.set([]);
+    this.error.set(null);
+  }
+
+  selectFreePractice(): void {
+    this.cancelCpuTurn();
+    this.animation.cancel();
+    this.audio.stopEquationSound();
+    this.gameMode.set('free-practice');
+    this.singlePlayerState.set(null);
+    this.cpuOpponentMemory.set(null);
+    this.pendingSinglePlayerState = null;
+    this.active.set(false);
+    this.activeShot.set(false);
+    this.cpuThinking.set(false);
+    this.activeShotCharacterId.set(null);
+    this.activeShotEquation.set(null);
+    this.lastShotLabel.set(null);
     this.bullet.set(null);
     this.trail.set([]);
     this.error.set(null);
@@ -306,11 +344,17 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   }
 
   playerForBoard(): Player {
+    if (this.gameMode() === 'free-practice') return this.freePracticePlayer();
     if (this.gameMode() !== 'single-player') return this.player();
     const human = this.singlePlayerState()?.players.find(
       (player) => player.userId === HUMAN_USER_ID,
     );
     return human ?? this.player();
+  }
+
+  moveFreePracticePlayer(position: Point): void {
+    if (this.gameMode() !== 'free-practice' || this.active() || this.activeShot()) return;
+    this.freePracticePlayer.update((player) => ({ ...player, position }));
   }
 
   enterMultiplayer(): void {
