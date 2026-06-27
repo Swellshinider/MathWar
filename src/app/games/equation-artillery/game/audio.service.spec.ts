@@ -204,13 +204,13 @@ describe('EquationArtilleryAudioService', () => {
     );
   });
 
-  it('stops generated travel audio when the document becomes hidden', () => {
+  it('keeps generated travel audio active when the document becomes hidden', () => {
     const service = TestBed.inject(EquationArtilleryAudioService);
     service.startEquationSound({ x: 0, y: 0 });
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
 
     document.dispatchEvent(new Event('visibilitychange'));
 
-    expect(oscillator.stop).toHaveBeenCalled();
+    expect(oscillator.stop).not.toHaveBeenCalled();
   });
 });
