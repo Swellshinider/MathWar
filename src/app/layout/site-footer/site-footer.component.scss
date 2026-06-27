@@ -20,6 +20,16 @@ strong {
   color: var(--text-muted);
 }
 
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover,
+a:focus-visible {
+  color: var(--accent-hover);
+}
+
 @media (max-width: 30rem) {
   .footer-content {
     display: grid;

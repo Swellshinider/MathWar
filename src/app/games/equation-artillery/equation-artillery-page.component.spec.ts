@@ -161,27 +161,27 @@ describe('EquationArtilleryPageComponent', () => {
     expect(audio.playWallHit).toHaveBeenCalledOnce();
   });
 
-  it('shows CPU setup only after selecting single player without starting a match', () => {
+  it('shows CPU setup only after selecting CPU vs. without starting a match', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
     expect(fixture.nativeElement.querySelector('.difficulty-control')).toBeNull();
-    expect(fixture.nativeElement.textContent).not.toContain('Start Single Player');
+    expect(fixture.nativeElement.textContent).not.toContain('Single Player');
+    expect(fixture.nativeElement.textContent).not.toContain('Start CPU vs.');
 
     const modeTabs = Array.from(
       fixture.nativeElement.querySelectorAll('.mode-tab'),
     ) as HTMLButtonElement[];
-    const singlePlayerTab = modeTabs.find((button) =>
-      button.textContent?.includes('Single Player'),
-    )!;
+    const singlePlayerTab = modeTabs.find((button) => button.textContent?.includes('CPU vs.'))!;
     singlePlayerTab.click();
     fixture.detectChanges();
 
     expect(component.gameMode()).toBe('single-player');
     expect(component.singlePlayerState()).toBeNull();
     expect(fixture.nativeElement.querySelector('.difficulty-control')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Start Single Player');
+    expect(fixture.nativeElement.textContent).toContain('Start CPU vs.');
+    expect(fixture.nativeElement.textContent).not.toContain('Single Player');
 
     const startButton = fixture.nativeElement.querySelector(
       '.difficulty-control .btn',

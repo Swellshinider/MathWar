@@ -128,6 +128,32 @@ input {
   background: var(--accent-soft);
 }
 
+* {
+  scrollbar-color: var(--border-3) rgb(7 17 31 / 0.45);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 0.55rem;
+  height: 0.55rem;
+}
+
+*::-webkit-scrollbar-track {
+  border: 1px solid var(--surface-hairline);
+  border-radius: var(--radius-pill);
+  background: rgb(7 17 31 / 0.45);
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid rgb(7 17 31 / 0.45);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, var(--border-3), var(--border-2));
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent));
+}
+
 /* ---- shared building blocks (global so they apply across components) ---- */
 
 .glass {
