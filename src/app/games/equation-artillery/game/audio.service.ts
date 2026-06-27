@@ -14,11 +14,11 @@ type BrowserAudioContext = AudioContext & {
 const STORAGE_KEY = 'math-war.equation-artillery.audio';
 const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 0.5 };
 const SOUND_URLS = {
-  fire: '/sounds/fire.wav',
-  wallHit: '/sounds/wall-hit.wav',
-  enemyHit: '/sounds/enemy-hit.wav',
-  win: '/sounds/win.wav',
-  lose: '/sounds/lose.wav',
+  fire: '/sounds/equation-artillery/fire.wav',
+  wallHit: '/sounds/equation-artillery/wall-hit.wav',
+  enemyHit: '/sounds/equation-artillery/enemy-hit.wav',
+  win: '/sounds/equation-artillery/win.wav',
+  lose: '/sounds/equation-artillery/lose.wav',
 } as const;
 export const TRAVEL_AUDIO_PITCH_CONFIG = {
   baseFrequency: 100,

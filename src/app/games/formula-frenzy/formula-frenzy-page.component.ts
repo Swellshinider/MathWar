@@ -27,6 +27,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private problemStartedAt = 0;
   private timeoutId: ReturnType<typeof setTimeout> | null = null;
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private nextTickAtMs = 0;
 
   ngOnInit(): void {
     this.startProblemTimer();
@@ -51,6 +52,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const previousLevel = this.problem().level;
     this.totalSolveTimeMs.update((total) => total + (Date.now() - this.problemStartedAt));
     this.score.update((score) => score + 1);
     this.answerRejected.set(false);
@@ -58,6 +60,10 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.answerControl.setValue('');
     this.problem.set(createFormulaProblem(this.score()));
     this.startProblemTimer();
+    this.playSound('right-answer.wav');
+    if (this.problem().level > previousLevel) {
+      this.playSound('level-up.wav');
+    }
   }
 
   restart(): void {
@@ -74,22 +80,39 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private lose(): void {
     this.gameOver.set(true);
     this.clearTimers();
+    this.playSound('game-over.wav');
   }
 
   private rejectAnswer(): void {
     this.answerRejected.set(true);
     this.answerRejectionCount.update((count) => count + 1);
+    this.playSound('wrong-answer.wav');
   }
 
   private startProblemTimer(): void {
     this.clearTimers();
     this.problemStartedAt = Date.now();
     this.timeRemainingMs.set(this.problem().deadlineMs);
+    this.nextTickAtMs = this.computeNextTick(this.problem().deadlineMs);
     this.timeoutId = setTimeout(() => this.lose(), this.problem().deadlineMs);
     this.intervalId = setInterval(() => {
       const elapsed = Date.now() - this.problemStartedAt;
-      this.timeRemainingMs.set(Math.max(0, this.problem().deadlineMs - elapsed));
+      const remaining = Math.max(0, this.problem().deadlineMs - elapsed);
+      this.timeRemainingMs.set(remaining);
+      while (this.nextTickAtMs > 0 && remaining <= this.nextTickAtMs) {
+        this.playSound('time-tick.wav');
+        this.nextTickAtMs = this.computeNextTick(this.nextTickAtMs);
+      }
     }, 100);
+  }
+
+  // Below 10s the tick fires once per second; below 3s the gap shrinks so it
+  // accelerates into zero. Returns the next remaining-time threshold to tick at.
+  private computeNextTick(remainingMs: number): number {
+    if (remainingMs > 3000) {
+      return Math.max(3000, Math.floor((remainingMs - 1) / 1000) * 1000);
+    }
+    return Math.max(0, remainingMs - Math.max(80, Math.floor(remainingMs / 8)));
   }
 
   private clearTimers(): void {
@@ -97,5 +120,14 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     if (this.intervalId) clearInterval(this.intervalId);
     this.timeoutId = null;
     this.intervalId = null;
+  }
+
+  private playSound(file: string): void {
+    try {
+      const audio = new Audio(`/sounds/formula-frenzy/${file}`);
+      void audio.play().catch(() => undefined);
+    } catch {
+      // Audio is best-effort and should never break gameplay.
+    }
   }
 }
