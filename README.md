@@ -22,6 +22,12 @@ Current modes:
 - CPU vs.
 - Private 1v1 multiplayer
 
+### Formula Frenzy
+
+Formula Frenzy is a progression-based arithmetic sprint. Solve each formula before
+its timer expires, keep your streak alive, and watch the problems get harder as
+your score climbs.
+
 ## Requirements
 
 - Node.js `22.22.3` or newer

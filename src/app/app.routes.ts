@@ -24,5 +24,13 @@ export const routes: Routes = [
         (module) => module.MultiplayerPageComponent,
       ),
   },
+  {
+    path: 'games/formula-frenzy',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./games/formula-frenzy/formula-frenzy-page.component').then(
+        (module) => module.FormulaFrenzyPageComponent,
+      ),
+  },
   { path: '**', redirectTo: '' },
 ];

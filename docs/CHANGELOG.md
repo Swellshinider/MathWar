@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - 2026-06-27
 
+- Added Formula Frenzy as a new progression-based arithmetic mini-game with timed
+  calculations, escalating difficulty, score stats, and restart flow.
 - Added an About dialog with project, mini-game, Graphwar inspiration, and issue tracker details.
 - Added a footer link to the GitHub repository.
 - Added a GitHub Actions CI workflow for UI tests, server tests, and production builds.

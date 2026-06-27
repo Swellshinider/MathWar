@@ -10,22 +10,29 @@ describe('GameCatalogComponent', () => {
     }).compileComponents();
   });
 
-  it('lists Equation Artillery and links to its route', () => {
+  it('lists available games and links to their routes', () => {
     const fixture = TestBed.createComponent(GameCatalogComponent);
     fixture.detectChanges();
 
-    const link = fixture.nativeElement.querySelector('.game-card') as HTMLAnchorElement;
-    const image = fixture.nativeElement.querySelector('.game-card__preview') as HTMLImageElement;
+    const links = fixture.nativeElement.querySelectorAll(
+      '.game-card',
+    ) as NodeListOf<HTMLAnchorElement>;
+    const images = fixture.nativeElement.querySelectorAll(
+      '.game-card__preview',
+    ) as NodeListOf<HTMLImageElement>;
     expect(fixture.nativeElement.textContent).toContain('Equation Artillery');
-    expect(link.getAttribute('href')).toBe('/games/equation-artillery');
-    expect(image.getAttribute('src')).toBe('images/equation-artillery.png');
+    expect(fixture.nativeElement.textContent).toContain('Formula Frenzy');
+    expect(links[0].getAttribute('href')).toBe('/games/equation-artillery');
+    expect(links[1].getAttribute('href')).toBe('/games/formula-frenzy');
+    expect(images[0].getAttribute('src')).toBe('images/equation-artillery.png');
+    expect(images[1].getAttribute('src')).toBe('images/formula-frenzy.png');
   });
 
   it('does not render unavailable placeholder games', () => {
     const fixture = TestBed.createComponent(GameCatalogComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelectorAll('.game-card')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelectorAll('.game-card')).toHaveLength(2);
     expect(fixture.nativeElement.textContent).toContain('More math games are coming.');
   });
 });

@@ -9,4 +9,12 @@ export const GAMES: readonly GameDefinition[] = [
     image: 'images/equation-artillery.png',
     route: '/games/equation-artillery',
   },
+  {
+    id: 'formula-frenzy',
+    eyebrow: 'Arithmetic sprint',
+    title: 'Formula Frenzy',
+    summary: 'Solve fast. Keep up as the formulas get harder.',
+    image: 'images/formula-frenzy.png',
+    route: '/games/formula-frenzy',
+  },
 ];
