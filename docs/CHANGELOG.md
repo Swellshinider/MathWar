@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - 2026-06-27
+
+- Kept Equation Artillery shot timelines progressing when the browser tab is hidden or the window
+  loses focus.
+
 ### Added - 2026-06-26
 
 - Upgraded Equation Artillery Free Practice into a sandbox with canvas trajectory previews, enemy
