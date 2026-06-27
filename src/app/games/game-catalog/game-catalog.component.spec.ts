@@ -33,6 +33,6 @@ describe('GameCatalogComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.game-card')).toHaveLength(2);
-    expect(fixture.nativeElement.textContent).toContain('More math games are coming.');
+    expect(fixture.nativeElement.textContent).not.toContain('More math games are coming.');
   });
 });

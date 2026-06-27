@@ -13,7 +13,8 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   readonly problem = signal<FormulaProblem>(createFormulaProblem(0));
   readonly score = signal(0);
   readonly gameOver = signal(false);
-  readonly error = signal<string | null>(null);
+  readonly answerRejected = signal(false);
+  readonly answerRejectionCount = signal(0);
   readonly timeRemainingMs = signal(this.problem().deadlineMs);
   readonly answerControl = new FormControl('', { nonNullable: true });
   readonly averageSolveTime = computed(() => {
@@ -41,18 +42,19 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
     const answer = Number(this.answerControl.value);
     if (Number.isNaN(answer)) {
-      this.error.set('Enter a number.');
+      this.rejectAnswer();
       return;
     }
 
     if (answer !== this.problem().answer) {
-      this.error.set('Try again.');
+      this.rejectAnswer();
       return;
     }
 
     this.totalSolveTimeMs.update((total) => total + (Date.now() - this.problemStartedAt));
     this.score.update((score) => score + 1);
-    this.error.set(null);
+    this.answerRejected.set(false);
+    this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
     this.problem.set(createFormulaProblem(this.score()));
     this.startProblemTimer();
@@ -62,7 +64,8 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.score.set(0);
     this.totalSolveTimeMs.set(0);
     this.gameOver.set(false);
-    this.error.set(null);
+    this.answerRejected.set(false);
+    this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
     this.problem.set(createFormulaProblem(0));
     this.startProblemTimer();
@@ -71,6 +74,11 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private lose(): void {
     this.gameOver.set(true);
     this.clearTimers();
+  }
+
+  private rejectAnswer(): void {
+    this.answerRejected.set(true);
+    this.answerRejectionCount.update((count) => count + 1);
   }
 
   private startProblemTimer(): void {

@@ -20,25 +20,26 @@
             type="text"
             inputmode="decimal"
             autocomplete="off"
+            [class.answer-input--invalid]="answerRejected()"
+            [class.answer-input--shake-a]="answerRejectionCount() % 2 === 1"
+            [class.answer-input--shake-b]="
+              answerRejectionCount() > 0 && answerRejectionCount() % 2 === 0
+            "
             [formControl]="answerControl"
             [disabled]="gameOver()"
           />
         </div>
       </form>
-      @if (error()) {
-        <p class="error" role="alert">{{ error() }}</p>
-      }
     </div>
 
     @if (gameOver()) {
       <div class="game-over" role="dialog" aria-labelledby="formula-game-over-title">
         <h2 id="formula-game-over-title">Time up</h2>
         <p>Score {{ score() }}</p>
+        <p>Answer {{ problem().answer }}</p>
         <p>Average {{ averageSolveTime() }}</p>
         <button type="button" class="btn restart-button" (click)="restart()">Restart</button>
       </div>
     }
   </section>
-
-  <p gameHint>Each correct answer raises your score. The deadline gets tighter as you climb.</p>
 </app-game-frame>

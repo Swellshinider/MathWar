@@ -32,6 +32,9 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(root.querySelector('input')?.getAttribute('type')).toBe('text');
     expect(root.querySelector('input')?.getAttribute('inputmode')).toBe('decimal');
     expect(root.querySelector('button[type="submit"]')).toBeNull();
+    expect(root.textContent).not.toContain(
+      'Each correct answer raises your score. The deadline gets tighter as you climb.',
+    );
   });
 
   it('accepts a correct answer and advances the score', () => {
@@ -42,7 +45,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     expect(component.score()).toBe(1);
     expect(component.answerControl.value).toBe('');
-    expect(component.error()).toBeNull();
+    expect(component.answerRejected()).toBe(false);
   });
 
   it('prevents browser navigation when submitting with Enter', () => {
@@ -54,18 +57,32 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
-  it('rejects wrong and nonnumeric answers without advancing', () => {
+  it('marks the answer input invalid without showing an error message', () => {
     component.answerControl.setValue(String(component.problem().answer + 1));
     component.submitAnswer();
+    fixture.detectChanges();
 
     expect(component.score()).toBe(0);
-    expect(component.error()).toBe('Try again.');
+    expect(component.answerRejected()).toBe(true);
+    expect(component.answerRejectionCount()).toBe(1);
+    expect((fixture.nativeElement as HTMLElement).querySelector('input')?.classList).toContain(
+      'answer-input--invalid',
+    );
+    expect((fixture.nativeElement as HTMLElement).querySelector('input')?.classList).toContain(
+      'answer-input--shake-a',
+    );
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')).toBeNull();
 
     component.answerControl.setValue('abc');
     component.submitAnswer();
+    fixture.detectChanges();
 
     expect(component.score()).toBe(0);
-    expect(component.error()).toBe('Enter a number.');
+    expect(component.answerRejected()).toBe(true);
+    expect(component.answerRejectionCount()).toBe(2);
+    expect((fixture.nativeElement as HTMLElement).querySelector('input')?.classList).toContain(
+      'answer-input--shake-b',
+    );
   });
 
   it('ends the run when the problem timer expires', () => {
@@ -85,6 +102,9 @@ describe('FormulaFrenzyPageComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('.game-over')?.textContent).toContain('Score 1');
+    expect(root.querySelector('.game-over')?.textContent).toContain(
+      `Answer ${component.problem().answer}`,
+    );
     expect(root.querySelector('.game-over')?.textContent).toContain('Average 2.5s');
   });
 

@@ -71,10 +71,26 @@ input {
   font: inherit;
 }
 
-.error {
-  margin: 0;
-  color: var(--danger);
-  font-weight: var(--weight-bold);
+.answer-input--invalid {
+  border-color: var(--danger);
+  background: var(--error-soft);
+  box-shadow: 0 0 0 3px rgb(244 91 105 / 0.18);
+}
+
+.answer-input--invalid:focus,
+.answer-input--invalid:focus-visible {
+  border-color: var(--danger);
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(244 91 105 / 0.22);
+}
+
+.answer-input--shake-a {
+  animation: answer-shake-a 180ms ease-in-out;
+}
+
+.answer-input--shake-b {
+  animation: answer-shake-b 180ms ease-in-out;
 }
 
 .game-over {
@@ -95,4 +111,34 @@ input {
 .game-over h2,
 .game-over p {
   margin: 0;
+}
+
+@keyframes answer-shake-a {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-0.35rem);
+  }
+
+  75% {
+    transform: translateX(0.35rem);
+  }
+}
+
+@keyframes answer-shake-b {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-0.35rem);
+  }
+
+  75% {
+    transform: translateX(0.35rem);
+  }
 }

@@ -13,7 +13,7 @@ Equation Artillery is a graph-based artillery game inspired by
 that follow the resulting curve, and use function shape to hit targets, walls, CPU
 soldiers, or private multiplayer opponents.
 
-![Equation Artillery example](public/images/equation-artillery-example.png)
+![Equation Artillery example](docs/images/equation-artillery-example.png)
 
 Current modes:
 
