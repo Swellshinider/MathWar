@@ -3,15 +3,59 @@
   title="Formula Frenzy"
   objective="Solve fast. Keep up as the formulas get harder."
 >
+  <section class="mode-panel" aria-label="Formula Frenzy mode">
+    <div class="mode-panel__tabs" role="tablist" aria-label="Formula Frenzy modes">
+      <button
+        type="button"
+        class="mode-tab"
+        [class.mode-tab--active]="gameMode() === 'sprint'"
+        (click)="selectSprint()"
+      >
+        Sprint
+      </button>
+      <button
+        type="button"
+        class="mode-tab"
+        [class.mode-tab--active]="gameMode() === 'free-practice'"
+        (click)="selectFreePractice()"
+      >
+        Free Practice
+      </button>
+    </div>
+
+    @if (gameMode() === 'free-practice') {
+      <div class="practice-options" aria-label="Calculation types">
+        @for (option of operationOptions; track option.operation) {
+          <label>
+            <input
+              type="checkbox"
+              [checked]="practiceOperations().includes(option.operation)"
+              (change)="setPracticeOperation(option.operation, $any($event.target).checked)"
+            />
+            <span>{{ option.label }}</span>
+          </label>
+        }
+      </div>
+    }
+  </section>
+
   <section class="frenzy-surface" aria-label="Formula Frenzy game">
     <div class="stats" aria-label="Run stats">
-      <span>Score {{ score() }}</span>
-      <span>Level {{ problem().level }}</span>
-      <span>Time {{ timeRemaining() }}</span>
+      @if (gameMode() === 'sprint') {
+        <span>Score {{ score() }}</span>
+        <span>Level {{ problem().level }}</span>
+        <span>Time {{ timeRemaining() }}</span>
+      } @else {
+        <span>Solved {{ score() }}</span>
+        <span>Free Practice</span>
+      }
     </div>
 
     <div class="problem-panel">
       <p class="problem-prompt">{{ problem().prompt }}</p>
+      @if (practicePaused()) {
+        <p class="practice-warning" role="alert">Choose at least one calculation type.</p>
+      }
       <form (submit)="submitAnswer($event)">
         <label for="formula-answer">Answer</label>
         <div class="answer-row">
@@ -26,7 +70,6 @@
               answerRejectionCount() > 0 && answerRejectionCount() % 2 === 0
             "
             [formControl]="answerControl"
-            [disabled]="gameOver()"
           />
         </div>
       </form>

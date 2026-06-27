@@ -7,38 +7,7 @@
 }
 
 .mode-panel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
   margin-bottom: var(--space-4);
-  padding: var(--space-3);
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-}
-
-.mode-panel__tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.mode-tab {
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.8rem;
-  color: var(--text-2);
-  background: var(--surface-2);
-  font: inherit;
-  cursor: pointer;
-}
-
-.mode-tab--active {
-  border-color: var(--accent);
-  color: var(--text-1);
-  background: var(--surface-3);
 }
 
 .difficulty-control {

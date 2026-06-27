@@ -245,6 +245,40 @@ input {
   background: transparent;
 }
 
+.mode-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.mode-panel__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.mode-tab {
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.8rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mode-tab--active {
+  border-color: var(--accent);
+  color: var(--text-strong);
+  background: var(--surface-3);
+}
+
 .field {
   min-width: 0;
   padding: var(--space-3) var(--space-4);

@@ -32,6 +32,8 @@ describe('FormulaFrenzyPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.textContent).toContain('Formula Frenzy');
+    expect(root.textContent).toContain('Sprint');
+    expect(root.textContent).toContain('Free Practice');
     expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe(
       component.problem().prompt,
     );
@@ -128,5 +130,56 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.gameOver()).toBe(false);
     expect(component.score()).toBe(0);
     expect(component.averageSolveTime()).toBe('0.0s');
+  });
+
+  it('switches to free practice without a game over timer', () => {
+    component.selectFreePractice();
+    fixture.detectChanges();
+
+    expect(component.gameMode()).toBe('free-practice');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Solved 0');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Time ');
+
+    vi.advanceTimersByTime(60000);
+    fixture.detectChanges();
+
+    expect(component.gameOver()).toBe(false);
+  });
+
+  it('uses selected operation types in free practice', () => {
+    component.selectFreePractice();
+    component.setPracticeOperation('addition', false);
+    component.setPracticeOperation('subtraction', false);
+    component.setPracticeOperation('division', false);
+
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    fixture.detectChanges();
+
+    expect(component.practiceOperations()).toEqual(['multiplication']);
+    expect(component.problem().prompt).toMatch(/^\d+ \* \d+$/);
+    expect(component.score()).toBe(1);
+  });
+
+  it('pauses free practice when all operation types are unchecked', () => {
+    component.selectFreePractice();
+    for (const operation of component.practiceOperations()) {
+      component.setPracticeOperation(operation, false);
+    }
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(component.practicePaused()).toBe(true);
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain(
+      'Choose at least one calculation type.',
+    );
+    expect(root.querySelector<HTMLInputElement>('#formula-answer')?.disabled).toBe(true);
+
+    component.setPracticeOperation('division', true);
+    fixture.detectChanges();
+
+    expect(component.practicePaused()).toBe(false);
+    expect(component.problem().prompt).toMatch(/^\d+ \/ \d+$/);
+    expect(root.querySelector<HTMLInputElement>('#formula-answer')?.disabled).toBe(false);
   });
 });

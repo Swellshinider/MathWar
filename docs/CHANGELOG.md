@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added Formula Frenzy as a new progression-based arithmetic mini-game with timed
   calculations, escalating difficulty, score stats, and restart flow.
+- Added Formula Frenzy Free Practice with untimed operation filters for arithmetic drills.
 - Added sound effects to Formula Frenzy for correct answers, wrong answers, level ups,
   a countdown tick that fires once per second under 10s and accelerates in the final 3s,
   and game over.
