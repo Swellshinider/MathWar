@@ -1,0 +1,144 @@
+:host {
+  display: block;
+}
+
+.frenzy-surface {
+  position: relative;
+  display: grid;
+  gap: var(--space-5);
+  max-width: 64rem;
+  min-height: 28rem;
+  margin: 0 auto;
+  padding: var(--space-6);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+  box-shadow:
+    var(--shadow-2),
+    inset 0 1px 0 var(--surface-hairline);
+}
+
+.stats,
+.answer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.stats {
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-weight: var(--weight-bold);
+}
+
+.problem-panel {
+  display: grid;
+  gap: var(--space-6);
+  min-height: 18rem;
+  align-content: space-between;
+}
+
+.problem-prompt {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: var(--weight-black);
+  line-height: 1;
+  text-align: center;
+}
+
+form {
+  display: grid;
+  gap: var(--space-2);
+}
+
+label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-bold);
+}
+
+input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  padding: 0.8rem 1rem;
+  background: var(--surface-1);
+  color: var(--text-strong);
+  font: inherit;
+}
+
+.answer-input--invalid {
+  border-color: var(--danger);
+  background: var(--error-soft);
+  box-shadow: 0 0 0 3px rgb(244 91 105 / 0.18);
+}
+
+.answer-input--invalid:focus,
+.answer-input--invalid:focus-visible {
+  border-color: var(--danger);
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(244 91 105 / 0.22);
+}
+
+.answer-input--shake-a {
+  animation: answer-shake-a 180ms ease-in-out;
+}
+
+.answer-input--shake-b {
+  animation: answer-shake-b 180ms ease-in-out;
+}
+
+.game-over {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: grid;
+  min-width: min(22rem, calc(100% - 2rem));
+  gap: var(--space-3);
+  transform: translate(-50%, -50%);
+  padding: var(--space-5);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-3);
+  text-align: center;
+}
+
+.game-over h2,
+.game-over p {
+  margin: 0;
+}
+
+@keyframes answer-shake-a {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-0.35rem);
+  }
+
+  75% {
+    transform: translateX(0.35rem);
+  }
+}
+
+@keyframes answer-shake-b {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-0.35rem);
+  }
+
+  75% {
+    transform: translateX(0.35rem);
+  }
+}

@@ -44,6 +44,7 @@ describe('App', () => {
     expect(showModal).toHaveBeenCalledOnce();
     expect(dialog.textContent).toContain('MathWar is an open-source math mini-game collection.');
     expect(dialog.textContent).toContain('Equation Artillery');
+    expect(dialog.textContent).toContain('Formula Frenzy');
     expect(dialog.textContent).toContain('Graphwar');
     expect(
       dialog.querySelector<HTMLAnchorElement>(

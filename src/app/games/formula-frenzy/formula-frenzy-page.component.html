@@ -1,0 +1,45 @@
+<app-game-frame
+  eyebrow="Arithmetic sprint"
+  title="Formula Frenzy"
+  objective="Solve fast. Keep up as the formulas get harder."
+>
+  <section class="frenzy-surface" aria-label="Formula Frenzy game">
+    <div class="stats" aria-label="Run stats">
+      <span>Score {{ score() }}</span>
+      <span>Level {{ problem().level }}</span>
+      <span>Time {{ timeRemaining() }}</span>
+    </div>
+
+    <div class="problem-panel">
+      <p class="problem-prompt">{{ problem().prompt }}</p>
+      <form (submit)="submitAnswer($event)">
+        <label for="formula-answer">Answer</label>
+        <div class="answer-row">
+          <input
+            id="formula-answer"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            [class.answer-input--invalid]="answerRejected()"
+            [class.answer-input--shake-a]="answerRejectionCount() % 2 === 1"
+            [class.answer-input--shake-b]="
+              answerRejectionCount() > 0 && answerRejectionCount() % 2 === 0
+            "
+            [formControl]="answerControl"
+            [disabled]="gameOver()"
+          />
+        </div>
+      </form>
+    </div>
+
+    @if (gameOver()) {
+      <div class="game-over" role="dialog" aria-labelledby="formula-game-over-title">
+        <h2 id="formula-game-over-title">Time up</h2>
+        <p>Score {{ score() }}</p>
+        <p>Answer {{ problem().answer }}</p>
+        <p>Average {{ averageSolveTime() }}</p>
+        <button type="button" class="btn restart-button" (click)="restart()">Restart</button>
+      </div>
+    }
+  </section>
+</app-game-frame>
