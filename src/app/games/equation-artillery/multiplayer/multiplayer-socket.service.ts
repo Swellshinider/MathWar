@@ -1,4 +1,4 @@
-import { Injectable, NgZone, inject } from '@angular/core';
+import { Injectable, InjectionToken, NgZone, inject } from '@angular/core';
 import {
   CommandAck,
   FireCommand,
@@ -13,9 +13,21 @@ import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 
 const CONNECTION_ERROR_MESSAGE = 'Connection interrupted. Trying to reconnect...';
 
+type MultiplayerSocketFactory = (serverUrl: string, token: string) => Socket;
+
+export const MULTIPLAYER_SOCKET_FACTORY = new InjectionToken<MultiplayerSocketFactory>(
+  'MULTIPLAYER_SOCKET_FACTORY',
+  {
+    providedIn: 'root',
+    factory: () => (serverUrl, token) =>
+      io(serverUrl, { auth: { token }, transports: ['websocket'] }),
+  },
+);
+
 @Injectable({ providedIn: 'root' })
 export class MultiplayerSocketService {
   private readonly config = inject(MULTIPLAYER_CONFIG);
+  private readonly createSocket = inject(MULTIPLAYER_SOCKET_FACTORY);
   private readonly zone = inject(NgZone);
   private socket: Socket | null = null;
 
@@ -30,7 +42,7 @@ export class MultiplayerSocketService {
     },
   ): void {
     this.disconnect();
-    this.socket = io(this.config.serverUrl, { auth: { token }, transports: ['websocket'] });
+    this.socket = this.createSocket(this.config.serverUrl, token);
     const run =
       <T>(handler: (value: T) => void) =>
       (value: T) =>
