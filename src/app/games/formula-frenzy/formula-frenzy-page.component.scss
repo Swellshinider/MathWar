@@ -3,8 +3,7 @@
 }
 
 .mode-panel {
-  margin: 0 auto var(--space-4);
-  max-width: 64rem;
+  margin-bottom: var(--space-4);
 }
 
 .practice-options {
@@ -30,9 +29,7 @@
   position: relative;
   display: grid;
   gap: var(--space-5);
-  max-width: 64rem;
   min-height: 28rem;
-  margin: 0 auto;
   padding: var(--space-6);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-lg);

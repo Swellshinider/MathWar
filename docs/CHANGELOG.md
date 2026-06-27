@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed - 2026-06-27
 
+- Matched Formula Frenzy's page width to Equation Artillery for consistent mini-game layouts.
 - Replaced Formula Frenzy wrong-answer text with input shake feedback, removed extra catalog and
   game hint copy, and added the missed answer to the loss summary.
 - Rewrote the README around MathWar as an open-source mini-game collection with Equation Artillery

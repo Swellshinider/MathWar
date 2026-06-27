@@ -45,6 +45,14 @@ describe('FormulaFrenzyPageComponent', () => {
     );
   });
 
+  it('uses the wide mini-game layout', () => {
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('app-game-frame article.wide')).not.toBeNull();
+    expect(getComputedStyle(root.querySelector('.mode-panel')!).maxWidth).not.toBe('64rem');
+    expect(getComputedStyle(root.querySelector('.frenzy-surface')!).maxWidth).not.toBe('64rem');
+  });
+
   it('accepts a correct answer and advances the score', () => {
     component.answerControl.setValue(String(component.problem().answer));
 
