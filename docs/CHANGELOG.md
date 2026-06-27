@@ -33,9 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standardized scrollbars across Equation Artillery scrollable panels.
 - Reorganized sound assets into per-game folders under `public/sounds/` and renamed the
   Formula Frenzy effects to kebab-case.
+- Moved sound controls into a global header menu shared by all mini-game audio.
 
 ### Fixed - 2026-06-27
 
+- Kept the global sound menu open while moving the pointer from the header button to the controls.
 - Kept Equation Artillery shot timelines progressing when the browser tab is hidden or the window
   loses focus.
 

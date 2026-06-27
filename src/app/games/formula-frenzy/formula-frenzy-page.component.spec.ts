@@ -1,16 +1,22 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { FormulaFrenzyPageComponent } from './formula-frenzy-page.component';
 
 describe('FormulaFrenzyPageComponent', () => {
   let fixture: ComponentFixture<FormulaFrenzyPageComponent>;
   let component: FormulaFrenzyPageComponent;
+  const audio = {
+    playOneShot: vi.fn(),
+  };
 
   beforeEach(async () => {
+    vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(0);
 
     await TestBed.configureTestingModule({
       imports: [FormulaFrenzyPageComponent],
+      providers: [{ provide: AudioSettingsService, useValue: audio }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(FormulaFrenzyPageComponent);
@@ -46,6 +52,7 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.score()).toBe(1);
     expect(component.answerControl.value).toBe('');
     expect(component.answerRejected()).toBe(false);
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/right-answer.wav');
   });
 
   it('prevents browser navigation when submitting with Enter', () => {
@@ -72,6 +79,7 @@ describe('FormulaFrenzyPageComponent', () => {
       'answer-input--shake-a',
     );
     expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')).toBeNull();
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/wrong-answer.wav');
 
     component.answerControl.setValue('abc');
     component.submitAnswer();

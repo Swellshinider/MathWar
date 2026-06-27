@@ -1,5 +1,6 @@
-import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import { createFormulaProblem, FormulaProblem } from './game/problem-generator';
 
@@ -10,6 +11,8 @@ import { createFormulaProblem, FormulaProblem } from './game/problem-generator';
   styleUrl: './formula-frenzy-page.component.scss',
 })
 export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
+  private readonly audio = inject(AudioSettingsService);
+
   readonly problem = signal<FormulaProblem>(createFormulaProblem(0));
   readonly score = signal(0);
   readonly gameOver = signal(false);
@@ -123,11 +126,6 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   }
 
   private playSound(file: string): void {
-    try {
-      const audio = new Audio(`/sounds/formula-frenzy/${file}`);
-      void audio.play().catch(() => undefined);
-    } catch {
-      // Audio is best-effort and should never break gameplay.
-    }
+    this.audio.playOneShot(`/sounds/formula-frenzy/${file}`);
   }
 }

@@ -1,18 +1,12 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { AudioSettingsService } from '../../../shared/audio/audio-settings.service';
 import { Point } from '../models/point';
 import { WORLD_BOUNDS } from '../models/world-bounds';
-
-interface AudioSettings {
-  readonly muted: boolean;
-  readonly volume: number;
-}
 
 type BrowserAudioContext = AudioContext & {
   readonly createStereoPanner?: () => StereoPannerNode;
 };
 
-const STORAGE_KEY = 'math-war.equation-artillery.audio';
-const DEFAULT_SETTINGS: AudioSettings = { muted: false, volume: 0.5 };
 const SOUND_URLS = {
   fire: '/sounds/equation-artillery/fire.wav',
   wallHit: '/sounds/equation-artillery/wall-hit.wav',
@@ -35,43 +29,24 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function readSettings(): AudioSettings {
-  try {
-    const storage = globalThis.localStorage;
-    const stored = storage.getItem(STORAGE_KEY);
-    if (!stored) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(stored) as Partial<AudioSettings>;
-    return {
-      muted: Boolean(parsed.muted),
-      volume: clamp(Number(parsed.volume ?? DEFAULT_SETTINGS.volume), 0, 1),
-    };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
 @Injectable({ providedIn: 'root' })
 export class EquationArtilleryAudioService {
-  private readonly settingsState = signal<AudioSettings>(readSettings());
-  private context: BrowserAudioContext | null = null;
+  private readonly audio = inject(AudioSettingsService);
   private travelOscillator: OscillatorNode | null = null;
   private travelGain: GainNode | null = null;
   private travelPanner: StereoPannerNode | null = null;
   private previousPoint: Point | null = null;
 
-  readonly settings = this.settingsState.asReadonly();
-  readonly muted = computed(() => this.settings().muted);
-  readonly volume = computed(() => this.settings().volume);
+  readonly muted = this.audio.muted;
+  readonly volume = this.audio.volume;
 
   setMuted(muted: boolean): void {
-    this.updateSettings({ ...this.settings(), muted });
+    this.audio.setMuted(muted);
     if (muted) this.stopEquationSound();
-    else void this.resume();
   }
 
   setVolume(volume: number): void {
-    const nextVolume = clamp(volume, 0, 1);
-    this.updateSettings({ ...this.settings(), volume: nextVolume });
+    this.audio.setVolume(volume);
     if (this.travelGain) {
       const context = this.ensureContext();
       if (!context) return;
@@ -167,10 +142,11 @@ export class EquationArtilleryAudioService {
   stopEquationSound(): void {
     const oscillator = this.travelOscillator;
     const gain = this.travelGain;
-    if (!oscillator || !gain || !this.context) return;
-    const stopAt = this.context.currentTime + 0.05;
-    gain.gain.cancelScheduledValues(this.context.currentTime);
-    gain.gain.setTargetAtTime(0, this.context.currentTime, 0.02);
+    const context = this.ensureContext();
+    if (!oscillator || !gain || !context) return;
+    const stopAt = context.currentTime + 0.05;
+    gain.gain.cancelScheduledValues(context.currentTime);
+    gain.gain.setTargetAtTime(0, context.currentTime, 0.02);
     try {
       oscillator.stop(stopAt);
     } catch {
@@ -183,8 +159,7 @@ export class EquationArtilleryAudioService {
   }
 
   async resume(): Promise<void> {
-    if (this.muted()) return;
-    await this.ensureContext()?.resume?.();
+    await this.audio.resume();
   }
 
   ngOnDestroy(): void {
@@ -192,14 +167,7 @@ export class EquationArtilleryAudioService {
   }
 
   private playOneShot(url: string): void {
-    if (this.muted()) return;
-    try {
-      const audio = new Audio(url);
-      audio.volume = this.volume();
-      void audio.play().catch(() => undefined);
-    } catch {
-      // Audio is best-effort and should never break game input.
-    }
+    this.audio.playOneShot(url);
   }
 
   private effectiveTravelVolume(): number {
@@ -207,21 +175,6 @@ export class EquationArtilleryAudioService {
   }
 
   private ensureContext(): BrowserAudioContext | null {
-    if (this.context) return this.context;
-    const AudioContextConstructor =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextConstructor) return null;
-    this.context = new AudioContextConstructor() as BrowserAudioContext;
-    return this.context;
-  }
-
-  private updateSettings(settings: AudioSettings): void {
-    this.settingsState.set(settings);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    } catch {
-      // Storage can be unavailable in tests, SSR, or privacy modes.
-    }
+    return this.audio.createContext();
   }
 }

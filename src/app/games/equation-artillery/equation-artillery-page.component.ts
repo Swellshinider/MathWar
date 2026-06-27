@@ -9,7 +9,6 @@ import {
   LucideTarget,
   LucideTrash2,
   LucideTriangle,
-  LucideVolume2,
 } from '@lucide/angular';
 import {
   CharacterState,
@@ -55,7 +54,6 @@ import {
   EquationHistoryMessage,
 } from './equation-history/equation-history.component';
 import { mapEquationHistoryMessages } from './equation-history/equation-history-message';
-import { SoundSettingsDialogComponent } from './sound-settings-dialog/sound-settings-dialog.component';
 import { MultiplayerLobbyComponent } from './multiplayer/multiplayer-lobby.component';
 
 type GameMode = 'target-practice' | 'free-practice' | 'single-player';
@@ -83,9 +81,7 @@ const LOCAL_SHOT_MAX_FRAMES = 2000;
     LucideTarget,
     LucideTrash2,
     LucideTriangle,
-    LucideVolume2,
     MultiplayerLobbyComponent,
-    SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
   templateUrl: './equation-artillery-page.component.html',

@@ -1,7 +1,7 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { LucideCircleHelp, LucideVolume2 } from '@lucide/angular';
+import { LucideCircleHelp } from '@lucide/angular';
 import {
   CharacterState,
   MatchEndedEvent,
@@ -25,7 +25,6 @@ import { shotAnimationDuration } from '../game/shot-animation';
 import { Bullet } from '../models/bullet';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
-import { SoundSettingsDialogComponent } from '../sound-settings-dialog/sound-settings-dialog.component';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerLobbyComponent } from './multiplayer-lobby.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
@@ -40,9 +39,7 @@ import { formatRoomCode } from './room-code';
     FormsModule,
     GameFrameComponent,
     LucideCircleHelp,
-    LucideVolume2,
     MultiplayerLobbyComponent,
-    SoundSettingsDialogComponent,
   ],
   providers: [AnimationService],
   templateUrl: './multiplayer-page.component.html',
