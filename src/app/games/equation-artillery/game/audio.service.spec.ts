@@ -136,7 +136,7 @@ describe('EquationArtilleryAudioService', () => {
 
     service.playFire();
 
-    expect(createdAudio[0].src).toBe('/sounds/fire.wav');
+    expect(createdAudio[0].src).toBe('/sounds/equation-artillery/fire.wav');
     expect(createdAudio[0].volume).toBe(0.5);
     expect(createdAudio[0].play).toHaveBeenCalledOnce();
   });
