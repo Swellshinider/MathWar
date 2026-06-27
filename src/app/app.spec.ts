@@ -1,6 +1,8 @@
 import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { App } from './app';
+import { SiteHeaderComponent } from './layout/site-header/site-header.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -51,5 +53,39 @@ describe('App', () => {
         'a[href="https://github.com/Swellshinider/MathWar/issues"]',
       ),
     ).not.toBeNull();
+  });
+
+  it('opens global sound controls from the header', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const soundButton = root.querySelector<HTMLButtonElement>(
+      'app-site-header button[aria-label="Sound settings"]',
+    )!;
+
+    soundButton.click();
+    fixture.detectChanges();
+
+    const menu = root.querySelector<HTMLElement>('#sound-settings-menu')!;
+    expect(soundButton.getAttribute('aria-expanded')).toBe('true');
+    expect(menu.hidden).toBe(false);
+    expect(menu.textContent).toContain('Mute sound');
+    expect(menu.querySelector<HTMLInputElement>('input[type="range"]')).not.toBeNull();
+  });
+
+  it('keeps global sound controls open while moving from the button to the menu', () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const header = fixture.debugElement.query(By.directive(SiteHeaderComponent))
+      .componentInstance as SiteHeaderComponent;
+
+    header.openSoundMenu();
+    header.scheduleSoundMenuClose();
+    header.openSoundMenu();
+    vi.advanceTimersByTime(200);
+
+    expect(header.soundMenuOpen()).toBe(true);
+    vi.useRealTimers();
   });
 });

@@ -24,9 +24,9 @@ Current modes:
 
 ### Formula Frenzy
 
-Formula Frenzy is a progression-based arithmetic sprint. Solve each formula before
-its timer expires, keep your streak alive, and watch the problems get harder as
-your score climbs.
+Formula Frenzy is a progression-based arithmetic sprint with an untimed Free Practice
+mode for drilling selected operation types. Solve each formula before its timer expires,
+keep your streak alive, and watch the problems get harder as your score climbs.
 
 ## Requirements
 

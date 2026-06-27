@@ -1,4 +1,4 @@
-import { createFormulaProblem } from './problem-generator';
+import { createFormulaPracticeProblem, createFormulaProblem } from './problem-generator';
 
 describe('createFormulaProblem', () => {
   it('starts with addition or subtraction and a 10 second deadline', () => {
@@ -27,5 +27,49 @@ describe('createFormulaProblem', () => {
 
   it('never lowers the deadline below four seconds', () => {
     expect(createFormulaProblem(100).deadlineMs).toBe(4000);
+  });
+
+  it('creates simple addition practice problems', () => {
+    const problem = createFormulaPracticeProblem(['addition'], () => 0);
+
+    expect(problem.prompt).toBe('1 + 1');
+    expect(problem.answer).toBe(2);
+    expect(problem.level).toBe(1);
+    expect(problem.deadlineMs).toBe(0);
+  });
+
+  it('creates simple subtraction practice problems', () => {
+    const problem = createFormulaPracticeProblem(['subtraction'], () => 0);
+
+    expect(problem.prompt).toBe('1 - 1');
+    expect(problem.answer).toBe(0);
+  });
+
+  it('creates simple multiplication practice problems', () => {
+    const problem = createFormulaPracticeProblem(['multiplication'], () => 0);
+
+    expect(problem.prompt).toBe('2 * 2');
+    expect(problem.answer).toBe(4);
+  });
+
+  it('creates exact division practice problems', () => {
+    const problem = createFormulaPracticeProblem(['division'], () => 0);
+
+    expect(problem.prompt).toBe('2 / 2');
+    expect(problem.answer).toBe(1);
+    expect(Number.isInteger(problem.answer)).toBe(true);
+  });
+
+  it('chooses from enabled practice operations only', () => {
+    const problem = createFormulaPracticeProblem(['addition', 'multiplication'], () => 0.99);
+
+    expect(problem.prompt).toBe('12 * 12');
+    expect(problem.answer).toBe(144);
+  });
+
+  it('requires at least one practice operation', () => {
+    expect(() => createFormulaPracticeProblem([], () => 0)).toThrow(
+      'Choose at least one calculation type.',
+    );
   });
 });

@@ -75,7 +75,7 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.error()).not.toBeNull();
   });
 
-  it('places sound and help controls on the board instead of the page header', () => {
+  it('keeps only help controls on the board', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     fixture.detectChanges();
 
@@ -84,7 +84,7 @@ describe('EquationArtilleryPageComponent', () => {
 
     expect(introActions.textContent).not.toContain('Sound');
     expect(introActions.textContent).not.toContain('Help');
-    expect(board.querySelector('[aria-label="Open sound settings"]')).not.toBeNull();
+    expect(board.querySelector('[aria-label="Open sound settings"]')).toBeNull();
     expect(board.querySelector('[aria-label="Open equation help"]')).not.toBeNull();
   });
 

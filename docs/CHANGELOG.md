@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added Formula Frenzy as a new progression-based arithmetic mini-game with timed
   calculations, escalating difficulty, score stats, and restart flow.
+- Added Formula Frenzy Free Practice with untimed operation filters for arithmetic drills.
 - Added sound effects to Formula Frenzy for correct answers, wrong answers, level ups,
   a countdown tick that fires once per second under 10s and accelerates in the final 3s,
   and game over.
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed - 2026-06-27
 
+- Matched Formula Frenzy's page width to Equation Artillery for consistent mini-game layouts.
 - Replaced Formula Frenzy wrong-answer text with input shake feedback, removed extra catalog and
   game hint copy, and added the missed answer to the loss summary.
 - Rewrote the README around MathWar as an open-source mini-game collection with Equation Artillery
@@ -33,9 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standardized scrollbars across Equation Artillery scrollable panels.
 - Reorganized sound assets into per-game folders under `public/sounds/` and renamed the
   Formula Frenzy effects to kebab-case.
+- Moved sound controls into a global header menu shared by all mini-game audio.
 
 ### Fixed - 2026-06-27
 
+- Kept the global sound menu open while moving the pointer from the header button to the controls.
 - Kept Equation Artillery shot timelines progressing when the browser tab is hidden or the window
   loses focus.
 

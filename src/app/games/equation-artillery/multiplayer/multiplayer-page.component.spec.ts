@@ -237,7 +237,6 @@ describe('MultiplayerPageComponent', () => {
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
 
-    expect(text).toContain('Sound');
     expect(text).toContain('Help');
     expect(text).toContain('Equation history');
     expect(text).not.toContain('connected');
@@ -246,7 +245,7 @@ describe('MultiplayerPageComponent', () => {
     expect(text).not.toContain('Version 1');
   });
 
-  it('keeps sound and help on the board while match actions remain text controls', () => {
+  it('keeps help on the board while match actions remain text controls', () => {
     const fixture = TestBed.createComponent(MultiplayerPageComponent);
     fixture.detectChanges();
     handlers.state(matchState());
@@ -258,7 +257,7 @@ describe('MultiplayerPageComponent', () => {
 
     expect(introActions.textContent).not.toContain('Sound');
     expect(introActions.textContent).not.toContain('Help');
-    expect(board.querySelector('[aria-label="Open sound settings"]')).not.toBeNull();
+    expect(board.querySelector('[aria-label="Open sound settings"]')).toBeNull();
     expect(board.querySelector('[aria-label="Open equation help"]')).not.toBeNull();
     expect(matchToolbar.textContent).toContain('Share link');
     expect(matchToolbar.textContent).toContain('Leave match');

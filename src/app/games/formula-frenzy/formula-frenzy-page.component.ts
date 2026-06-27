@@ -1,7 +1,16 @@
-import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
-import { createFormulaProblem, FormulaProblem } from './game/problem-generator';
+import {
+  FORMULA_OPERATION_OPTIONS,
+  createFormulaPracticeProblem,
+  createFormulaProblem,
+  FormulaOperation,
+  FormulaProblem,
+} from './game/problem-generator';
+
+type FormulaFrenzyMode = 'sprint' | 'free-practice';
 
 @Component({
   selector: 'app-formula-frenzy-page',
@@ -10,7 +19,17 @@ import { createFormulaProblem, FormulaProblem } from './game/problem-generator';
   styleUrl: './formula-frenzy-page.component.scss',
 })
 export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
+  private readonly audio = inject(AudioSettingsService);
+
   readonly problem = signal<FormulaProblem>(createFormulaProblem(0));
+  readonly gameMode = signal<FormulaFrenzyMode>('sprint');
+  readonly operationOptions = FORMULA_OPERATION_OPTIONS;
+  readonly practiceOperations = signal<readonly FormulaOperation[]>(
+    FORMULA_OPERATION_OPTIONS.map((option) => option.operation),
+  );
+  readonly practicePaused = computed(
+    () => this.gameMode() === 'free-practice' && this.practiceOperations().length === 0,
+  );
   readonly score = signal(0);
   readonly gameOver = signal(false);
   readonly answerRejected = signal(false);
@@ -39,7 +58,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   submitAnswer(event?: SubmitEvent): void {
     event?.preventDefault();
-    if (this.gameOver()) return;
+    if (this.gameOver() || this.practicePaused()) return;
 
     const answer = Number(this.answerControl.value);
     if (Number.isNaN(answer)) {
@@ -58,10 +77,10 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
-    this.problem.set(createFormulaProblem(this.score()));
-    this.startProblemTimer();
+    this.problem.set(this.nextProblem());
+    if (this.gameMode() === 'sprint') this.startProblemTimer();
     this.playSound('right-answer.wav');
-    if (this.problem().level > previousLevel) {
+    if (this.gameMode() === 'sprint' && this.problem().level > previousLevel) {
       this.playSound('level-up.wav');
     }
   }
@@ -73,13 +92,45 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
-    this.problem.set(createFormulaProblem(0));
-    this.startProblemTimer();
+    this.problem.set(this.nextProblem());
+    if (this.gameMode() === 'sprint') {
+      this.startProblemTimer();
+    } else {
+      this.clearTimers();
+      this.timeRemainingMs.set(0);
+    }
+    this.syncAnswerControl();
+  }
+
+  selectSprint(): void {
+    this.gameMode.set('sprint');
+    this.restart();
+  }
+
+  selectFreePractice(): void {
+    this.gameMode.set('free-practice');
+    this.restart();
+  }
+
+  setPracticeOperation(operation: FormulaOperation, enabled: boolean): void {
+    const operations = this.practiceOperations();
+    const nextOperations = enabled
+      ? [...operations, operation]
+      : operations.filter((current) => current !== operation);
+    this.practiceOperations.set([...new Set(nextOperations)]);
+    this.answerRejected.set(false);
+    this.answerRejectionCount.set(0);
+    this.answerControl.setValue('');
+    if (this.gameMode() === 'free-practice' && nextOperations.length > 0) {
+      this.problem.set(this.nextProblem());
+    }
+    this.syncAnswerControl();
   }
 
   private lose(): void {
     this.gameOver.set(true);
     this.clearTimers();
+    this.syncAnswerControl();
     this.playSound('game-over.wav');
   }
 
@@ -123,11 +174,21 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   }
 
   private playSound(file: string): void {
-    try {
-      const audio = new Audio(`/sounds/formula-frenzy/${file}`);
-      void audio.play().catch(() => undefined);
-    } catch {
-      // Audio is best-effort and should never break gameplay.
+    this.audio.playOneShot(`/sounds/formula-frenzy/${file}`);
+  }
+
+  private nextProblem(): FormulaProblem {
+    if (this.gameMode() === 'free-practice' && this.practiceOperations().length > 0) {
+      return createFormulaPracticeProblem(this.practiceOperations());
+    }
+    return createFormulaProblem(this.score());
+  }
+
+  private syncAnswerControl(): void {
+    if (this.gameOver() || this.practicePaused()) {
+      this.answerControl.disable({ emitEvent: false });
+    } else {
+      this.answerControl.enable({ emitEvent: false });
     }
   }
 }

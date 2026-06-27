@@ -106,7 +106,7 @@ describe('EquationArtilleryAudioService', () => {
 
     expect(service.muted()).toBe(true);
     expect(service.volume()).toBe(0.35);
-    expect(localStorage.getItem('math-war.equation-artillery.audio')).toBe(
+    expect(localStorage.getItem('math-war.audio')).toBe(
       JSON.stringify({ muted: true, volume: 0.35 }),
     );
   });
@@ -118,7 +118,7 @@ describe('EquationArtilleryAudioService', () => {
     expect(service.volume()).toBe(0.5);
   });
 
-  it('restores saved volume settings from local storage', () => {
+  it('restores saved legacy volume settings from local storage', () => {
     localStorage.setItem(
       'math-war.equation-artillery.audio',
       JSON.stringify({ muted: false, volume: 0.25 }),
