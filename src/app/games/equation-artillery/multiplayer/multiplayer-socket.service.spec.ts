@@ -1,17 +1,22 @@
 import { NgZone } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
 
-const socketHandlers = new Map<string, (...args: never[]) => void>();
-const socket = {
-  on: vi.fn((event: string, handler: (...args: never[]) => void) => {
-    socketHandlers.set(event, handler);
-  }),
-  disconnect: vi.fn(),
-} as unknown as Socket;
+const { socket, socketHandlers } = vi.hoisted(() => {
+  const handlers = new Map<string, (...args: never[]) => void>();
+  return {
+    socketHandlers: handlers,
+    socket: {
+      on: vi.fn((event: string, handler: (...args: never[]) => void) => {
+        handlers.set(event, handler);
+      }),
+      disconnect: vi.fn(),
+    } as unknown as Socket,
+  };
+});
 
 vi.mock('socket.io-client', () => ({
   io: vi.fn(() => socket),
