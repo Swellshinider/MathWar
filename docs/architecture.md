@@ -18,7 +18,7 @@ and uses guest sessions signed by the Fastify server.
 - `src/app/`: Angular application shell, local game, and multiplayer UI
 - `packages/game-engine/`: shared simulation, expression parsing, and multiplayer types
 - `server/src/`: Fastify bootstrap, guest session auth, Socket.IO protocol, and repository code
-- `db/migrations/`: SQL files applied automatically on server startup
+- `server/db/migrations/`: SQL files applied automatically on server startup
 - `public/`: static browser assets and `config.example.js`
 
 ## Runtime configuration
@@ -46,8 +46,8 @@ Browser runtime configuration:
 
 ## Persistence
 
-The server applies all `.sql` files in `db/migrations` before accepting traffic. The current schema
-uses:
+The server applies all `.sql` files in `server/db/migrations` before accepting traffic. The current
+schema uses:
 
 - `private.multiplayer_matches`: full authoritative match JSON plus versioning metadata
 - `private.multiplayer_commands`: idempotency tracking for versioned commands

@@ -27,7 +27,7 @@
         [class.mode-tab--active]="gameMode() === 'single-player'"
         (click)="selectSinglePlayerMode()"
       >
-        Single Player
+        CPU vs.
       </button>
     </div>
     @if (gameMode() === 'single-player') {
@@ -45,7 +45,7 @@
         />
         <output for="cpu-difficulty">{{ cpuDifficulty() }}</output>
         <button type="button" class="btn btn--subtle" (click)="startCpuMatch()">
-          Start Single Player
+          Start CPU vs.
         </button>
       </div>
     }

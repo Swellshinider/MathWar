@@ -1,25 +1,43 @@
 # MathWar
 
-MathWar is an Angular 22 collection of browser-based math minigames. Equation Artillery includes
-both local play and a private 1v1 multiplayer mode backed by Fastify, Socket.IO, and PostgreSQL.
+[![CI](https://github.com/Swellshinider/MathWar/actions/workflows/ci.yml/badge.svg)](https://github.com/Swellshinider/MathWar/actions/workflows/ci.yml)
+
+MathWar is an open-source project for browser-based math mini-games. Have fun playing!
+
+## Available Mini-Games
+
+### Equation Artillery
+
+Equation Artillery is a graph-based artillery game inspired by
+[Graphwar](https://github.com/catabriga/graphwar). Players type equations, fire shots
+that follow the resulting curve, and use function shape to hit targets, walls, CPU
+soldiers, or private multiplayer opponents.
+
+![Equation Artillery example](public/images/equation-artillery-example.png)
+
+Current modes:
+
+- Target Practice
+- Free Practice
+- CPU vs.
+- Private 1v1 multiplayer
 
 ## Requirements
 
 - Node.js `22.22.3` or newer
 - npm `11` or newer
 
-## Install and run
+## Install and Run
 
 ```bash
 npm ci
 npm start
 ```
 
-Open the local URL printed by the Angular development server. The game catalog is served at `/`.
-Equation Artillery is available at `/games/equation-artillery`, and multiplayer is available at
-`/games/equation-artillery/multiplayer`.
+Open the local URL printed by the Angular development server. The game catalog is served
+at `/`.
 
-## Development commands
+## Development Commands
 
 ```bash
 npm run build
@@ -28,10 +46,10 @@ npm run test:server
 npm test -- --watch=false
 ```
 
-`npm run test:server` builds the shared engine first, then runs the Fastify and game-engine test
-suite with Vitest.
+`npm run test:server` builds the shared engine first, then runs the Fastify and
+game-engine test suite with Vitest.
 
-## Multiplayer development
+## Multiplayer Development
 
 The multiplayer implementation has three parts:
 
@@ -39,8 +57,8 @@ The multiplayer implementation has three parts:
 - `server`: Fastify and Socket.IO authoritative server with PostgreSQL persistence
 - `src/app/games/equation-artillery/multiplayer`: Angular lobby and match client
 
-Copy `public/config.example.js` to `public/config.js`, then set `serverUrl` to the origin of the
-Fastify server. For a no-database local match server, use:
+Copy `public/config.example.js` to `public/config.js`, then set `serverUrl` to the
+origin of the Fastify server. For a no-database local match server, use:
 
 ```js
 window.MATH_WAR_CONFIG = {
@@ -68,6 +86,20 @@ npm run server:dev
 npm start
 ```
 
-The server applies SQL files from `db/migrations` into PostgreSQL on startup and then checks that
-the multiplayer tables exist. `DATABASE_URL`, `SESSION_SECRET`, and `CLIENT_ORIGIN` are mandatory.
-The browser receives only `serverUrl` through `/config.js`.
+The server applies SQL files from `server/db/migrations` into PostgreSQL on startup and then
+checks that the multiplayer tables exist. `DATABASE_URL`, `SESSION_SECRET`, and
+`CLIENT_ORIGIN` are mandatory. The browser receives only `serverUrl` through
+`/config.js`.
+
+## Project Layout
+
+- `src/app`: Angular application, routes, shared shell, and game UI
+- `packages/game-engine`: shared deterministic simulation code
+- `server`: Fastify and Socket.IO multiplayer server
+- `server/db/migrations`: PostgreSQL schema migrations
+- `docs`: architecture notes and changelog
+- `public`: static browser assets and runtime config example
+
+## License
+
+MathWar is licensed under GPL-3.0-only. See [LICENSE](LICENSE).

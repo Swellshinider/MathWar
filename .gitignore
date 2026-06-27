@@ -44,5 +44,9 @@ CLAUDE.md
 Thumbs.db
 
 # Env
-**/*.env
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
 public/config.js

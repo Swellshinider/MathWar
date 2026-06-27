@@ -4,5 +4,48 @@
       <img class="brand-logo" src="mathwar-logo.png" alt="" width="48" height="48" />
       <span>MathWar</span>
     </a>
+    <button
+      type="button"
+      class="btn btn--subtle"
+      aria-haspopup="dialog"
+      (click)="aboutDialog.showModal()"
+    >
+      About
+    </button>
   </div>
+
+  <dialog #aboutDialog aria-labelledby="about-title">
+    <div class="about-dialog">
+      <div class="about-dialog__header">
+        <h2 id="about-title">About MathWar</h2>
+        <button type="button" class="btn btn--subtle" (click)="aboutDialog.close()">Close</button>
+      </div>
+
+      <section>
+        <h3>Project Overview</h3>
+        <p>MathWar is an open-source math mini-game collection.</p>
+      </section>
+
+      <section>
+        <h3>Available Mini-Games</h3>
+        <p>Equation Artillery is the first playable game.</p>
+      </section>
+
+      <section>
+        <h3>Equation Artillery</h3>
+        <p>
+          Equation Artillery is inspired by
+          <a href="https://github.com/catabriga/graphwar">Graphwar</a>.
+        </p>
+      </section>
+
+      <section>
+        <h3>Issues</h3>
+        <p>
+          Report bugs or request changes on the
+          <a href="https://github.com/Swellshinider/MathWar/issues">GitHub issue tracker</a>.
+        </p>
+      </section>
+    </div>
+  </dialog>
 </header>

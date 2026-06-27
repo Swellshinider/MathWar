@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-27
+
+- Added an About dialog with project, mini-game, Graphwar inspiration, and issue tracker details.
+- Added a footer link to the GitHub repository.
+- Added a GitHub Actions CI workflow for UI tests, server tests, and production builds.
+- Added an Equation Artillery README screenshot.
+
+### Changed - 2026-06-27
+
+- Rewrote the README around MathWar as an open-source mini-game collection with Equation Artillery
+  as the first playable game.
+- Licensed the project under GPL-3.0-only and added package license metadata.
+- Renamed visible Equation Artillery "Single Player" copy to "CPU vs.".
+- Tightened local environment ignore rules while keeping example env files trackable.
+- Moved PostgreSQL migrations under the server tree.
+- Matched project package versions to the latest release tag.
+- Standardized scrollbars across Equation Artillery scrollable panels.
+
 ### Fixed - 2026-06-27
 
 - Kept Equation Artillery shot timelines progressing when the browser tab is hidden or the window

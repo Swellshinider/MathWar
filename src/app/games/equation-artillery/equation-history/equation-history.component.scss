@@ -39,28 +39,6 @@ ol {
   flex-direction: column;
   gap: var(--space-2);
   list-style: none;
-  scrollbar-color: var(--border-3) rgb(7 17 31 / 0.45);
-  scrollbar-width: thin;
-}
-
-ol::-webkit-scrollbar {
-  width: 0.55rem;
-}
-
-ol::-webkit-scrollbar-track {
-  border: 1px solid var(--surface-hairline);
-  border-radius: var(--radius-pill);
-  background: rgb(7 17 31 / 0.45);
-}
-
-ol::-webkit-scrollbar-thumb {
-  border: 2px solid rgb(7 17 31 / 0.45);
-  border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, var(--border-3), var(--border-2));
-}
-
-ol::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--accent-hover), var(--accent));
 }
 
 li {

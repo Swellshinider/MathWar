@@ -13,7 +13,7 @@ if (!databaseUrl || !allowedOrigin || !sessionSecret) {
 }
 
 const staticRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist/math-war/browser');
-const migrationsDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../../db/migrations');
+const migrationsDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../db/migrations');
 
 await runMigrations(databaseUrl, migrationsDirectory);
 
