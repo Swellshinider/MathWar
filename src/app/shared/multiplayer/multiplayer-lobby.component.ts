@@ -1,7 +1,16 @@
-import { Component, OnDestroy, effect, inject, input, output, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  ViewChild,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { GameId, MultiplayerMatchState } from '@math-war/game-engine';
-import { ToastService } from '../../../shared/toast/toast.service';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
 import { formatRoomCode } from './room-code';
@@ -15,19 +24,20 @@ import { formatRoomCode } from './room-code';
 export class MultiplayerLobbyComponent implements OnDestroy {
   readonly auth = inject(MultiplayerAuthService);
   private readonly socket = inject(MultiplayerSocketService);
-  private readonly toast = inject(ToastService);
+  @ViewChild('activeMatchDialog') private activeMatchDialog?: ElementRef<HTMLDialogElement>;
 
   /** When true (default) the lobby owns the socket connection; when false the host owns it. */
   readonly manageSocket = input(true);
   readonly gameId = input<GameId>('equation-artillery');
-  readonly sharePath = input('/games/equation-artillery/multiplayer');
   readonly roomJoined = output<MultiplayerMatchState>();
-  readonly play = output<MultiplayerMatchState>();
 
   readonly displayName = signal(this.auth.storedDisplayName());
   readonly roomCode = signal('');
   readonly error = signal<string | null>(null);
   readonly room = signal<MultiplayerMatchState | null>(null);
+  readonly activeMatch = signal<MultiplayerMatchState | null>(null);
+
+  private retryAfterLeave: (() => Promise<void>) | null = null;
 
   constructor() {
     effect(() => {
@@ -39,7 +49,9 @@ export class MultiplayerLobbyComponent implements OnDestroy {
         return;
       }
       this.socket.connect(token, {
-        state: (state) => this.room.set(state),
+        state: (state) => {
+          if (this.stateGameId(state) === this.gameId()) this.room.set(state);
+        },
         error: (message) => this.error.set(message),
         connected: () => this.error.set(null),
       });
@@ -52,6 +64,7 @@ export class MultiplayerLobbyComponent implements OnDestroy {
 
   async createRoom(): Promise<void> {
     this.error.set(null);
+    this.retryAfterLeave = () => this.createRoom();
     const response = await this.socket.create({
       commandId: crypto.randomUUID(),
       expectedVersion: 0,
@@ -63,6 +76,7 @@ export class MultiplayerLobbyComponent implements OnDestroy {
   async joinRoom(): Promise<void> {
     this.error.set(null);
     this.roomCode.set(formatRoomCode(this.roomCode()));
+    this.retryAfterLeave = () => this.joinRoom();
     const response = await this.socket.join({
       commandId: crypto.randomUUID(),
       expectedVersion: 0,
@@ -76,23 +90,34 @@ export class MultiplayerLobbyComponent implements OnDestroy {
     this.roomCode.set(formatRoomCode(value));
   }
 
-  async shareRoomLink(): Promise<void> {
-    const roomCode = this.room()?.roomCode;
-    if (!roomCode) return;
-    const url = new URL(this.sharePath(), location.origin);
-    url.searchParams.set('room', roomCode);
-    try {
-      await navigator.clipboard.writeText(url.toString());
-      this.toast.show('Link copied to clipboard!');
-      this.error.set(null);
-    } catch {
-      this.error.set('Could not copy the share link.');
-    }
+  activeMatchGameName(): string {
+    return this.stateGameId(this.activeMatch()) === 'formula-frenzy'
+      ? 'Formula Frenzy'
+      : 'Equation Artillery';
   }
 
-  enterPlay(): void {
-    const room = this.room();
-    if (room) this.play.emit(room);
+  async leaveActiveMatch(dialog: HTMLDialogElement): Promise<void> {
+    const activeMatch = this.activeMatch();
+    const retry = this.retryAfterLeave;
+    if (!activeMatch || !retry) return;
+    const response = await this.socket.leave({
+      commandId: crypto.randomUUID(),
+      expectedVersion: activeMatch.version,
+    });
+    if (!response.ok) {
+      this.error.set(response.error ?? 'Could not leave the current match.');
+      return;
+    }
+    dialog.close();
+    this.activeMatch.set(null);
+    this.retryAfterLeave = null;
+    await retry();
+  }
+
+  cancelLeaveActiveMatch(dialog: HTMLDialogElement): void {
+    dialog.close();
+    this.activeMatch.set(null);
+    this.retryAfterLeave = null;
   }
 
   ngOnDestroy(): void {
@@ -103,13 +128,25 @@ export class MultiplayerLobbyComponent implements OnDestroy {
     ok: boolean;
     data?: MultiplayerMatchState;
     error?: string;
+    code?: string;
   }): void {
     if (response.ok && response.data) {
       this.room.set(response.data);
       this.roomJoined.emit(response.data);
       this.error.set(null);
+      this.retryAfterLeave = null;
+      return;
+    }
+    if (response.code === 'ALREADY_IN_MATCH' && response.data) {
+      this.activeMatch.set(response.data);
+      this.error.set(null);
+      this.activeMatchDialog?.nativeElement.showModal?.();
       return;
     }
     this.error.set(response.error ?? 'The command was rejected.');
+  }
+
+  private stateGameId(state: MultiplayerMatchState | null): GameId {
+    return state?.gameId ?? 'equation-artillery';
   }
 }

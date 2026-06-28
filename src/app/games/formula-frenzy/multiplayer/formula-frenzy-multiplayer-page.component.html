@@ -8,7 +8,6 @@
     <app-multiplayer-lobby
       [manageSocket]="false"
       gameId="formula-frenzy"
-      sharePath="/games/formula-frenzy/multiplayer"
       (roomJoined)="onRoomJoined($event)"
     />
   } @else {
@@ -73,9 +72,11 @@
       <section class="result" role="status">
         <strong>{{ state()?.winnerUserId === userId() ? 'You won.' : 'You lost.' }}</strong>
         <span>{{ state()?.endReason }}</span>
-        <button type="button" class="btn btn--primary restart-button" (click)="startRun()">
-          Restart
-        </button>
+        @if (isHost()) {
+          <button type="button" class="btn btn--primary restart-button" (click)="startRun()">
+            Restart
+          </button>
+        }
       </section>
     }
   }

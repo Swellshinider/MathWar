@@ -2,8 +2,18 @@
   display: block;
 }
 
+.multiplayer-launch {
+  margin-bottom: var(--space-4);
+}
+
 .mode-panel {
   margin-bottom: var(--space-4);
+}
+
+.sprint-control {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 .practice-options {

@@ -54,7 +54,7 @@ import {
   EquationHistoryMessage,
 } from './equation-history/equation-history.component';
 import { mapEquationHistoryMessages } from './equation-history/equation-history-message';
-import { MultiplayerLobbyComponent } from './multiplayer/multiplayer-lobby.component';
+import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-lobby.component';
 
 type GameMode = 'target-practice' | 'free-practice' | 'single-player';
 

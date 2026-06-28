@@ -6,8 +6,8 @@ import { ToastService } from '../../../shared/toast/toast.service';
 import {
   MultiplayerAuthService,
   MultiplayerGuestSession,
-} from '../../equation-artillery/multiplayer/multiplayer-auth.service';
-import { MultiplayerSocketService } from '../../equation-artillery/multiplayer/multiplayer-socket.service';
+} from '../../../shared/multiplayer/multiplayer-auth.service';
+import { MultiplayerSocketService } from '../../../shared/multiplayer/multiplayer-socket.service';
 import { FormulaFrenzyMultiplayerPageComponent } from './formula-frenzy-multiplayer-page.component';
 
 type SocketHandlers = Parameters<MultiplayerSocketService['connect']>[1];
@@ -169,5 +169,33 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
       commandId: expect.any(String),
       expectedVersion: ended.version,
     });
+  });
+
+  it('hides restart from guests after a result', async () => {
+    const ended = activeState({ status: 'ended', winnerUserId: 'left', endReason: 'timeout' });
+    auth.session.set({ token: 'token', user: { id: 'right', displayName: 'Right' } });
+    const root = fixture.nativeElement as HTMLElement;
+
+    handlers.state(ended);
+    fixture.detectChanges();
+    await fixture.componentInstance.startRun();
+
+    expect(root.querySelector<HTMLButtonElement>('.restart-button')).toBeNull();
+    expect(socket.startFormula).not.toHaveBeenCalled();
+  });
+
+  it('prevents Backspace navigation after the multiplayer result appears', () => {
+    const ended = activeState({ status: 'ended', winnerUserId: 'right', endReason: 'timeout' });
+    const event = new KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    handlers.state(ended);
+    fixture.detectChanges();
+    document.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
   });
 });

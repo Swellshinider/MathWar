@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  HostListener,
   OnDestroy,
   OnInit,
   ViewChild,
@@ -9,9 +10,12 @@ import {
   signal,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
+import { MultiplayerMatchState } from '@math-war/game-engine';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
+import { preventBackspaceNavigation } from '../../shared/dom/prevent-backspace-navigation';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
+import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-lobby.component';
 import {
   FORMULA_OPERATION_OPTIONS,
   createFormulaPracticeProblem,
@@ -24,12 +28,13 @@ type FormulaFrenzyMode = 'sprint' | 'free-practice';
 
 @Component({
   selector: 'app-formula-frenzy-page',
-  imports: [GameFrameComponent, ReactiveFormsModule, RouterLink],
+  imports: [GameFrameComponent, MultiplayerLobbyComponent, ReactiveFormsModule],
   templateUrl: './formula-frenzy-page.component.html',
   styleUrl: './formula-frenzy-page.component.scss',
 })
 export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private readonly audio = inject(AudioSettingsService);
+  private readonly router = inject(Router);
   @ViewChild('answerInput') private answerInput?: ElementRef<HTMLInputElement>;
 
   readonly problem = signal<FormulaProblem>(createFormulaProblem(0));
@@ -66,6 +71,11 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearTimers();
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  preventBrowserBackspace(event: KeyboardEvent): void {
+    preventBackspaceNavigation(event);
   }
 
   submitAnswer(event?: SubmitEvent): void {
@@ -142,6 +152,12 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
       this.problem.set(this.nextProblem());
     }
     this.syncAnswerControl();
+  }
+
+  enterMultiplayer(state: MultiplayerMatchState): void {
+    if (state.gameId === 'formula-frenzy') {
+      void this.router.navigate(['/games/formula-frenzy/multiplayer']);
+    }
   }
 
   private lose(): void {

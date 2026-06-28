@@ -251,11 +251,13 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     socket.on('room:create', async (command: VersionedCommand, ack: Ack<MultiplayerMatchState>) => {
       if (!isVersionedCommand(command) || command.expectedVersion !== 0)
         return ack({ ok: false, code: 'INVALID_COMMAND', error: 'Invalid create command.' });
-      if (await options.repository.findActiveByUser(socket.data.user.id))
+      const activeMatch = await options.repository.findActiveByUser(socket.data.user.id);
+      if (activeMatch)
         return ack({
           ok: false,
           code: 'ALREADY_IN_MATCH',
           error: 'Leave the current match first.',
+          data: publicState(activeMatch),
         });
       for (let attempt = 0; attempt < 10; attempt += 1) {
         const roomCode = createRoomCode();
@@ -279,11 +281,13 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     socket.on('room:join', async (command: RoomJoinCommand, ack: Ack<MultiplayerMatchState>) => {
       if (!isVersionedCommand(command) || typeof command.roomCode !== 'string')
         return ack({ ok: false, code: 'INVALID_COMMAND', error: 'Invalid join command.' });
-      if (await options.repository.findActiveByUser(socket.data.user.id))
+      const activeMatch = await options.repository.findActiveByUser(socket.data.user.id);
+      if (activeMatch)
         return ack({
           ok: false,
           code: 'ALREADY_IN_MATCH',
           error: 'Leave the current match first.',
+          data: publicState(activeMatch),
         });
       const match = await options.repository.findByCode(normalizeRoomCode(command.roomCode));
       if (
@@ -396,7 +400,10 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           return ack({ ok: false, code: 'WRONG_GAME', error: 'This room is not Formula Frenzy.' });
         if (match.players.length < 2)
           return ack({ ok: false, code: 'WAITING', error: 'Waiting for the second player.' });
-        if (match.status === 'waiting' && match.players[0].userId !== socket.data.user.id)
+        if (
+          (match.status === 'waiting' || match.status === 'ended') &&
+          match.players[0].userId !== socket.data.user.id
+        )
           return ack({ ok: false, code: 'OUT_OF_TURN', error: 'Only the host can start.' });
         if (match.status !== 'waiting' && match.status !== 'ended')
           return ack({ ok: false, code: 'NOT_READY', error: 'The match is already active.' });
@@ -470,7 +477,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     socket.on('match:leave', async (command: VersionedCommand, ack: Ack<MultiplayerMatchState>) => {
       if (!isVersionedCommand(command))
         return ack({ ok: false, code: 'INVALID_COMMAND', error: 'Invalid leave command.' });
-      const matchId = socket.data.matchId;
+      let matchId = socket.data.matchId;
+      if (!matchId) matchId = (await options.repository.findActiveByUser(socket.data.user.id))?.id;
       if (!matchId) return ack({ ok: false, code: 'NOT_IN_MATCH', error: 'No active match.' });
       const match = await options.repository.findById(matchId);
       if (!match) return ack({ ok: false, code: 'MISSING', error: 'Match not found.' });

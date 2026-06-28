@@ -26,10 +26,10 @@ import { shotAnimationDuration } from '../game/shot-animation';
 import { Bullet } from '../models/bullet';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
-import { MultiplayerAuthService } from './multiplayer-auth.service';
-import { MultiplayerLobbyComponent } from './multiplayer-lobby.component';
-import { MultiplayerSocketService } from './multiplayer-socket.service';
-import { formatRoomCode } from './room-code';
+import { MultiplayerAuthService } from '../../../shared/multiplayer/multiplayer-auth.service';
+import { MultiplayerLobbyComponent } from '../../../shared/multiplayer/multiplayer-lobby.component';
+import { MultiplayerSocketService } from '../../../shared/multiplayer/multiplayer-socket.service';
+import { formatRoomCode } from '../../../shared/multiplayer/room-code';
 
 @Component({
   selector: 'app-multiplayer-page',

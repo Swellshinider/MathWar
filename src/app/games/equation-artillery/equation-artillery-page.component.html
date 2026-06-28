@@ -1,6 +1,6 @@
 <app-game-frame eyebrow="Functions and graphs" title="Equation Artillery" [wide]="true">
   <div class="multiplayer-launch">
-    <app-multiplayer-lobby (play)="enterMultiplayer()" />
+    <app-multiplayer-lobby (roomJoined)="enterMultiplayer()" />
   </div>
 
   <section class="mode-panel" aria-label="Offline mode">

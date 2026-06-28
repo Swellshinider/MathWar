@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  HostListener,
   OnDestroy,
   ViewChild,
   computed,
@@ -11,12 +12,13 @@ import {
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormulaFrenzyMatchState, MultiplayerMatchState } from '@math-war/game-engine';
+import { preventBackspaceNavigation } from '../../../shared/dom/prevent-backspace-navigation';
 import { GameFrameComponent } from '../../../shared/game-frame/game-frame.component';
+import { MultiplayerAuthService } from '../../../shared/multiplayer/multiplayer-auth.service';
+import { MultiplayerLobbyComponent } from '../../../shared/multiplayer/multiplayer-lobby.component';
+import { MultiplayerSocketService } from '../../../shared/multiplayer/multiplayer-socket.service';
+import { formatRoomCode } from '../../../shared/multiplayer/room-code';
 import { ToastService } from '../../../shared/toast/toast.service';
-import { MultiplayerAuthService } from '../../equation-artillery/multiplayer/multiplayer-auth.service';
-import { MultiplayerLobbyComponent } from '../../equation-artillery/multiplayer/multiplayer-lobby.component';
-import { MultiplayerSocketService } from '../../equation-artillery/multiplayer/multiplayer-socket.service';
-import { formatRoomCode } from '../../equation-artillery/multiplayer/room-code';
 
 @Component({
   selector: 'app-formula-frenzy-multiplayer-page',
@@ -119,6 +121,11 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
     if (state.gameId === 'formula-frenzy') this.receiveState(state);
   }
 
+  @HostListener('document:keydown', ['$event'])
+  preventBrowserBackspace(event: KeyboardEvent): void {
+    preventBackspaceNavigation(event);
+  }
+
   async submitAnswer(event?: SubmitEvent): Promise<void> {
     event?.preventDefault();
     const state = this.state();
@@ -146,7 +153,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
   async startRun(): Promise<void> {
     const state = this.state();
     if (!state || (state.status !== 'waiting' && state.status !== 'ended')) return;
-    if (state.status === 'waiting' && !this.isHost()) return;
+    if (!this.isHost()) return;
     const response = await this.socket.startFormula({
       commandId: crypto.randomUUID(),
       expectedVersion: state.version,

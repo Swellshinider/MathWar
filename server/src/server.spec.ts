@@ -231,6 +231,29 @@ describe('multiplayer socket server', () => {
     );
   });
 
+  it('returns the active match when a player tries to create another room', async () => {
+    const harness = await createHarness();
+    const left = await connect(harness, 'left');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+
+    const rejected = await emit<{
+      ok: false;
+      code: string;
+      data: { roomCode: string; gameId?: string };
+    }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      gameId: 'formula-frenzy',
+    });
+
+    expect(rejected.code).toBe('ALREADY_IN_MATCH');
+    expect(rejected.data.roomCode).toBe(created.data.roomCode);
+    expect(rejected.data.gameId ?? 'equation-artillery').toBe('equation-artillery');
+  });
+
   it('runs a formula frenzy room with answers and opponent typing', async () => {
     const harness = await createHarness();
     const left = await connect(harness, 'left');
@@ -380,8 +403,17 @@ describe('multiplayer socket server', () => {
 
     expect(ended).toMatchObject({ reason: 'timeout', winnerUserId: 'right' });
     const endedState = await harness.repository.findByCode(created.data.roomCode);
-    const restarted = await emit<{ ok: true; data: { status: string; formulaPlayers: unknown[] } }>(
+    const rejectedRestart = await emit<{ ok: false; code: string }>(
       right,
+      'formula:start',
+      {
+        commandId: randomUUID(),
+        expectedVersion: endedState!.version,
+      },
+    );
+    expect(rejectedRestart.code).toBe('OUT_OF_TURN');
+    const restarted = await emit<{ ok: true; data: { status: string; formulaPlayers: unknown[] } }>(
+      left,
       'formula:start',
       {
         commandId: randomUUID(),
