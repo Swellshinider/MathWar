@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { FormulaFrenzyPageComponent } from './formula-frenzy-page.component';
 
@@ -16,7 +17,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [FormulaFrenzyPageComponent],
-      providers: [{ provide: AudioSettingsService, useValue: audio }],
+      providers: [{ provide: AudioSettingsService, useValue: audio }, provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(FormulaFrenzyPageComponent);
@@ -32,6 +33,7 @@ describe('FormulaFrenzyPageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.textContent).toContain('Formula Frenzy');
+    expect(root.textContent).toContain('Play 1v1');
     expect(root.textContent).toContain('Sprint');
     expect(root.textContent).toContain('Free Practice');
     expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe(
@@ -54,6 +56,7 @@ describe('FormulaFrenzyPageComponent', () => {
   });
 
   it('accepts a correct answer and advances the score', () => {
+    component.startRun();
     component.answerControl.setValue(String(component.problem().answer));
 
     component.submitAnswer();
@@ -63,6 +66,22 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.answerControl.value).toBe('');
     expect(component.answerRejected()).toBe(false);
     expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/right-answer.wav');
+  });
+
+  it('waits to start sprint mode until the player clicks start and focuses the answer', () => {
+    const root = fixture.nativeElement as HTMLElement;
+    vi.advanceTimersByTime(component.problem().deadlineMs);
+    fixture.detectChanges();
+
+    expect(component.gameOver()).toBe(false);
+    expect(component.runStarted()).toBe(false);
+    expect(root.querySelector<HTMLInputElement>('#formula-answer')?.disabled).toBe(true);
+
+    root.querySelector<HTMLButtonElement>('.start-button')?.click();
+    fixture.detectChanges();
+
+    expect(component.runStarted()).toBe(true);
+    expect(document.activeElement).toBe(root.querySelector<HTMLInputElement>('#formula-answer'));
   });
 
   it('prevents browser navigation when submitting with Enter', () => {
@@ -75,7 +94,8 @@ describe('FormulaFrenzyPageComponent', () => {
   });
 
   it('marks the answer input invalid without showing an error message', () => {
-    component.answerControl.setValue(String(component.problem().answer + 1));
+    component.startRun();
+    component.answerControl.setValue(String(component.problem().answer! + 1));
     component.submitAnswer();
     fixture.detectChanges();
 
@@ -104,6 +124,7 @@ describe('FormulaFrenzyPageComponent', () => {
   });
 
   it('ends the run when the problem timer expires', () => {
+    component.startRun();
     vi.advanceTimersByTime(component.problem().deadlineMs);
     fixture.detectChanges();
 
@@ -112,6 +133,7 @@ describe('FormulaFrenzyPageComponent', () => {
   });
 
   it('shows score and average solve time after losing', () => {
+    component.startRun();
     vi.advanceTimersByTime(2500);
     component.answerControl.setValue(String(component.problem().answer));
     component.submitAnswer();

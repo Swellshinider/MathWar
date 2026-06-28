@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-28
+
+- Added Formula Frenzy private-room multiplayer with parallel sprint panels, live opponent
+  calculation visibility, host-started runs, guest room sharing, restart after results, and
+  last-standing timeout wins.
+
 ### Added - 2026-06-27
 
 - Added Formula Frenzy as a new progression-based arithmetic mini-game with timed

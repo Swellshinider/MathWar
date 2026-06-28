@@ -4,6 +4,10 @@
   objective="Solve fast. Keep up as the formulas get harder."
   [wide]="true"
 >
+  <a gameActions class="btn btn--primary" routerLink="/games/formula-frenzy/multiplayer">
+    Play 1v1
+  </a>
+
   <section class="mode-panel" aria-label="Formula Frenzy mode">
     <div class="mode-panel__tabs" role="tablist" aria-label="Formula Frenzy modes">
       <button
@@ -57,10 +61,16 @@
       @if (practicePaused()) {
         <p class="practice-warning" role="alert">Choose at least one calculation type.</p>
       }
+      @if (gameMode() === 'sprint' && !runStarted() && !gameOver()) {
+        <button type="button" class="btn btn--primary start-button" (click)="startRun()">
+          Start run
+        </button>
+      }
       <form (submit)="submitAnswer($event)">
         <label for="formula-answer">Answer</label>
         <div class="answer-row">
           <input
+            #answerInput
             id="formula-answer"
             type="text"
             inputmode="decimal"

@@ -1,6 +1,6 @@
 import { Component, OnDestroy, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatchState } from '@math-war/game-engine';
+import { GameId, MultiplayerMatchState } from '@math-war/game-engine';
 import { ToastService } from '../../../shared/toast/toast.service';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
@@ -19,13 +19,15 @@ export class MultiplayerLobbyComponent implements OnDestroy {
 
   /** When true (default) the lobby owns the socket connection; when false the host owns it. */
   readonly manageSocket = input(true);
-  readonly roomJoined = output<MatchState>();
-  readonly play = output<MatchState>();
+  readonly gameId = input<GameId>('equation-artillery');
+  readonly sharePath = input('/games/equation-artillery/multiplayer');
+  readonly roomJoined = output<MultiplayerMatchState>();
+  readonly play = output<MultiplayerMatchState>();
 
   readonly displayName = signal(this.auth.storedDisplayName());
   readonly roomCode = signal('');
   readonly error = signal<string | null>(null);
-  readonly room = signal<MatchState | null>(null);
+  readonly room = signal<MultiplayerMatchState | null>(null);
 
   constructor() {
     effect(() => {
@@ -53,6 +55,7 @@ export class MultiplayerLobbyComponent implements OnDestroy {
     const response = await this.socket.create({
       commandId: crypto.randomUUID(),
       expectedVersion: 0,
+      gameId: this.gameId(),
     });
     this.applyResponse(response);
   }
@@ -64,6 +67,7 @@ export class MultiplayerLobbyComponent implements OnDestroy {
       commandId: crypto.randomUUID(),
       expectedVersion: 0,
       roomCode: this.roomCode(),
+      gameId: this.gameId(),
     });
     this.applyResponse(response);
   }
@@ -75,7 +79,7 @@ export class MultiplayerLobbyComponent implements OnDestroy {
   async shareRoomLink(): Promise<void> {
     const roomCode = this.room()?.roomCode;
     if (!roomCode) return;
-    const url = new URL('/games/equation-artillery/multiplayer', location.origin);
+    const url = new URL(this.sharePath(), location.origin);
     url.searchParams.set('room', roomCode);
     try {
       await navigator.clipboard.writeText(url.toString());
@@ -95,7 +99,11 @@ export class MultiplayerLobbyComponent implements OnDestroy {
     if (this.manageSocket()) this.socket.disconnect();
   }
 
-  private applyResponse(response: { ok: boolean; data?: MatchState; error?: string }): void {
+  private applyResponse(response: {
+    ok: boolean;
+    data?: MultiplayerMatchState;
+    error?: string;
+  }): void {
     if (response.ok && response.data) {
       this.room.set(response.data);
       this.roomJoined.emit(response.data);

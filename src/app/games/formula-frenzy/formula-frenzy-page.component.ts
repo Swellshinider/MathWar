@@ -1,5 +1,15 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import {
@@ -14,15 +24,17 @@ type FormulaFrenzyMode = 'sprint' | 'free-practice';
 
 @Component({
   selector: 'app-formula-frenzy-page',
-  imports: [GameFrameComponent, ReactiveFormsModule],
+  imports: [GameFrameComponent, ReactiveFormsModule, RouterLink],
   templateUrl: './formula-frenzy-page.component.html',
   styleUrl: './formula-frenzy-page.component.scss',
 })
 export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private readonly audio = inject(AudioSettingsService);
+  @ViewChild('answerInput') private answerInput?: ElementRef<HTMLInputElement>;
 
   readonly problem = signal<FormulaProblem>(createFormulaProblem(0));
   readonly gameMode = signal<FormulaFrenzyMode>('sprint');
+  readonly runStarted = signal(false);
   readonly operationOptions = FORMULA_OPERATION_OPTIONS;
   readonly practiceOperations = signal<readonly FormulaOperation[]>(
     FORMULA_OPERATION_OPTIONS.map((option) => option.operation),
@@ -49,7 +61,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private nextTickAtMs = 0;
 
   ngOnInit(): void {
-    this.startProblemTimer();
+    this.syncAnswerControl();
   }
 
   ngOnDestroy(): void {
@@ -58,7 +70,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   submitAnswer(event?: SubmitEvent): void {
     event?.preventDefault();
-    if (this.gameOver() || this.practicePaused()) return;
+    if (this.gameOver() || this.practicePaused() || this.sprintPaused()) return;
 
     const answer = Number(this.answerControl.value);
     if (Number.isNaN(answer)) {
@@ -89,17 +101,22 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.score.set(0);
     this.totalSolveTimeMs.set(0);
     this.gameOver.set(false);
+    this.runStarted.set(this.gameMode() !== 'sprint');
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
     this.problem.set(this.nextProblem());
-    if (this.gameMode() === 'sprint') {
-      this.startProblemTimer();
-    } else {
-      this.clearTimers();
-      this.timeRemainingMs.set(0);
-    }
+    this.clearTimers();
+    this.timeRemainingMs.set(this.gameMode() === 'sprint' ? this.problem().deadlineMs : 0);
     this.syncAnswerControl();
+  }
+
+  startRun(): void {
+    if (this.gameMode() !== 'sprint' || this.runStarted()) return;
+    this.runStarted.set(true);
+    this.syncAnswerControl();
+    this.startProblemTimer();
+    this.answerInput?.nativeElement.focus();
   }
 
   selectSprint(): void {
@@ -129,6 +146,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   private lose(): void {
     this.gameOver.set(true);
+    this.runStarted.set(false);
     this.clearTimers();
     this.syncAnswerControl();
     this.playSound('game-over.wav');
@@ -185,10 +203,14 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   }
 
   private syncAnswerControl(): void {
-    if (this.gameOver() || this.practicePaused()) {
+    if (this.gameOver() || this.practicePaused() || this.sprintPaused()) {
       this.answerControl.disable({ emitEvent: false });
     } else {
       this.answerControl.enable({ emitEvent: false });
     }
+  }
+
+  private sprintPaused(): boolean {
+    return this.gameMode() === 'sprint' && !this.runStarted();
   }
 }

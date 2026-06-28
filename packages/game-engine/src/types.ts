@@ -43,8 +43,9 @@ export interface Wall {
   readonly pieces: readonly WallPiece[];
 }
 
+export type GameId = 'equation-artillery' | 'formula-frenzy';
 export type MatchStatus = 'waiting' | 'active' | 'paused' | 'ended';
-export type MatchEndReason = 'hit' | 'abandonment' | 'left';
+export type MatchEndReason = 'hit' | 'abandonment' | 'left' | 'timeout';
 
 export interface ShotHistoryEntry {
   readonly commandId: string;
@@ -54,6 +55,7 @@ export interface ShotHistoryEntry {
 }
 
 export interface MatchState {
+  readonly gameId?: 'equation-artillery';
   readonly id: string;
   readonly roomCode: string;
   readonly seed: string;
@@ -73,9 +75,50 @@ export interface MatchState {
   readonly updatedAt: string;
 }
 
+export type FormulaOperation = 'addition' | 'subtraction' | 'multiplication' | 'division';
+
+export interface FormulaProblem {
+  readonly prompt: string;
+  readonly answer?: number;
+  readonly level: number;
+  readonly deadlineMs: number;
+}
+
+export interface FormulaFrenzyPlayerState {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly connected: boolean;
+  readonly score: number;
+  readonly totalSolveTimeMs: number;
+  readonly currentProblem: FormulaProblem & {
+    readonly answer?: number;
+    readonly startedAt: string;
+  };
+}
+
+export interface FormulaFrenzyMatchState {
+  readonly gameId: 'formula-frenzy';
+  readonly id: string;
+  readonly roomCode: string;
+  readonly seed: string;
+  readonly version: number;
+  readonly status: MatchStatus;
+  readonly players: readonly PlayerState[];
+  readonly formulaPlayers: readonly FormulaFrenzyPlayerState[];
+  readonly winnerUserId: string | null;
+  readonly endReason: MatchEndReason | null;
+  readonly disconnectedUserId: string | null;
+  readonly reconnectDeadline: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export type MultiplayerMatchState = MatchState | FormulaFrenzyMatchState;
+
 export interface VersionedCommand {
   readonly commandId: string;
   readonly expectedVersion: number;
+  readonly gameId?: GameId;
 }
 
 export interface FireCommand extends VersionedCommand {
@@ -84,6 +127,14 @@ export interface FireCommand extends VersionedCommand {
 
 export interface RoomJoinCommand extends VersionedCommand {
   readonly roomCode: string;
+}
+
+export interface FormulaFrenzyAnswerCommand extends VersionedCommand {
+  readonly answer: number;
+}
+
+export interface FormulaFrenzyTypingCommand {
+  readonly input: string;
 }
 
 export interface ShotResolvedEvent {

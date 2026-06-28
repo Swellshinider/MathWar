@@ -105,6 +105,7 @@ describe('MultiplayerLobbyComponent', () => {
     expect(socket.create).toHaveBeenCalledWith({
       commandId: expect.any(String),
       expectedVersion: 0,
+      gameId: 'equation-artillery',
     });
     expect(component.room()).toEqual(state);
     expect(joined).toHaveBeenCalledWith(state);
@@ -122,6 +123,7 @@ describe('MultiplayerLobbyComponent', () => {
       commandId: expect.any(String),
       expectedVersion: 0,
       roomCode: 'ABCD-EFGH',
+      gameId: 'equation-artillery',
     });
     expect(component.roomCode()).toBe('ABCD-EFGH');
   });

@@ -6,6 +6,7 @@ import {
   CharacterState,
   MatchEndedEvent,
   MatchState,
+  MultiplayerMatchState,
   PlayerState,
   ShotResolvedEvent,
 } from '@math-war/game-engine';
@@ -172,7 +173,9 @@ export class MultiplayerPageComponent implements OnDestroy {
         return;
       }
       this.socket.connect(token, {
-        state: (state) => this.receiveState(state),
+        state: (state) => {
+          if (state.gameId !== 'formula-frenzy') this.receiveState(state);
+        },
         shot: (event) => this.animateShot(event),
         ended: (event) => this.queueOrPlayMatchResult(event),
         error: (message) => this.error.set(message),
@@ -203,7 +206,8 @@ export class MultiplayerPageComponent implements OnDestroy {
     });
   }
 
-  onRoomJoined(state: MatchState): void {
+  onRoomJoined(state: MultiplayerMatchState): void {
+    if (state.gameId === 'formula-frenzy') return;
     this.setState(state);
   }
 
@@ -287,7 +291,15 @@ export class MultiplayerPageComponent implements OnDestroy {
     this.socket.disconnect();
   }
 
-  private applyResponse(response: { ok: boolean; data?: MatchState; error?: string }): boolean {
+  private applyResponse(response: {
+    ok: boolean;
+    data?: MultiplayerMatchState;
+    error?: string;
+  }): boolean {
+    if (response.data?.gameId === 'formula-frenzy') {
+      this.error.set('That room belongs to Formula Frenzy.');
+      return false;
+    }
     if (response.ok && response.data) {
       this.pendingState = null;
       this.setState(response.data);
@@ -314,7 +326,11 @@ export class MultiplayerPageComponent implements OnDestroy {
       expectedVersion: 0,
       roomCode: this.inviteRoomCode,
     });
-    this.applyResponse(response);
+    if (response.data?.gameId === 'formula-frenzy') {
+      this.error.set('That room belongs to Formula Frenzy.');
+    } else {
+      this.applyResponse(response);
+    }
     this.inviteJoinPending = false;
     this.inviteJoinInFlight = false;
   }
