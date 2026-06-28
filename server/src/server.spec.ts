@@ -18,10 +18,7 @@ interface Harness {
 
 const harnesses: Harness[] = [];
 
-async function createHarness(
-  reconnectWindowMs = 60_000,
-  idleCleanupMs = 40,
-): Promise<Harness> {
+async function createHarness(reconnectWindowMs = 60_000, idleCleanupMs = 40): Promise<Harness> {
   const repository = new InMemoryMatchRepository();
   const server = await createMultiplayerServer({
     repository,
@@ -232,6 +229,200 @@ describe('multiplayer socket server', () => {
         alive: true,
       }),
     );
+  });
+
+  it('returns the active match when a player tries to create another room', async () => {
+    const harness = await createHarness();
+    const left = await connect(harness, 'left');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+
+    const rejected = await emit<{
+      ok: false;
+      code: string;
+      data: { roomCode: string; gameId?: string };
+    }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      gameId: 'formula-frenzy',
+    });
+
+    expect(rejected.code).toBe('ALREADY_IN_MATCH');
+    expect(rejected.data.roomCode).toBe(created.data.roomCode);
+    expect(rejected.data.gameId ?? 'equation-artillery').toBe('equation-artillery');
+  });
+
+  it('runs a formula frenzy room with answers and opponent typing', async () => {
+    const harness = await createHarness();
+    const left = await connect(harness, 'left');
+    const right = await connect(harness, 'right');
+    const created = await emit<{
+      ok: true;
+      data: {
+        gameId: 'formula-frenzy';
+        roomCode: string;
+        version: number;
+        formulaPlayers: { userId: string; currentProblem: { prompt: string; answer?: number } }[];
+      };
+    }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      gameId: 'formula-frenzy',
+    });
+    expect(created.ok).toBe(true);
+    expect(created.data.gameId).toBe('formula-frenzy');
+    expect(created.data.formulaPlayers).toEqual([]);
+
+    const mismatched = await emit<{ ok: false; code: string }>(right, 'room:join', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      roomCode: created.data.roomCode,
+      gameId: 'equation-artillery',
+    });
+    expect(mismatched.code).toBe('ROOM_UNAVAILABLE');
+
+    const joined = await emit<{
+      ok: true;
+      data: {
+        status: string;
+        version: number;
+        formulaPlayers: {
+          userId: string;
+          currentProblem: { prompt: string; answer?: number };
+        }[];
+      };
+    }>(right, 'room:join', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      roomCode: created.data.roomCode,
+      gameId: 'formula-frenzy',
+    });
+    expect(joined.ok).toBe(true);
+    expect(joined.data.status).toBe('waiting');
+    expect(joined.data.formulaPlayers).toEqual([]);
+
+    const rejectedStart = await emit<{ ok: false; code: string }>(right, 'formula:start', {
+      commandId: randomUUID(),
+      expectedVersion: joined.data.version,
+    });
+    expect(rejectedStart.code).toBe('OUT_OF_TURN');
+
+    const startedPromise = once<{
+      gameId: 'formula-frenzy';
+      formulaPlayers: {
+        userId: string;
+        currentProblem: { prompt: string; answer?: number };
+      }[];
+    }>(right, 'match:started');
+    const startedResponse = await emit<{
+      ok: true;
+      data: {
+        status: string;
+        version: number;
+        formulaPlayers: {
+          userId: string;
+          currentProblem: { prompt: string; answer?: number };
+        }[];
+      };
+    }>(left, 'formula:start', {
+      commandId: randomUUID(),
+      expectedVersion: joined.data.version,
+    });
+    expect(startedResponse.ok).toBe(true);
+    expect(startedResponse.data.status).toBe('active');
+    const started = await startedPromise;
+    expect(started.formulaPlayers[0].currentProblem.answer).toBeUndefined();
+
+    const persisted = await harness.repository.findByCode(created.data.roomCode);
+    const leftAnswer = persisted!.formulaPlayers.find((player) => player.userId === 'left')!
+      .currentProblem.answer;
+    const typingPromise = once<{ userId: string; input: string }>(right, 'formula:typing');
+    left.emit('formula:typing', { input: String(leftAnswer).slice(0, 1) });
+    await expect(typingPromise).resolves.toEqual({
+      userId: 'left',
+      input: String(leftAnswer).slice(0, 1),
+    });
+
+    const answered = await emit<{
+      ok: true;
+      data: {
+        formulaPlayers: { userId: string; score: number; currentProblem: { answer?: number } }[];
+      };
+    }>(left, 'formula:answer', {
+      commandId: randomUUID(),
+      expectedVersion: startedResponse.data.version,
+      answer: leftAnswer,
+    });
+    expect(answered.ok).toBe(true);
+    expect(answered.data.formulaPlayers.find((player) => player.userId === 'left')?.score).toBe(1);
+    expect(answered.data.formulaPlayers[0].currentProblem.answer).toBeUndefined();
+  });
+
+  it('ends a formula frenzy room when a player timer expires', async () => {
+    const harness = await createHarness();
+    const left = await connect(harness, 'left');
+    const right = await connect(harness, 'right');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      gameId: 'formula-frenzy',
+    });
+    await emit(right, 'room:join', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      roomCode: created.data.roomCode,
+      gameId: 'formula-frenzy',
+    });
+    const persisted = await harness.repository.findByCode(created.data.roomCode);
+    const started = await emit<{ ok: true; data: { version: number } }>(left, 'formula:start', {
+      commandId: randomUUID(),
+      expectedVersion: persisted!.version,
+    });
+    await harness.repository.update(persisted!.id, started.data.version, randomUUID(), (state) => ({
+      ...state,
+      formulaPlayers:
+        state.gameId === 'formula-frenzy'
+          ? state.formulaPlayers.map((player) =>
+              player.userId === 'left'
+                ? {
+                    ...player,
+                    currentProblem: {
+                      ...player.currentProblem,
+                      startedAt: new Date(Date.now() - 60_000).toISOString(),
+                    },
+                  }
+                : player,
+            )
+          : [],
+      version: started.data.version + 1,
+    }));
+
+    const ended = await once<{ reason: string; winnerUserId: string }>(right, 'match:ended');
+
+    expect(ended).toMatchObject({ reason: 'timeout', winnerUserId: 'right' });
+    const endedState = await harness.repository.findByCode(created.data.roomCode);
+    const rejectedRestart = await emit<{ ok: false; code: string }>(
+      right,
+      'formula:start',
+      {
+        commandId: randomUUID(),
+        expectedVersion: endedState!.version,
+      },
+    );
+    expect(rejectedRestart.code).toBe('OUT_OF_TURN');
+    const restarted = await emit<{ ok: true; data: { status: string; formulaPlayers: unknown[] } }>(
+      left,
+      'formula:start',
+      {
+        commandId: randomUUID(),
+        expectedVersion: endedState!.version,
+      },
+    );
+    expect(restarted.ok).toBe(true);
+    expect(restarted.data.status).toBe('active');
+    expect(restarted.data.formulaPlayers).toHaveLength(2);
   });
 
   it('accepts canonical, lowercase, and compact room codes when joining', async () => {

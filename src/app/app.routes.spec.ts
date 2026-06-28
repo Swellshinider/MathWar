@@ -41,6 +41,14 @@ describe('application routes', () => {
     expect(harness.routeNativeElement?.textContent).toContain('Solve fast');
   });
 
+  it('opens Formula Frenzy multiplayer at its direct route', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/games/formula-frenzy/multiplayer');
+
+    expect(harness.routeNativeElement?.textContent).toContain('Formula Frenzy Multiplayer');
+    expect(harness.routeNativeElement?.textContent).toContain('Enter a display name');
+  });
+
   it('opens the separate multiplayer route', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/games/equation-artillery/multiplayer');

@@ -19,15 +19,6 @@
       <p class="error" role="alert">{{ auth.error() }}</p>
     }
   </section>
-} @else if (room(); as currentRoom) {
-  <section class="panel glass lobby lobby--ready">
-    <div class="lobby__ready-info">
-      <p class="lobby__label">Room ready</p>
-      <strong class="lobby__code">{{ currentRoom.roomCode }}</strong>
-    </div>
-    <button type="button" class="btn btn--subtle" (click)="shareRoomLink()">Copy link</button>
-    <button type="button" class="btn btn--primary" (click)="enterPlay()">Play →</button>
-  </section>
 } @else {
   <form class="panel glass lobby" (submit)="$event.preventDefault(); joinRoom()">
     <button type="button" class="btn btn--primary" (click)="createRoom()">
@@ -54,3 +45,29 @@
 @if (error()) {
   <p class="error" role="alert">{{ error() }}</p>
 }
+
+<dialog #activeMatchDialog aria-labelledby="active-match-title">
+  <div class="confirm-dialog">
+    <h2 id="active-match-title">Leave current match?</h2>
+    <p>
+      You are currently in a match in {{ activeMatchGameName() }}, room:
+      {{ activeMatch()?.roomCode }}.
+    </p>
+    <div class="confirm-dialog__actions">
+      <button
+        type="button"
+        class="btn btn--subtle"
+        (click)="cancelLeaveActiveMatch(activeMatchDialog)"
+      >
+        Stay
+      </button>
+      <button
+        type="button"
+        class="btn btn--primary"
+        (click)="leaveActiveMatch(activeMatchDialog)"
+      >
+        Leave
+      </button>
+    </div>
+  </div>
+</dialog>

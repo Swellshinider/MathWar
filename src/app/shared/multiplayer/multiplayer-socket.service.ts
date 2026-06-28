@@ -2,8 +2,12 @@ import { Injectable, InjectionToken, NgZone, inject } from '@angular/core';
 import {
   CommandAck,
   FireCommand,
+  FormulaFrenzyAnswerCommand,
+  FormulaFrenzyMatchState,
+  FormulaFrenzyTypingCommand,
   MatchEndedEvent,
   MatchState,
+  MultiplayerMatchState,
   RoomJoinCommand,
   ShotResolvedEvent,
   VersionedCommand,
@@ -34,7 +38,9 @@ export class MultiplayerSocketService {
   connect(
     token: string,
     handlers: {
-      state: (state: MatchState) => void;
+      state: (state: MultiplayerMatchState) => void;
+      formulaState?: (state: FormulaFrenzyMatchState) => void;
+      formulaTyping?: (event: { userId: string; input: string }) => void;
       shot?: (event: ShotResolvedEvent) => void;
       ended?: (event: MatchEndedEvent) => void;
       error: (message: string) => void;
@@ -50,6 +56,8 @@ export class MultiplayerSocketService {
     this.socket.on('room:state', run(handlers.state));
     this.socket.on('match:started', run(handlers.state));
     this.socket.on('match:state', run(handlers.state));
+    if (handlers.formulaState) this.socket.on('formula:state', run(handlers.formulaState));
+    if (handlers.formulaTyping) this.socket.on('formula:typing', run(handlers.formulaTyping));
     if (handlers.shot) this.socket.on('shot:resolved', run(handlers.shot));
     if (handlers.ended) this.socket.on('match:ended', run(handlers.ended));
     this.socket.on('connect', () => this.zone.run(() => handlers.connected?.()));
@@ -63,11 +71,11 @@ export class MultiplayerSocketService {
     this.socket = null;
   }
 
-  create(command: VersionedCommand): Promise<CommandAck<MatchState>> {
+  create(command: VersionedCommand): Promise<CommandAck<MultiplayerMatchState>> {
     return this.emit('room:create', command);
   }
 
-  join(command: RoomJoinCommand): Promise<CommandAck<MatchState>> {
+  join(command: RoomJoinCommand): Promise<CommandAck<MultiplayerMatchState>> {
     return this.emit('room:join', command);
   }
 
@@ -75,8 +83,20 @@ export class MultiplayerSocketService {
     return this.emit('match:fire', command);
   }
 
-  leave(command: VersionedCommand): Promise<CommandAck<MatchState>> {
+  leave(command: VersionedCommand): Promise<CommandAck<MultiplayerMatchState>> {
     return this.emit('match:leave', command);
+  }
+
+  answerFormula(command: FormulaFrenzyAnswerCommand): Promise<CommandAck<FormulaFrenzyMatchState>> {
+    return this.emit('formula:answer', command);
+  }
+
+  startFormula(command: VersionedCommand): Promise<CommandAck<FormulaFrenzyMatchState>> {
+    return this.emit('formula:start', command);
+  }
+
+  sendFormulaTyping(command: FormulaFrenzyTypingCommand): void {
+    this.socket?.emit('formula:typing', command);
   }
 
   private emit<T>(event: string, command: unknown): Promise<CommandAck<T>> {

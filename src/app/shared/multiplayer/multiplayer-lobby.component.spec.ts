@@ -1,10 +1,9 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { MatchState } from '@math-war/game-engine';
+import { FormulaFrenzyMatchState, MatchState } from '@math-war/game-engine';
 import { MultiplayerGuestSession, MultiplayerAuthService } from './multiplayer-auth.service';
 import { MultiplayerLobbyComponent } from './multiplayer-lobby.component';
 import { MultiplayerSocketService } from './multiplayer-socket.service';
-import { ToastService } from '../../../shared/toast/toast.service';
 
 type SocketHandlers = Parameters<MultiplayerSocketService['connect']>[1];
 
@@ -30,6 +29,26 @@ function matchState(overrides: Partial<MatchState> = {}): MatchState {
     equationHistory: [],
     turnUserId: 'left',
     turnCharacterId: null,
+    winnerUserId: null,
+    endReason: null,
+    disconnectedUserId: null,
+    reconnectDeadline: null,
+    createdAt: '2026-06-22T12:00:00.000Z',
+    updatedAt: '2026-06-22T12:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function formulaState(overrides: Partial<FormulaFrenzyMatchState> = {}): FormulaFrenzyMatchState {
+  return {
+    gameId: 'formula-frenzy',
+    id: 'formula-1',
+    roomCode: 'WXYZ-1234',
+    seed: 'seed',
+    version: 2,
+    status: 'waiting',
+    players: [],
+    formulaPlayers: [],
     winnerUserId: null,
     endReason: null,
     disconnectedUserId: null,
@@ -77,7 +96,6 @@ describe('MultiplayerLobbyComponent', () => {
       providers: [
         { provide: MultiplayerAuthService, useValue: auth },
         { provide: MultiplayerSocketService, useValue: socket },
-        { provide: ToastService, useValue: new ToastService() },
       ],
     }).compileComponents();
   });
@@ -105,6 +123,7 @@ describe('MultiplayerLobbyComponent', () => {
     expect(socket.create).toHaveBeenCalledWith({
       commandId: expect.any(String),
       expectedVersion: 0,
+      gameId: 'equation-artillery',
     });
     expect(component.room()).toEqual(state);
     expect(joined).toHaveBeenCalledWith(state);
@@ -122,6 +141,7 @@ describe('MultiplayerLobbyComponent', () => {
       commandId: expect.any(String),
       expectedVersion: 0,
       roomCode: 'ABCD-EFGH',
+      gameId: 'equation-artillery',
     });
     expect(component.roomCode()).toBe('ABCD-EFGH');
   });
@@ -137,6 +157,45 @@ describe('MultiplayerLobbyComponent', () => {
     expect(component.error()).toBe('Leave the current match first.');
   });
 
+  it('ignores socket states from another game', () => {
+    const fixture = TestBed.createComponent(MultiplayerLobbyComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    handlers.state(formulaState());
+
+    expect(component.room()).toBeNull();
+  });
+
+  it('leaves an active match and retries the pending create', async () => {
+    const active = matchState({ version: 7, roomCode: 'ABCD-EFGH' });
+    const created = formulaState({ roomCode: 'WXYZ-1234' });
+    socket.create
+      .mockResolvedValueOnce({
+        ok: false,
+        code: 'ALREADY_IN_MATCH',
+        error: 'Leave the current match first.',
+        data: active,
+      })
+      .mockResolvedValueOnce({ ok: true, data: created });
+    socket.leave.mockResolvedValue({ ok: true, data: { ...active, status: 'ended' } });
+    const fixture = TestBed.createComponent(MultiplayerLobbyComponent);
+    fixture.componentRef.setInput('gameId', 'formula-frenzy');
+    const component = fixture.componentInstance;
+    const joined = vi.fn();
+    component.roomJoined.subscribe(joined);
+
+    await component.createRoom();
+    await component.leaveActiveMatch({ close: vi.fn() } as unknown as HTMLDialogElement);
+
+    expect(socket.leave).toHaveBeenCalledWith({
+      commandId: expect.any(String),
+      expectedVersion: 7,
+    });
+    expect(socket.create).toHaveBeenCalledTimes(2);
+    expect(joined).toHaveBeenCalledWith(created);
+  });
+
   it('clears a connection error after the socket reconnects', () => {
     const fixture = TestBed.createComponent(MultiplayerLobbyComponent);
     fixture.detectChanges();
@@ -148,42 +207,14 @@ describe('MultiplayerLobbyComponent', () => {
     expect(component.error()).toBeNull();
   });
 
-  it('copies the room invite link', async () => {
-    const writeText = vi.fn(() => Promise.resolve());
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    vi.stubGlobal('location', new URL('https://math-war.example/current'));
-    const fixture = TestBed.createComponent(MultiplayerLobbyComponent);
-    fixture.detectChanges();
-    const state = matchState({ roomCode: 'ABCD-EFGH' });
-    fixture.componentInstance.room.set(state);
-
-    await fixture.componentInstance.shareRoomLink();
-
-    expect(writeText).toHaveBeenCalledWith(
-      'https://math-war.example/games/equation-artillery/multiplayer?room=ABCD-EFGH',
-    );
-  });
-
-  it('emits play for the ready room', () => {
-    const fixture = TestBed.createComponent(MultiplayerLobbyComponent);
-    const component = fixture.componentInstance;
-    const state = matchState();
-    component.room.set(state);
-    const played = vi.fn();
-    component.play.subscribe(played);
-
-    component.enterPlay();
-
-    expect(played).toHaveBeenCalledWith(state);
-  });
-
-  it('renders the room code once a room is ready', () => {
+  it('continues to render create and join controls after a room state update', () => {
     const fixture = TestBed.createComponent(MultiplayerLobbyComponent);
     fixture.detectChanges();
     fixture.componentInstance.room.set(matchState({ roomCode: 'ABCD-EFGH' }));
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('ABCD-EFGH');
-    expect(fixture.nativeElement.textContent).toContain('Play');
+    expect(fixture.nativeElement.textContent).toContain('Create private room');
+    expect(fixture.nativeElement.textContent).toContain('Join room');
+    expect(fixture.nativeElement.textContent).not.toContain('Play');
   });
 });

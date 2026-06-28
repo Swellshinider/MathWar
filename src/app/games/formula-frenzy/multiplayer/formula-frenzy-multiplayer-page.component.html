@@ -1,0 +1,88 @@
+<app-game-frame
+  eyebrow="Arithmetic sprint"
+  title="Formula Frenzy Multiplayer"
+  objective="Race side by side. Last player still solving wins."
+  [wide]="true"
+>
+  @if (!state()) {
+    <app-multiplayer-lobby
+      [manageSocket]="false"
+      gameId="formula-frenzy"
+      (roomJoined)="onRoomJoined($event)"
+    />
+  } @else {
+    <section class="match-meta">
+      <strong>Room {{ state()?.roomCode }}</strong>
+      <div class="match-toolbar">
+        <button type="button" class="btn btn--subtle" (click)="shareRoomLink()">Share link</button>
+        <button type="button" class="btn btn--subtle" (click)="leave()">Leave match</button>
+      </div>
+    </section>
+
+    <section class="duel" aria-label="Formula Frenzy multiplayer board">
+      <article class="player-panel player-panel--local">
+        <header>
+          <p>You</p>
+          <strong>{{ me()?.displayName ?? auth.session()?.user?.displayName }}</strong>
+        </header>
+        <div class="stats">
+          <span>Score {{ me()?.score ?? 0 }}</span>
+          <span>Level {{ me()?.currentProblem?.level ?? 1 }}</span>
+          <span>Time {{ timeRemaining() }}</span>
+        </div>
+        <p class="problem-prompt">{{ me()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
+        @if (state()?.status === 'waiting' && isHost() && state()!.players.length === 2) {
+          <button type="button" class="btn btn--primary start-button" (click)="startRun()">
+            Start run
+          </button>
+        }
+        <form (submit)="submitAnswer($event)">
+          <label for="formula-multiplayer-answer">Answer</label>
+          <input
+            #answerInput
+            id="formula-multiplayer-answer"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            [class.answer-input--invalid]="answerRejected()"
+            [formControl]="answerControl"
+            (input)="sendTyping()"
+          />
+        </form>
+      </article>
+
+      <article class="player-panel player-panel--opponent">
+        <header>
+          <p>Opponent</p>
+          <strong>{{ opponentName() }}</strong>
+        </header>
+        <div class="stats">
+          <span>Score {{ opponent()?.score ?? 0 }}</span>
+          <span>Level {{ opponent()?.currentProblem?.level ?? 1 }}</span>
+          <span>Time {{ timeRemaining(opponent()) }}</span>
+        </div>
+        <p class="problem-prompt">{{ opponent()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
+        <div class="opponent-answer" aria-label="Opponent answer">
+          {{ opponentTyping() || 'Typing...' }}
+        </div>
+      </article>
+    </section>
+
+    @if (state()?.status === 'ended') {
+      <section class="result" role="status">
+        <strong>{{ state()?.winnerUserId === userId() ? 'You won.' : 'You lost.' }}</strong>
+        <span>{{ state()?.endReason }}</span>
+        @if (isHost()) {
+          <button type="button" class="btn btn--primary restart-button" (click)="startRun()">
+            Restart
+          </button>
+        }
+      </section>
+    }
+  }
+
+  <p class="status" aria-live="polite">{{ status() }}</p>
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+</app-game-frame>

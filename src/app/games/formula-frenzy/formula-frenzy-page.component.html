@@ -4,6 +4,13 @@
   objective="Solve fast. Keep up as the formulas get harder."
   [wide]="true"
 >
+  <div class="multiplayer-launch">
+    <app-multiplayer-lobby
+      gameId="formula-frenzy"
+      (roomJoined)="enterMultiplayer($event)"
+    />
+  </div>
+
   <section class="mode-panel" aria-label="Formula Frenzy mode">
     <div class="mode-panel__tabs" role="tablist" aria-label="Formula Frenzy modes">
       <button
@@ -23,6 +30,14 @@
         Free Practice
       </button>
     </div>
+
+    @if (gameMode() === 'sprint' && !runStarted() && !gameOver()) {
+      <div class="sprint-control">
+        <button type="button" class="btn btn--subtle start-button" (click)="startRun()">
+          Start run
+        </button>
+      </div>
+    }
 
     @if (gameMode() === 'free-practice') {
       <div class="practice-options" aria-label="Calculation types">
@@ -53,7 +68,11 @@
     </div>
 
     <div class="problem-panel">
-      <p class="problem-prompt">{{ problem().prompt }}</p>
+      @if (gameMode() === 'sprint' && !runStarted() && !gameOver()) {
+        <p class="problem-prompt">?? + ??</p>
+      } @else {
+        <p class="problem-prompt">{{ problem().prompt }}</p>
+      }
       @if (practicePaused()) {
         <p class="practice-warning" role="alert">Choose at least one calculation type.</p>
       }
@@ -61,6 +80,7 @@
         <label for="formula-answer">Answer</label>
         <div class="answer-row">
           <input
+            #answerInput
             id="formula-answer"
             type="text"
             inputmode="decimal"

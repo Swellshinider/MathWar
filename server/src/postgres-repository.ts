@@ -1,4 +1,4 @@
-import { MatchState } from '@math-war/game-engine';
+import { MultiplayerMatchState } from '@math-war/game-engine';
 import pg from 'pg';
 import { createDatabaseSslConfig } from './migrations.js';
 import { MatchRepository, UpdateResult } from './repository.js';
@@ -25,7 +25,7 @@ export class PostgresMatchRepository implements MatchRepository {
     }
   }
 
-  async create(state: MatchState, commandId: string): Promise<boolean> {
+  async create(state: MultiplayerMatchState, commandId: string): Promise<boolean> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
@@ -49,35 +49,35 @@ export class PostgresMatchRepository implements MatchRepository {
     }
   }
 
-  private async find(where: string, value: string): Promise<MatchState | null> {
+  private async find(where: string, value: string): Promise<MultiplayerMatchState | null> {
     const result = await this.pool.query(
       `select state from private.multiplayer_matches where ${where} = $1 limit 1`,
       [value],
     );
-    return (result.rows[0]?.state as MatchState | undefined) ?? null;
+    return (result.rows[0]?.state as MultiplayerMatchState | undefined) ?? null;
   }
 
-  findByCode(roomCode: string): Promise<MatchState | null> {
+  findByCode(roomCode: string): Promise<MultiplayerMatchState | null> {
     return this.find('room_code', roomCode);
   }
-  findById(id: string): Promise<MatchState | null> {
+  findById(id: string): Promise<MultiplayerMatchState | null> {
     return this.find('id', id);
   }
 
-  async findActiveByUser(userId: string): Promise<MatchState | null> {
+  async findActiveByUser(userId: string): Promise<MultiplayerMatchState | null> {
     const result = await this.pool.query(
       `select state from private.multiplayer_matches
        where status <> 'ended' and state->'players' @> $1::jsonb order by updated_at desc limit 1`,
       [JSON.stringify([{ userId }])],
     );
-    return (result.rows[0]?.state as MatchState | undefined) ?? null;
+    return (result.rows[0]?.state as MultiplayerMatchState | undefined) ?? null;
   }
 
   async update(
     id: string,
     expectedVersion: number,
     commandId: string,
-    transform: (state: MatchState) => MatchState,
+    transform: (state: MultiplayerMatchState) => MultiplayerMatchState,
   ): Promise<UpdateResult> {
     const client = await this.pool.connect();
     try {
@@ -103,7 +103,7 @@ export class PostgresMatchRepository implements MatchRepository {
         await client.query('rollback');
         return { ok: false, reason: 'stale' };
       }
-      const state = transform(selected.rows[0].state as MatchState);
+      const state = transform(selected.rows[0].state as MultiplayerMatchState);
       await client.query(
         `update private.multiplayer_matches
          set state = $2, version = $3, status = $4, updated_at = $5
@@ -120,13 +120,13 @@ export class PostgresMatchRepository implements MatchRepository {
     }
   }
 
-  async listExpiredReconnects(now: Date): Promise<readonly MatchState[]> {
+  async listExpiredReconnects(now: Date): Promise<readonly MultiplayerMatchState[]> {
     const result = await this.pool.query(
       `select state from private.multiplayer_matches where status = 'paused'
        and (state->>'reconnectDeadline')::timestamptz <= $1`,
       [now],
     );
-    return result.rows.map((row) => row.state as MatchState);
+    return result.rows.map((row) => row.state as MultiplayerMatchState);
   }
 
   async markRoomEmpty(id: string, emptySince: Date): Promise<void> {

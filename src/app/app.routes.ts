@@ -32,5 +32,12 @@ export const routes: Routes = [
         (module) => module.FormulaFrenzyPageComponent,
       ),
   },
+  {
+    path: 'games/formula-frenzy/multiplayer',
+    loadComponent: () =>
+      import('./games/formula-frenzy/multiplayer/formula-frenzy-multiplayer-page.component').then(
+        (module) => module.FormulaFrenzyMultiplayerPageComponent,
+      ),
+  },
   { path: '**', redirectTo: '' },
 ];

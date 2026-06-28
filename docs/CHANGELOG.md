@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-28
+
+- Added Formula Frenzy private-room multiplayer with parallel sprint panels, live opponent
+  calculation visibility, host-started runs, guest room sharing, restart after results, and
+  last-standing timeout wins.
+
+### Fixed - 2026-06-28
+
+- Reused the shared private-room lobby for Formula Frenzy, entered created rooms immediately,
+  prompted before leaving another active match, and restricted Formula Frenzy restarts to hosts.
+- Prevented Backspace from navigating away when Formula Frenzy sprint or multiplayer result screens
+  appear while a player is editing an answer.
+- Hid the first Formula Frenzy Sprint calculation until the player starts the run.
+- Moved Formula Frenzy Sprint's Start run action into the mode toolbar.
+- Replaced the hidden pre-start Formula Frenzy Sprint calculation with a masked prompt.
+
 ### Added - 2026-06-27
 
 - Added Formula Frenzy as a new progression-based arithmetic mini-game with timed

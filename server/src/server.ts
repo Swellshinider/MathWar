@@ -6,12 +6,23 @@ import { Server as SocketServer, Socket } from 'socket.io';
 import {
   AuthenticatedUser,
   CommandAck,
+  createFormulaFrenzyMatchState,
   createMatchState,
+  expireFormulaFrenzyPlayer,
+  expiredFormulaFrenzyPlayer,
   FireCommand,
+  FormulaFrenzyAnswerCommand,
+  FormulaFrenzyMatchState,
+  FormulaFrenzyTypingCommand,
+  GameId,
   MatchEndedEvent,
   MatchState,
+  MultiplayerMatchState,
+  resolveFormulaFrenzyAnswer,
   resolveShot,
   RoomJoinCommand,
+  sanitizeFormulaFrenzyState,
+  startFormulaFrenzyMatch,
   VersionedCommand,
 } from '@math-war/game-engine';
 import { TokenVerifier } from './auth.js';
@@ -43,6 +54,33 @@ export interface MultiplayerServerOptions {
 function roomName(matchId: string): string {
   return `match:${matchId}`;
 }
+function stateGameId(state: MultiplayerMatchState): GameId {
+  return state.gameId ?? 'equation-artillery';
+}
+function publicState<T extends MultiplayerMatchState>(state: T): T {
+  return (
+    stateGameId(state) === 'formula-frenzy'
+      ? sanitizeFormulaFrenzyState(state as FormulaFrenzyMatchState)
+      : state
+  ) as T;
+}
+function setPlayerConnected(
+  state: MultiplayerMatchState,
+  userId: string,
+  connected: boolean,
+): MultiplayerMatchState {
+  const players = state.players.map((player) =>
+    player.userId === userId ? { ...player, connected } : player,
+  );
+  if (stateGameId(state) !== 'formula-frenzy') return { ...state, players };
+  return {
+    ...(state as FormulaFrenzyMatchState),
+    players,
+    formulaPlayers: (state as FormulaFrenzyMatchState).formulaPlayers.map((player) =>
+      player.userId === userId ? { ...player, connected } : player,
+    ),
+  };
+}
 function createRoomCode(): string {
   const bytes = randomBytes(8);
   const characters = [...bytes].map((byte) => ROOM_CODE_ALPHABET[byte % ROOM_CODE_ALPHABET.length]);
@@ -65,6 +103,17 @@ function isVersionedCommand(value: unknown): value is VersionedCommand {
     Number.isInteger(command.expectedVersion) &&
     (command.expectedVersion ?? -1) >= 0
   );
+}
+function requestedGameId(command: Pick<VersionedCommand, 'gameId'>): GameId {
+  return command.gameId ?? 'equation-artillery';
+}
+function isFormulaAnswerCommand(value: unknown): value is FormulaFrenzyAnswerCommand {
+  if (!isVersionedCommand(value)) return false;
+  return typeof (value as Partial<FormulaFrenzyAnswerCommand>).answer === 'number';
+}
+function isFormulaTypingCommand(value: unknown): value is FormulaFrenzyTypingCommand {
+  if (!value || typeof value !== 'object') return false;
+  return typeof (value as FormulaFrenzyTypingCommand).input === 'string';
 }
 
 export async function createMultiplayerServer(options: MultiplayerServerOptions) {
@@ -133,8 +182,12 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     }
   });
 
-  async function emitState(state: MatchState): Promise<void> {
-    io.to(roomName(state.id)).emit('match:state', state);
+  async function emitState(state: MultiplayerMatchState): Promise<void> {
+    const emittedState = publicState(state);
+    io.to(roomName(state.id)).emit('match:state', emittedState);
+    if (stateGameId(state) === 'formula-frenzy') {
+      io.to(roomName(state.id)).emit('formula:state', emittedState);
+    }
     if (state.status === 'ended' && state.endReason) {
       const event: MatchEndedEvent = {
         matchId: state.id,
@@ -171,26 +224,21 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         match.version,
         randomUUID(),
         (state) => ({
-          ...state,
+          ...setPlayerConnected(state, socket.data.user.id, true),
           version: state.version + 1,
           status: 'active',
-          players: state.players.map((candidate) =>
-            candidate.userId === socket.data.user.id
-              ? { ...candidate, connected: true }
-              : candidate,
-          ),
           disconnectedUserId: null,
           reconnectDeadline: null,
           updatedAt: new Date().toISOString(),
         }),
       );
       if (result.ok) {
-        socket.emit('room:state', result.state);
+        socket.emit('room:state', publicState(result.state));
         await emitState(result.state);
         return;
       }
     }
-    socket.emit('room:state', match);
+    socket.emit('room:state', publicState(match));
   }
 
   io.on('connection', (rawSocket) => {
@@ -200,43 +248,54 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     socketsByUser.set(socket.data.user.id, userSockets);
     void reconnect(socket);
 
-    socket.on('room:create', async (command: VersionedCommand, ack: Ack<MatchState>) => {
+    socket.on('room:create', async (command: VersionedCommand, ack: Ack<MultiplayerMatchState>) => {
       if (!isVersionedCommand(command) || command.expectedVersion !== 0)
         return ack({ ok: false, code: 'INVALID_COMMAND', error: 'Invalid create command.' });
-      if (await options.repository.findActiveByUser(socket.data.user.id))
+      const activeMatch = await options.repository.findActiveByUser(socket.data.user.id);
+      if (activeMatch)
         return ack({
           ok: false,
           code: 'ALREADY_IN_MATCH',
           error: 'Leave the current match first.',
+          data: publicState(activeMatch),
         });
       for (let attempt = 0; attempt < 10; attempt += 1) {
         const roomCode = createRoomCode();
-        const state = createMatchState(randomUUID(), roomCode, randomBytes(32).toString('hex'), {
-          userId: socket.data.user.id,
-          displayName: socket.data.user.displayName,
-        });
+        const seed = randomBytes(32).toString('hex');
+        const player = { userId: socket.data.user.id, displayName: socket.data.user.displayName };
+        const state =
+          requestedGameId(command) === 'formula-frenzy'
+            ? createFormulaFrenzyMatchState(randomUUID(), roomCode, seed, player)
+            : createMatchState(randomUUID(), roomCode, seed, player);
         if (await options.repository.create(state, command.commandId)) {
           socket.data.matchId = state.id;
           await socket.join(roomName(state.id));
           await clearRoomEmpty(state.id);
-          socket.emit('room:state', state);
-          return ack({ ok: true, data: state });
+          socket.emit('room:state', publicState(state));
+          return ack({ ok: true, data: publicState(state) });
         }
       }
       ack({ ok: false, code: 'ROOM_CODE_EXHAUSTED', error: 'Could not allocate a room code.' });
     });
 
-    socket.on('room:join', async (command: RoomJoinCommand, ack: Ack<MatchState>) => {
+    socket.on('room:join', async (command: RoomJoinCommand, ack: Ack<MultiplayerMatchState>) => {
       if (!isVersionedCommand(command) || typeof command.roomCode !== 'string')
         return ack({ ok: false, code: 'INVALID_COMMAND', error: 'Invalid join command.' });
-      if (await options.repository.findActiveByUser(socket.data.user.id))
+      const activeMatch = await options.repository.findActiveByUser(socket.data.user.id);
+      if (activeMatch)
         return ack({
           ok: false,
           code: 'ALREADY_IN_MATCH',
           error: 'Leave the current match first.',
+          data: publicState(activeMatch),
         });
       const match = await options.repository.findByCode(normalizeRoomCode(command.roomCode));
-      if (!match || match.status !== 'waiting')
+      if (
+        !match ||
+        match.status !== 'waiting' ||
+        stateGameId(match) !== requestedGameId(command) ||
+        match.players.length >= 2
+      )
         return ack({
           ok: false,
           code: 'ROOM_UNAVAILABLE',
@@ -247,14 +306,28 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         match.version,
         command.commandId,
         (current) => {
-          const started = createMatchState(
-            current.id,
-            current.roomCode,
-            current.seed,
-            current.players[0],
-            { userId: socket.data.user.id, displayName: socket.data.user.displayName },
-            new Date(current.createdAt),
-          );
+          const opponent = {
+            userId: socket.data.user.id,
+            displayName: socket.data.user.displayName,
+          };
+          const started =
+            stateGameId(current) === 'formula-frenzy'
+              ? createFormulaFrenzyMatchState(
+                  current.id,
+                  current.roomCode,
+                  current.seed,
+                  current.players[0],
+                  opponent,
+                  new Date(current.createdAt),
+                )
+              : createMatchState(
+                  current.id,
+                  current.roomCode,
+                  current.seed,
+                  current.players[0],
+                  opponent,
+                  new Date(current.createdAt),
+                );
           return { ...started, version: current.version + 1, updatedAt: new Date().toISOString() };
         },
       );
@@ -267,9 +340,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       socket.data.matchId = result.state.id;
       await socket.join(roomName(result.state.id));
       await clearRoomEmpty(result.state.id);
-      io.to(roomName(result.state.id)).emit('match:started', result.state);
+      io.to(roomName(result.state.id)).emit('match:started', publicState(result.state));
       await emitState(result.state);
-      ack({ ok: true, data: result.state });
+      ack({ ok: true, data: publicState(result.state) });
     });
 
     socket.on('match:fire', async (command: FireCommand, ack: Ack<MatchState>) => {
@@ -279,11 +352,23 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       if (!matchId) return ack({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
       const match = await options.repository.findById(matchId);
       if (!match) return ack({ ok: false, code: 'MISSING', error: 'Match not found.' });
-      if (match.status !== 'active')
+      if (stateGameId(match) !== 'equation-artillery')
+        return ack({
+          ok: false,
+          code: 'WRONG_GAME',
+          error: 'This room is not Equation Artillery.',
+        });
+      const artilleryMatch = match as MatchState;
+      if (artilleryMatch.status !== 'active')
         return ack({ ok: false, code: 'NOT_ACTIVE', error: 'The match is not active.' });
-      if (match.turnUserId !== socket.data.user.id)
+      if (artilleryMatch.turnUserId !== socket.data.user.id)
         return ack({ ok: false, code: 'OUT_OF_TURN', error: 'It is not your turn.' });
-      let shot = resolveShot(match, socket.data.user.id, command.commandId, command.equation);
+      let shot = resolveShot(
+        artilleryMatch,
+        socket.data.user.id,
+        command.commandId,
+        command.equation,
+      );
       const result = await options.repository.update(
         match.id,
         command.expectedVersion,
@@ -296,16 +381,104 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           code: result.reason.toUpperCase(),
           error: `Shot rejected: ${result.reason}.`,
         });
-      shot = { ...shot, state: result.state, version: result.state.version };
+      shot = { ...shot, state: result.state as MatchState, version: result.state.version };
       io.to(roomName(match.id)).emit('shot:resolved', shot);
       await emitState(result.state);
-      ack({ ok: true, data: result.state });
+      ack({ ok: true, data: result.state as MatchState });
     });
 
-    socket.on('match:leave', async (command: VersionedCommand, ack: Ack<MatchState>) => {
+    socket.on(
+      'formula:start',
+      async (command: VersionedCommand, ack: Ack<FormulaFrenzyMatchState>) => {
+        if (!isVersionedCommand(command))
+          return ack({ ok: false, code: 'INVALID_COMMAND', error: 'Invalid start command.' });
+        const matchId = socket.data.matchId;
+        if (!matchId) return ack({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
+        const match = await options.repository.findById(matchId);
+        if (!match) return ack({ ok: false, code: 'MISSING', error: 'Match not found.' });
+        if (stateGameId(match) !== 'formula-frenzy')
+          return ack({ ok: false, code: 'WRONG_GAME', error: 'This room is not Formula Frenzy.' });
+        if (match.players.length < 2)
+          return ack({ ok: false, code: 'WAITING', error: 'Waiting for the second player.' });
+        if (
+          (match.status === 'waiting' || match.status === 'ended') &&
+          match.players[0].userId !== socket.data.user.id
+        )
+          return ack({ ok: false, code: 'OUT_OF_TURN', error: 'Only the host can start.' });
+        if (match.status !== 'waiting' && match.status !== 'ended')
+          return ack({ ok: false, code: 'NOT_READY', error: 'The match is already active.' });
+        const result = await options.repository.update(
+          match.id,
+          command.expectedVersion,
+          command.commandId,
+          (state) =>
+            stateGameId(state) === 'formula-frenzy'
+              ? startFormulaFrenzyMatch(state as FormulaFrenzyMatchState)
+              : state,
+        );
+        if (!result.ok)
+          return ack({
+            ok: false,
+            code: result.reason.toUpperCase(),
+            error: `Start rejected: ${result.reason}.`,
+          });
+        io.to(roomName(result.state.id)).emit('match:started', publicState(result.state));
+        await emitState(result.state);
+        ack({ ok: true, data: publicState(result.state as FormulaFrenzyMatchState) });
+      },
+    );
+
+    socket.on(
+      'formula:answer',
+      async (command: FormulaFrenzyAnswerCommand, ack: Ack<FormulaFrenzyMatchState>) => {
+        if (!isFormulaAnswerCommand(command))
+          return ack({ ok: false, code: 'INVALID_COMMAND', error: 'Invalid answer command.' });
+        const matchId = socket.data.matchId;
+        if (!matchId) return ack({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
+        const match = await options.repository.findById(matchId);
+        if (!match) return ack({ ok: false, code: 'MISSING', error: 'Match not found.' });
+        if (stateGameId(match) !== 'formula-frenzy')
+          return ack({ ok: false, code: 'WRONG_GAME', error: 'This room is not Formula Frenzy.' });
+        if (match.status !== 'active')
+          return ack({ ok: false, code: 'NOT_ACTIVE', error: 'The match is not active.' });
+        const resolved = resolveFormulaFrenzyAnswer(
+          match as FormulaFrenzyMatchState,
+          socket.data.user.id,
+          command.answer,
+        );
+        if (!resolved.ok)
+          return ack({ ok: false, code: 'WRONG_ANSWER', error: 'The answer is not correct.' });
+        const next = await options.repository.update(
+          match.id,
+          command.expectedVersion,
+          command.commandId,
+          () => resolved.state,
+        );
+        if (!next.ok)
+          return ack({
+            ok: false,
+            code: next.reason.toUpperCase(),
+            error: `Answer rejected: ${next.reason}.`,
+          });
+        await emitState(next.state);
+        ack({ ok: true, data: publicState(next.state as FormulaFrenzyMatchState) });
+      },
+    );
+
+    socket.on('formula:typing', (command: FormulaFrenzyTypingCommand) => {
+      if (!isFormulaTypingCommand(command) || !socket.data.matchId) return;
+      const input = command.input.slice(0, 24);
+      socket.to(roomName(socket.data.matchId)).emit('formula:typing', {
+        userId: socket.data.user.id,
+        input,
+      });
+    });
+
+    socket.on('match:leave', async (command: VersionedCommand, ack: Ack<MultiplayerMatchState>) => {
       if (!isVersionedCommand(command))
         return ack({ ok: false, code: 'INVALID_COMMAND', error: 'Invalid leave command.' });
-      const matchId = socket.data.matchId;
+      let matchId = socket.data.matchId;
+      if (!matchId) matchId = (await options.repository.findActiveByUser(socket.data.user.id))?.id;
       if (!matchId) return ack({ ok: false, code: 'NOT_IN_MATCH', error: 'No active match.' });
       const match = await options.repository.findById(matchId);
       if (!match) return ack({ ok: false, code: 'MISSING', error: 'Match not found.' });
@@ -315,16 +488,17 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         command.commandId,
         (state) => {
           const opponent = state.players.find((player) => player.userId !== socket.data.user.id);
-          return {
-            ...state,
+          const ended = {
             version: state.version + 1,
-            status: 'ended',
-            turnUserId: null,
-            turnCharacterId: null,
+            status: 'ended' as const,
             winnerUserId: opponent?.userId ?? null,
-            endReason: 'left',
+            endReason: 'left' as const,
             updatedAt: new Date().toISOString(),
           };
+          if (stateGameId(state) === 'formula-frenzy') {
+            return { ...(state as FormulaFrenzyMatchState), ...ended };
+          }
+          return { ...(state as MatchState), ...ended, turnUserId: null, turnCharacterId: null };
         },
       );
       if (!result.ok)
@@ -337,7 +511,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       await socket.leave(roomName(matchId));
       await markRoomEmptyIfNeeded(matchId, new Date());
       await emitState(result.state);
-      ack({ ok: true, data: result.state });
+      ack({ ok: true, data: publicState(result.state) });
     });
 
     socket.on('disconnect', async () => {
@@ -362,12 +536,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             socketsByUser.has(socket.data.user.id)
               ? state
               : {
-                  ...state,
+                  ...setPlayerConnected(state, socket.data.user.id, false),
                   version: state.version + 1,
                   status: 'paused',
-                  players: state.players.map((player) =>
-                    player.userId === socket.data.user.id ? { ...player, connected: false } : player,
-                  ),
                   disconnectedUserId: socket.data.user.id,
                   reconnectDeadline: new Date(now.getTime() + reconnectWindowMs).toISOString(),
                   updatedAt: now.toISOString(),
@@ -404,16 +575,39 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         match.id,
         match.version,
         randomUUID(),
-        (state) => ({
-          ...state,
-          version: state.version + 1,
-          status: 'ended',
-          turnUserId: null,
-          turnCharacterId: null,
-          winnerUserId: winner?.userId ?? null,
-          endReason: 'abandonment',
-          updatedAt: now.toISOString(),
-        }),
+        (state) => {
+          const ended = {
+            version: state.version + 1,
+            status: 'ended' as const,
+            winnerUserId: winner?.userId ?? null,
+            endReason: 'abandonment' as const,
+            updatedAt: now.toISOString(),
+          };
+          if (stateGameId(state) === 'formula-frenzy') {
+            return { ...(state as FormulaFrenzyMatchState), ...ended };
+          }
+          return { ...(state as MatchState), ...ended, turnUserId: null, turnCharacterId: null };
+        },
+      );
+      if (result.ok) await emitState(result.state);
+    }
+    const formulaMatches = await Promise.all(
+      [...io.sockets.adapter.rooms.keys()]
+        .filter((room) => room.startsWith('match:'))
+        .map((room) => options.repository.findById(room.slice('match:'.length))),
+    );
+    for (const match of formulaMatches) {
+      if (!match || stateGameId(match) !== 'formula-frenzy') continue;
+      const expiredUserId = expiredFormulaFrenzyPlayer(match as FormulaFrenzyMatchState, now);
+      if (!expiredUserId) continue;
+      const result = await options.repository.update(
+        match.id,
+        match.version,
+        randomUUID(),
+        (state) =>
+          stateGameId(state) === 'formula-frenzy'
+            ? expireFormulaFrenzyPlayer(state as FormulaFrenzyMatchState, expiredUserId, now)
+            : state,
       );
       if (result.ok) await emitState(result.state);
     }

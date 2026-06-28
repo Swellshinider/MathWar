@@ -1,22 +1,22 @@
-import { MatchState } from '@math-war/game-engine';
+import { MultiplayerMatchState } from '@math-war/game-engine';
 
 export type UpdateResult =
-  | { readonly ok: true; readonly state: MatchState }
+  | { readonly ok: true; readonly state: MultiplayerMatchState }
   | { readonly ok: false; readonly reason: 'duplicate' | 'stale' | 'missing' };
 
 export interface MatchRepository {
   initialize(): Promise<void>;
-  create(state: MatchState, commandId: string): Promise<boolean>;
-  findByCode(roomCode: string): Promise<MatchState | null>;
-  findById(id: string): Promise<MatchState | null>;
-  findActiveByUser(userId: string): Promise<MatchState | null>;
+  create(state: MultiplayerMatchState, commandId: string): Promise<boolean>;
+  findByCode(roomCode: string): Promise<MultiplayerMatchState | null>;
+  findById(id: string): Promise<MultiplayerMatchState | null>;
+  findActiveByUser(userId: string): Promise<MultiplayerMatchState | null>;
   update(
     id: string,
     expectedVersion: number,
     commandId: string,
-    transform: (state: MatchState) => MatchState,
+    transform: (state: MultiplayerMatchState) => MultiplayerMatchState,
   ): Promise<UpdateResult>;
-  listExpiredReconnects(now: Date): Promise<readonly MatchState[]>;
+  listExpiredReconnects(now: Date): Promise<readonly MultiplayerMatchState[]>;
   markRoomEmpty(id: string, emptySince: Date): Promise<void>;
   clearRoomEmpty(id: string): Promise<void>;
   deleteEmptyBefore(cutoff: Date): Promise<number>;
@@ -26,13 +26,13 @@ export interface MatchRepository {
 }
 
 export class InMemoryMatchRepository implements MatchRepository {
-  private readonly matches = new Map<string, MatchState>();
+  private readonly matches = new Map<string, MultiplayerMatchState>();
   private readonly commands = new Set<string>();
   private readonly emptySince = new Map<string, number>();
 
   async initialize(): Promise<void> {}
 
-  async create(state: MatchState, commandId: string): Promise<boolean> {
+  async create(state: MultiplayerMatchState, commandId: string): Promise<boolean> {
     if ([...this.matches.values()].some((match) => match.roomCode === state.roomCode)) return false;
     this.matches.set(state.id, structuredClone(state));
     this.commands.add(`${state.id}:${commandId}`);
@@ -40,17 +40,17 @@ export class InMemoryMatchRepository implements MatchRepository {
     return true;
   }
 
-  async findByCode(roomCode: string): Promise<MatchState | null> {
+  async findByCode(roomCode: string): Promise<MultiplayerMatchState | null> {
     const state = [...this.matches.values()].find((match) => match.roomCode === roomCode);
     return state ? structuredClone(state) : null;
   }
 
-  async findById(id: string): Promise<MatchState | null> {
+  async findById(id: string): Promise<MultiplayerMatchState | null> {
     const state = this.matches.get(id);
     return state ? structuredClone(state) : null;
   }
 
-  async findActiveByUser(userId: string): Promise<MatchState | null> {
+  async findActiveByUser(userId: string): Promise<MultiplayerMatchState | null> {
     const state = [...this.matches.values()].find(
       (match) =>
         match.status !== 'ended' && match.players.some((player) => player.userId === userId),
@@ -62,7 +62,7 @@ export class InMemoryMatchRepository implements MatchRepository {
     id: string,
     expectedVersion: number,
     commandId: string,
-    transform: (state: MatchState) => MatchState,
+    transform: (state: MultiplayerMatchState) => MultiplayerMatchState,
   ): Promise<UpdateResult> {
     const key = `${id}:${commandId}`;
     if (this.commands.has(key)) return { ok: false, reason: 'duplicate' };
@@ -75,7 +75,7 @@ export class InMemoryMatchRepository implements MatchRepository {
     return { ok: true, state: structuredClone(next) };
   }
 
-  async listExpiredReconnects(now: Date): Promise<readonly MatchState[]> {
+  async listExpiredReconnects(now: Date): Promise<readonly MultiplayerMatchState[]> {
     return [...this.matches.values()]
       .filter(
         (match) =>

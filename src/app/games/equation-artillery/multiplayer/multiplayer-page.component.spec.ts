@@ -4,10 +4,10 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { MatchState, ShotResolvedEvent } from '@math-war/game-engine';
 import { AnimationService } from '../game/animation.service';
 import { shotAnimationDuration } from '../game/shot-animation';
-import { MultiplayerGuestSession } from './multiplayer-auth.service';
-import { MultiplayerAuthService } from './multiplayer-auth.service';
+import { MultiplayerGuestSession } from '../../../shared/multiplayer/multiplayer-auth.service';
+import { MultiplayerAuthService } from '../../../shared/multiplayer/multiplayer-auth.service';
 import { MultiplayerPageComponent } from './multiplayer-page.component';
-import { MultiplayerSocketService } from './multiplayer-socket.service';
+import { MultiplayerSocketService } from '../../../shared/multiplayer/multiplayer-socket.service';
 import { EquationArtilleryAudioService } from '../game/audio.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 

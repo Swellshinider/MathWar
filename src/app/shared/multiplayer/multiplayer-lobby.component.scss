@@ -1,0 +1,84 @@
+:host {
+  display: block;
+}
+
+.panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-4);
+}
+
+.auth-panel {
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 30rem;
+}
+
+.auth-panel form {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.field-label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+
+.lobby {
+  align-content: center;
+}
+
+.or {
+  color: var(--text-subtle);
+  font-size: var(--fs-sm);
+}
+
+.loading {
+  color: var(--text-muted);
+}
+
+.error {
+  margin-top: var(--space-3);
+  color: var(--error);
+}
+
+dialog {
+  max-width: min(28rem, calc(100vw - 2rem));
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  padding: 0;
+  background: var(--surface-2);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-2);
+}
+
+dialog::backdrop {
+  background: rgb(4 7 12 / 0.68);
+}
+
+.confirm-dialog {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.confirm-dialog h2,
+.confirm-dialog p {
+  margin: 0;
+}
+
+.confirm-dialog p {
+  color: var(--text-muted);
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
