@@ -65,6 +65,18 @@
   gap: var(--space-1);
 }
 
+.hud-mode {
+  justify-self: center;
+  text-align: center;
+}
+
+.hud-streak {
+  display: grid;
+  gap: var(--space-1);
+  justify-self: end;
+  text-align: right;
+}
+
 .hud-score strong,
 .hud-level strong {
   color: var(--text-strong);
@@ -87,6 +99,7 @@
 
 .hud-level > span,
 .hud-score > span,
+.hud-streak > span:first-child,
 .score-meta,
 .run-meta {
   font-size: var(--fs-sm);
@@ -281,6 +294,11 @@ input {
   }
 
   .hud-level {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .hud-mode {
     grid-column: 1 / -1;
     grid-row: 2;
   }

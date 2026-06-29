@@ -222,6 +222,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     expect(component.gameMode()).toBe('free-practice');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Solved 0');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 0');
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Time ');
 
     vi.advanceTimersByTime(60000);
@@ -245,6 +246,21 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.practiceOperations()).toEqual(['multiplication']);
     expect(component.problem().prompt).toMatch(/^\d+ \* \d+$/);
     expect(component.score()).toBe(1);
+    expect(component.streak()).toBe(1);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 1');
+  });
+
+  it('resets the free practice streak on a wrong answer', () => {
+    component.selectFreePractice();
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    component.answerControl.setValue(String(component.problem().answer! + 1));
+    component.submitAnswer();
+    fixture.detectChanges();
+
+    expect(component.score()).toBe(1);
+    expect(component.streak()).toBe(0);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 0');
   });
 
   it('pauses free practice when all operation types are unchecked', () => {

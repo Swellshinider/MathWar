@@ -84,7 +84,17 @@
         </div>
       } @else {
         <span>Solved {{ score() }}</span>
-        <span>Free Practice</span>
+        <span class="hud-mode">Free Practice</span>
+        <div class="hud-streak">
+          <span>Streak {{ streak() }}</span>
+          <span
+            class="multiplier"
+            [class.multiplier--boosted]="streak() > 1"
+            [class.multiplier--hot]="streak() >= 10"
+            [class.multiplier-pop]="multiplierPulsed()"
+            >{{ multiplier() }}x</span
+          >
+        </div>
       }
     </div>
 

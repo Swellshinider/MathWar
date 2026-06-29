@@ -242,8 +242,8 @@ describe('formula frenzy multiplayer simulation', () => {
     const power = createFormulaProblemForLevel(11, () => 0);
     const root = createFormulaProblemForLevel(12, () => 0);
 
-    expect(power.prompt).toContain('^');
-    expect(root.prompt).toContain('sqrt');
+    expect(power.prompt).toBe('2²');
+    expect(root.prompt).toBe('√4');
     expect(Number.isInteger(power.answer)).toBe(true);
     expect(Number.isInteger(root.answer)).toBe(true);
   });

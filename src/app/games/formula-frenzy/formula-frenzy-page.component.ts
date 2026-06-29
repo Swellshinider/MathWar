@@ -124,10 +124,14 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
     const solveTimeMs = Date.now() - this.problemStartedAt;
     if (this.gameMode() === 'free-practice') {
+      const nextStreak = this.streak() + 1;
       this.totalSolveTimeMs.update((total) => total + solveTimeMs);
       this.totalCorrect.update((total) => total + 1);
       this.score.update((score) => score + 1);
       this.pulseScore();
+      this.streak.set(nextStreak);
+      this.pulseMultiplier();
+      this.bestStreak.update((best) => Math.max(best, nextStreak));
       this.answerRejected.set(false);
       this.answerRejectionCount.set(0);
       this.answerControl.setValue('');

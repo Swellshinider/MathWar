@@ -443,14 +443,14 @@ function problemForOperation(
   if (operation === 'power') {
     const exponent = levelNumber >= 18 && random() < 0.35 ? 3 : 2;
     const base = randomInt(random, 2, exponent === 3 ? 6 : 12);
-    return { prompt: `${base} ^ ${exponent}`, answer: base ** exponent };
+    return { prompt: `${base}${exponent === 3 ? '³' : '²'}`, answer: base ** exponent };
   }
   if (operation === 'root') {
     const cube = levelNumber >= 20 && random() < 0.35;
     const answer = randomInt(random, 2, cube ? 6 : 12);
     return cube
-      ? { prompt: `cbrt(${answer ** 3})`, answer }
-      : { prompt: `sqrt(${answer ** 2})`, answer };
+      ? { prompt: `∛${answer ** 3}`, answer }
+      : { prompt: `√${answer ** 2}`, answer };
   }
 
   const left = randomInt(random, 1, max);

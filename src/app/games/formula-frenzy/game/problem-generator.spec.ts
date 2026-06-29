@@ -36,9 +36,9 @@ describe('createFormulaProblemForLevel', () => {
     const power = createFormulaPracticeProblem(['power'], () => 0);
     const root = createFormulaPracticeProblem(['root'], () => 0);
 
-    expect(power.prompt).toBe('2 ^ 2');
+    expect(power.prompt).toBe('2²');
     expect(power.answer).toBe(4);
-    expect(root.prompt).toBe('sqrt(4)');
+    expect(root.prompt).toBe('√4');
     expect(root.answer).toBe(2);
   });
 
