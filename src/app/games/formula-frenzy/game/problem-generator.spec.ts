@@ -1,32 +1,35 @@
-import { createFormulaPracticeProblem, createFormulaProblem } from './problem-generator';
+import {
+  FORMULA_LEVELS,
+  createFormulaPracticeProblem,
+  createFormulaProblemForLevel,
+} from './problem-generator';
 
-describe('createFormulaProblem', () => {
+describe('createFormulaProblemForLevel', () => {
   it('starts with addition or subtraction and a 10 second deadline', () => {
-    const problem = createFormulaProblem(0, () => 0.1);
+    const problem = createFormulaProblemForLevel(1, () => 0.1);
 
     expect(problem.level).toBe(1);
+    expect(problem.levelName).toBe('Number Rookie');
     expect(problem.deadlineMs).toBe(10000);
     expect(Number.isInteger(problem.answer)).toBe(true);
     expect(problem.prompt).toMatch(/^\d+ [+-] \d+$/);
   });
 
-  it('raises the level at score thresholds', () => {
-    expect(createFormulaProblem(4).level).toBe(1);
-    expect(createFormulaProblem(5).level).toBe(2);
-    expect(createFormulaProblem(10).level).toBe(3);
-    expect(createFormulaProblem(20).level).toBe(4);
+  it('has 25 named levels', () => {
+    expect(FORMULA_LEVELS).toHaveLength(25);
+    expect(FORMULA_LEVELS[24].name).toBe('Math Warlord');
   });
 
   it('uses exact division when division is selected', () => {
-    const problem = createFormulaProblem(10, () => 0.99);
+    const problem = createFormulaProblemForLevel(8, () => 0.99);
 
-    expect(problem.level).toBe(3);
+    expect(problem.level).toBe(8);
     expect(problem.prompt).toMatch(/\d+ \/ \d+/);
     expect(Number.isInteger(problem.answer)).toBe(true);
   });
 
-  it('never lowers the deadline below four seconds', () => {
-    expect(createFormulaProblem(100).deadlineMs).toBe(4000);
+  it('uses each level timer from configuration', () => {
+    expect(createFormulaProblemForLevel(25).deadlineMs).toBe(4000);
   });
 
   it('creates simple addition practice problems', () => {

@@ -45,7 +45,7 @@ export interface Wall {
 
 export type GameId = 'equation-artillery' | 'formula-frenzy';
 export type MatchStatus = 'waiting' | 'active' | 'paused' | 'ended';
-export type MatchEndReason = 'hit' | 'abandonment' | 'left' | 'timeout';
+export type MatchEndReason = 'hit' | 'abandonment' | 'left' | 'timeout' | 'wrong-answer';
 
 export interface ShotHistoryEntry {
   readonly commandId: string;
@@ -75,12 +75,37 @@ export interface MatchState {
   readonly updatedAt: string;
 }
 
-export type FormulaOperation = 'addition' | 'subtraction' | 'multiplication' | 'division';
+export type FormulaOperation =
+  | 'addition'
+  | 'subtraction'
+  | 'multiplication'
+  | 'division'
+  | 'power'
+  | 'root';
+export type FormulaGameMode = 'progression' | 'hardcore';
+
+export interface FormulaLevelConfig {
+  readonly level: number;
+  readonly name: string;
+  readonly allowedOperations: readonly FormulaOperation[];
+  readonly minNumber: number;
+  readonly maxNumber: number;
+  readonly expressionLength: number;
+  readonly allowParentheses: boolean;
+  readonly allowNestedParentheses: boolean;
+  readonly requirePrecedence: boolean;
+  readonly allowNegativeResults: boolean;
+  readonly exactDivisionOnly: boolean;
+  readonly timeLimitSeconds: number;
+  readonly xpRequired: number;
+  readonly examples: readonly string[];
+}
 
 export interface FormulaProblem {
   readonly prompt: string;
   readonly answer?: number;
   readonly level: number;
+  readonly levelName: string;
   readonly deadlineMs: number;
 }
 
@@ -89,6 +114,14 @@ export interface FormulaFrenzyPlayerState {
   readonly displayName: string;
   readonly connected: boolean;
   readonly score: number;
+  readonly level: number;
+  readonly xp: number;
+  readonly xpRequired: number;
+  readonly streak: number;
+  readonly bestStreak: number;
+  readonly hearts: number;
+  readonly highestLevel: number;
+  readonly totalCorrect: number;
   readonly totalSolveTimeMs: number;
   readonly currentProblem: FormulaProblem & {
     readonly answer?: number;
@@ -103,6 +136,7 @@ export interface FormulaFrenzyMatchState {
   readonly seed: string;
   readonly version: number;
   readonly status: MatchStatus;
+  readonly mode: FormulaGameMode;
   readonly players: readonly PlayerState[];
   readonly formulaPlayers: readonly FormulaFrenzyPlayerState[];
   readonly winnerUserId: string | null;

@@ -11,7 +11,11 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FormulaFrenzyMatchState, MultiplayerMatchState } from '@math-war/game-engine';
+import {
+  FORMULA_LEVELS,
+  FormulaFrenzyMatchState,
+  MultiplayerMatchState,
+} from '@math-war/game-engine';
 import { preventBackspaceNavigation } from '../../../shared/dom/prevent-backspace-navigation';
 import { GameFrameComponent } from '../../../shared/game-frame/game-frame.component';
 import { MultiplayerAuthService } from '../../../shared/multiplayer/multiplayer-auth.service';
@@ -73,6 +77,11 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
     return 'Solve before your timer hits zero.';
   });
   readonly isHost = computed(() => this.state()?.players[0]?.userId === this.userId());
+  readonly averageSolveTime = computed(() => {
+    const me = this.me();
+    if (!me || me.totalCorrect === 0) return '0.0s';
+    return `${(me.totalSolveTimeMs / me.totalCorrect / 1000).toFixed(1)}s`;
+  });
 
   constructor() {
     const inviteRoomCode = this.route.snapshot.queryParamMap.get('room');
@@ -210,6 +219,15 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
     const startedAt = new Date(player.currentProblem.startedAt).getTime();
     const remaining = Math.max(0, player.currentProblem.deadlineMs - (this.now() - startedAt));
     return `${(remaining / 1000).toFixed(1)}s`;
+  }
+
+  xpProgress(player = this.me()): number {
+    if (!player || player.level === 25) return 100;
+    return Math.min(100, Math.round((player.xp / player.xpRequired) * 100));
+  }
+
+  levelName(level = 1): string {
+    return FORMULA_LEVELS[level - 1]?.name ?? FORMULA_LEVELS[0].name;
   }
 
   ngOnDestroy(): void {

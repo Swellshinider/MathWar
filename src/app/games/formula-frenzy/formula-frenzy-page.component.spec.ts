@@ -56,7 +56,7 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(root.textContent).toContain('Formula Frenzy');
     expect(root.textContent).toContain('Create private room');
     expect(root.textContent).toContain('Join room');
-    expect(root.textContent).toContain('Sprint');
+    expect(root.textContent).toContain('Progression');
     expect(root.textContent).toContain('Free Practice');
     expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe('?? + ??');
     expect(root.querySelector('#formula-answer')?.getAttribute('type')).toBe('text');
@@ -82,7 +82,9 @@ describe('FormulaFrenzyPageComponent', () => {
     component.submitAnswer();
     fixture.detectChanges();
 
-    expect(component.score()).toBe(1);
+    expect(component.score()).toBe(225);
+    expect(component.totalCorrect()).toBe(1);
+    expect(component.streak()).toBe(1);
     expect(component.answerControl.value).toBe('');
     expect(component.answerRejected()).toBe(false);
     expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/right-answer.wav');
@@ -143,13 +145,13 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(answerInput?.classList).toContain('answer-input--shake-b');
   });
 
-  it('ends the run when the problem timer expires', () => {
+  it('removes a heart when the problem timer expires', () => {
     component.startRun();
     vi.advanceTimersByTime(component.problem().deadlineMs);
     fixture.detectChanges();
 
-    expect(component.gameOver()).toBe(true);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Time up');
+    expect(component.gameOver()).toBe(false);
+    expect(component.hearts()).toBe(2);
   });
 
   it('prevents Backspace navigation after the sprint result appears', () => {
@@ -172,11 +174,12 @@ describe('FormulaFrenzyPageComponent', () => {
     vi.advanceTimersByTime(2500);
     component.answerControl.setValue(String(component.problem().answer));
     component.submitAnswer();
+    component.hearts.set(1);
     vi.advanceTimersByTime(component.problem().deadlineMs);
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('.game-over')?.textContent).toContain('Score 1');
+    expect(root.querySelector('.game-over')?.textContent).toContain('Final score 200');
     expect(root.querySelector('.game-over')?.textContent).toContain(
       `Answer ${component.problem().answer}`,
     );
@@ -184,6 +187,8 @@ describe('FormulaFrenzyPageComponent', () => {
   });
 
   it('restarts the run from the game over screen', () => {
+    component.startRun();
+    component.hearts.set(1);
     vi.advanceTimersByTime(component.problem().deadlineMs);
     fixture.detectChanges();
 

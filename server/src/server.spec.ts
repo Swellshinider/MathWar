@@ -348,7 +348,12 @@ describe('multiplayer socket server', () => {
     const answered = await emit<{
       ok: true;
       data: {
-        formulaPlayers: { userId: string; score: number; currentProblem: { answer?: number } }[];
+        formulaPlayers: {
+          userId: string;
+          score: number;
+          totalCorrect: number;
+          currentProblem: { answer?: number };
+        }[];
       };
     }>(left, 'formula:answer', {
       commandId: randomUUID(),
@@ -356,7 +361,9 @@ describe('multiplayer socket server', () => {
       answer: leftAnswer,
     });
     expect(answered.ok).toBe(true);
-    expect(answered.data.formulaPlayers.find((player) => player.userId === 'left')?.score).toBe(1);
+    const leftPlayer = answered.data.formulaPlayers.find((player) => player.userId === 'left');
+    expect(leftPlayer?.score).toBeGreaterThan(100);
+    expect(leftPlayer?.totalCorrect).toBe(1);
     expect(answered.data.formulaPlayers[0].currentProblem.answer).toBeUndefined();
   });
 
@@ -388,6 +395,7 @@ describe('multiplayer socket server', () => {
               player.userId === 'left'
                 ? {
                     ...player,
+                    hearts: 1,
                     currentProblem: {
                       ...player.currentProblem,
                       startedAt: new Date(Date.now() - 60_000).toISOString(),
@@ -403,14 +411,10 @@ describe('multiplayer socket server', () => {
 
     expect(ended).toMatchObject({ reason: 'timeout', winnerUserId: 'right' });
     const endedState = await harness.repository.findByCode(created.data.roomCode);
-    const rejectedRestart = await emit<{ ok: false; code: string }>(
-      right,
-      'formula:start',
-      {
-        commandId: randomUUID(),
-        expectedVersion: endedState!.version,
-      },
-    );
+    const rejectedRestart = await emit<{ ok: false; code: string }>(right, 'formula:start', {
+      commandId: randomUUID(),
+      expectedVersion: endedState!.version,
+    });
     expect(rejectedRestart.code).toBe('OUT_OF_TURN');
     const restarted = await emit<{ ok: true; data: { status: string; formulaPlayers: unknown[] } }>(
       left,

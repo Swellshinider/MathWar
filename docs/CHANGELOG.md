@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - 2026-06-28
 
+- Added Formula Frenzy's 25-level data-driven progression with XP carryover, streaks, hearts,
+  score bonuses, level names, XP bars, and expanded game-over stats for local and multiplayer play.
+
+### Added - 2026-06-28
+
 - Added Formula Frenzy private-room multiplayer with parallel sprint panels, live opponent
   calculation visibility, host-started runs, guest room sharing, restart after results, and
   last-standing timeout wins.

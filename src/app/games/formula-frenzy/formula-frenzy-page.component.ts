@@ -18,13 +18,17 @@ import { GameFrameComponent } from '../../shared/game-frame/game-frame.component
 import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-lobby.component';
 import {
   FORMULA_OPERATION_OPTIONS,
+  FORMULA_LEVELS,
+  advanceFormulaProgress,
   createFormulaPracticeProblem,
-  createFormulaProblem,
+  createFormulaProblemForLevel,
   FormulaOperation,
   FormulaProblem,
+  gainFormulaXp,
+  scoreFormulaAnswer,
 } from './game/problem-generator';
 
-type FormulaFrenzyMode = 'sprint' | 'free-practice';
+type FormulaFrenzyMode = 'progression' | 'free-practice';
 
 @Component({
   selector: 'app-formula-frenzy-page',
@@ -37,8 +41,8 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   @ViewChild('answerInput') private answerInput?: ElementRef<HTMLInputElement>;
 
-  readonly problem = signal<FormulaProblem>(createFormulaProblem(0));
-  readonly gameMode = signal<FormulaFrenzyMode>('sprint');
+  readonly problem = signal<FormulaProblem>(createFormulaProblemForLevel(1));
+  readonly gameMode = signal<FormulaFrenzyMode>('progression');
   readonly runStarted = signal(false);
   readonly operationOptions = FORMULA_OPERATION_OPTIONS;
   readonly practiceOperations = signal<readonly FormulaOperation[]>(
@@ -48,14 +52,28 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     () => this.gameMode() === 'free-practice' && this.practiceOperations().length === 0,
   );
   readonly score = signal(0);
+  readonly level = signal(1);
+  readonly levelName = computed(() => FORMULA_LEVELS[this.level() - 1].name);
+  readonly xp = signal(0);
+  readonly xpRequired = signal(FORMULA_LEVELS[0].xpRequired);
+  readonly xpProgress = computed(() => {
+    if (this.level() === 25) return 100;
+    return Math.min(100, Math.round((this.xp() / this.xpRequired()) * 100));
+  });
+  readonly streak = signal(0);
+  readonly bestStreak = signal(0);
+  readonly hearts = signal(3);
+  readonly highestLevel = signal(1);
+  readonly highestLevelName = computed(() => FORMULA_LEVELS[this.highestLevel() - 1].name);
+  readonly totalCorrect = signal(0);
   readonly gameOver = signal(false);
   readonly answerRejected = signal(false);
   readonly answerRejectionCount = signal(0);
   readonly timeRemainingMs = signal(this.problem().deadlineMs);
   readonly answerControl = new FormControl('', { nonNullable: true });
   readonly averageSolveTime = computed(() => {
-    if (this.score() === 0) return '0.0s';
-    return `${(this.totalSolveTimeMs() / this.score() / 1000).toFixed(1)}s`;
+    if (this.totalCorrect() === 0) return '0.0s';
+    return `${(this.totalSolveTimeMs() / this.totalCorrect() / 1000).toFixed(1)}s`;
   });
   readonly timeRemaining = computed(() => `${(this.timeRemainingMs() / 1000).toFixed(1)}s`);
 
@@ -80,49 +98,86 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   submitAnswer(event?: SubmitEvent): void {
     event?.preventDefault();
-    if (this.gameOver() || this.practicePaused() || this.sprintPaused()) return;
+    if (this.gameOver() || this.practicePaused() || this.progressionPaused()) return;
 
     const answer = Number(this.answerControl.value);
     if (Number.isNaN(answer)) {
-      this.rejectAnswer();
+      this.missAnswer();
       return;
     }
 
     if (answer !== this.problem().answer) {
-      this.rejectAnswer();
+      this.missAnswer();
       return;
     }
 
-    const previousLevel = this.problem().level;
-    this.totalSolveTimeMs.update((total) => total + (Date.now() - this.problemStartedAt));
-    this.score.update((score) => score + 1);
+    const solveTimeMs = Date.now() - this.problemStartedAt;
+    if (this.gameMode() === 'free-practice') {
+      this.totalSolveTimeMs.update((total) => total + solveTimeMs);
+      this.totalCorrect.update((total) => total + 1);
+      this.score.update((score) => score + 1);
+      this.answerRejected.set(false);
+      this.answerRejectionCount.set(0);
+      this.answerControl.setValue('');
+      this.problem.set(this.nextProblem());
+      this.playSound('right-answer.wav');
+      return;
+    }
+
+    const previousLevel = this.level();
+    const remainingSeconds = Math.max(0, this.timeRemainingMs() / 1000);
+    const nextStreak = this.streak() + 1;
+    const progress = advanceFormulaProgress(
+      this.level(),
+      this.xp(),
+      gainFormulaXp(nextStreak, remainingSeconds),
+    );
+    this.totalSolveTimeMs.update((total) => total + solveTimeMs);
+    this.totalCorrect.update((total) => total + 1);
+    this.score.update(
+      (score) => score + scoreFormulaAnswer(nextStreak, remainingSeconds, this.level()),
+    );
+    this.level.set(progress.level);
+    this.xp.set(progress.xp);
+    this.xpRequired.set(progress.xpRequired);
+    this.streak.set(nextStreak);
+    this.bestStreak.update((best) => Math.max(best, nextStreak));
+    this.highestLevel.update((highest) => Math.max(highest, progress.level));
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
     this.problem.set(this.nextProblem());
-    if (this.gameMode() === 'sprint') this.startProblemTimer();
+    if (this.gameMode() === 'progression') this.startProblemTimer();
     this.playSound('right-answer.wav');
-    if (this.gameMode() === 'sprint' && this.problem().level > previousLevel) {
+    if (this.gameMode() === 'progression' && this.level() > previousLevel) {
       this.playSound('level-up.wav');
     }
   }
 
   restart(): void {
     this.score.set(0);
+    this.level.set(1);
+    this.xp.set(0);
+    this.xpRequired.set(FORMULA_LEVELS[0].xpRequired);
+    this.streak.set(0);
+    this.bestStreak.set(0);
+    this.hearts.set(3);
+    this.highestLevel.set(1);
+    this.totalCorrect.set(0);
     this.totalSolveTimeMs.set(0);
     this.gameOver.set(false);
-    this.runStarted.set(this.gameMode() !== 'sprint');
+    this.runStarted.set(this.gameMode() !== 'progression');
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
     this.problem.set(this.nextProblem());
     this.clearTimers();
-    this.timeRemainingMs.set(this.gameMode() === 'sprint' ? this.problem().deadlineMs : 0);
+    this.timeRemainingMs.set(this.gameMode() === 'progression' ? this.problem().deadlineMs : 0);
     this.syncAnswerControl();
   }
 
   startRun(): void {
-    if (this.gameMode() !== 'sprint' || this.runStarted()) return;
+    if (this.gameMode() !== 'progression' || this.runStarted()) return;
     this.runStarted.set(true);
     this.syncAnswerControl();
     this.startProblemTimer();
@@ -130,7 +185,11 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   }
 
   selectSprint(): void {
-    this.gameMode.set('sprint');
+    this.selectProgression();
+  }
+
+  selectProgression(): void {
+    this.gameMode.set('progression');
     this.restart();
   }
 
@@ -174,12 +233,32 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.playSound('wrong-answer.wav');
   }
 
+  private missAnswer(): void {
+    this.rejectAnswer();
+    this.streak.set(0);
+    if (this.gameMode() !== 'progression') return;
+    this.hearts.update((hearts) => Math.max(0, hearts - 1));
+    if (this.hearts() === 0) this.lose();
+  }
+
+  private timeoutProblem(): void {
+    this.streak.set(0);
+    this.hearts.update((hearts) => Math.max(0, hearts - 1));
+    if (this.hearts() === 0) {
+      this.lose();
+      return;
+    }
+    this.answerControl.setValue('');
+    this.problem.set(this.nextProblem());
+    this.startProblemTimer();
+  }
+
   private startProblemTimer(): void {
     this.clearTimers();
     this.problemStartedAt = Date.now();
     this.timeRemainingMs.set(this.problem().deadlineMs);
     this.nextTickAtMs = this.computeNextTick(this.problem().deadlineMs);
-    this.timeoutId = setTimeout(() => this.lose(), this.problem().deadlineMs);
+    this.timeoutId = setTimeout(() => this.timeoutProblem(), this.problem().deadlineMs);
     this.intervalId = setInterval(() => {
       const elapsed = Date.now() - this.problemStartedAt;
       const remaining = Math.max(0, this.problem().deadlineMs - elapsed);
@@ -215,18 +294,18 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     if (this.gameMode() === 'free-practice' && this.practiceOperations().length > 0) {
       return createFormulaPracticeProblem(this.practiceOperations());
     }
-    return createFormulaProblem(this.score());
+    return createFormulaProblemForLevel(this.level());
   }
 
   private syncAnswerControl(): void {
-    if (this.gameOver() || this.practicePaused() || this.sprintPaused()) {
+    if (this.gameOver() || this.practicePaused() || this.progressionPaused()) {
       this.answerControl.disable({ emitEvent: false });
     } else {
       this.answerControl.enable({ emitEvent: false });
     }
   }
 
-  private sprintPaused(): boolean {
-    return this.gameMode() === 'sprint' && !this.runStarted();
+  private progressionPaused(): boolean {
+    return this.gameMode() === 'progression' && !this.runStarted();
   }
 }

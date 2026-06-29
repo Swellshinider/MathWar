@@ -27,8 +27,15 @@
         </header>
         <div class="stats">
           <span>Score {{ me()?.score ?? 0 }}</span>
-          <span>Level {{ me()?.currentProblem?.level ?? 1 }}</span>
+          <span>Level {{ me()?.level ?? 1 }}</span>
+          <span>{{ levelName(me()?.level ?? 1) }}</span>
+          <span>XP {{ me()?.xp ?? 0 }} / {{ me()?.xpRequired ?? 0 }}</span>
+          <span>Streak {{ me()?.streak ?? 0 }}</span>
+          <span>Hearts {{ me()?.hearts ?? 0 }}</span>
           <span>Time {{ timeRemaining() }}</span>
+        </div>
+        <div class="xp-bar" aria-label="Your XP progress">
+          <span [style.width.%]="xpProgress()"></span>
         </div>
         <p class="problem-prompt">{{ me()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
         @if (state()?.status === 'waiting' && isHost() && state()!.players.length === 2) {
@@ -58,8 +65,15 @@
         </header>
         <div class="stats">
           <span>Score {{ opponent()?.score ?? 0 }}</span>
-          <span>Level {{ opponent()?.currentProblem?.level ?? 1 }}</span>
+          <span>Level {{ opponent()?.level ?? 1 }}</span>
+          <span>{{ levelName(opponent()?.level ?? 1) }}</span>
+          <span>XP {{ opponent()?.xp ?? 0 }} / {{ opponent()?.xpRequired ?? 0 }}</span>
+          <span>Streak {{ opponent()?.streak ?? 0 }}</span>
+          <span>Hearts {{ opponent()?.hearts ?? 0 }}</span>
           <span>Time {{ timeRemaining(opponent()) }}</span>
+        </div>
+        <div class="xp-bar" aria-label="Opponent XP progress">
+          <span [style.width.%]="xpProgress(opponent())"></span>
         </div>
         <p class="problem-prompt">{{ opponent()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
         <div class="opponent-answer" aria-label="Opponent answer">
@@ -72,6 +86,14 @@
       <section class="result" role="status">
         <strong>{{ state()?.winnerUserId === userId() ? 'You won.' : 'You lost.' }}</strong>
         <span>{{ state()?.endReason }}</span>
+        <span>Final score {{ me()?.score ?? 0 }}</span>
+        <span
+          >Highest level {{ me()?.highestLevel ?? 1 }}
+          {{ levelName(me()?.highestLevel ?? 1) }}</span
+        >
+        <span>Total correct {{ me()?.totalCorrect ?? 0 }}</span>
+        <span>Average {{ averageSolveTime() }}</span>
+        <span>Best streak {{ me()?.bestStreak ?? 0 }}</span>
         @if (isHost()) {
           <button type="button" class="btn btn--primary restart-button" (click)="startRun()">
             Restart
