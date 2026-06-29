@@ -247,4 +247,12 @@ describe('formula frenzy multiplayer simulation', () => {
     expect(Number.isInteger(power.answer)).toBe(true);
     expect(Number.isInteger(root.answer)).toBe(true);
   });
+
+  it('groups compound right-hand subtraction prompts', () => {
+    const randomValues = [0.55, 0.42, 0.2, 0.8, 0.05, 0.9, 0.8];
+    const problem = createFormulaProblemForLevel(15, () => randomValues.shift() ?? 0);
+
+    expect(problem.prompt).toBe('9 * 5 - (4 - 4)');
+    expect(problem.answer).toBe(45);
+  });
 });

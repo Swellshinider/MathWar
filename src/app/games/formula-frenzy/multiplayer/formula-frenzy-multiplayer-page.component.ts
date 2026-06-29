@@ -4,6 +4,7 @@ import {
   HostListener,
   OnDestroy,
   ViewChild,
+  WritableSignal,
   computed,
   effect,
   inject,
@@ -46,10 +47,18 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
   readonly opponentTyping = signal('');
   readonly now = signal(Date.now());
   readonly heartSlots = [1, 2, 3] as const;
+  readonly localScorePulsed = signal(false);
+  readonly localMultiplierPulsed = signal(false);
+  readonly opponentScorePulsed = signal(false);
+  readonly opponentMultiplierPulsed = signal(false);
   readonly answerControl = new FormControl({ value: '', disabled: true }, { nonNullable: true });
 
   private tickId: ReturnType<typeof setInterval> | null = null;
   private typingId: ReturnType<typeof setTimeout> | null = null;
+  private localScorePulseId: ReturnType<typeof setTimeout> | null = null;
+  private localMultiplierPulseId: ReturnType<typeof setTimeout> | null = null;
+  private opponentScorePulseId: ReturnType<typeof setTimeout> | null = null;
+  private opponentMultiplierPulseId: ReturnType<typeof setTimeout> | null = null;
   private lastTypingValue = '';
   private inviteJoinPending = false;
   private inviteJoinInFlight = false;
@@ -247,10 +256,28 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
   ngOnDestroy(): void {
     if (this.tickId) clearInterval(this.tickId);
     if (this.typingId) clearTimeout(this.typingId);
+    this.clearPulseTimers();
     this.socket.disconnect();
   }
 
   private receiveState(state: FormulaFrenzyMatchState): void {
+    const previousMe = this.me();
+    const previousOpponent = this.opponent();
+    const nextMe = state.formulaPlayers.find((player) => player.userId === this.userId()) ?? null;
+    const nextOpponent =
+      state.formulaPlayers.find((player) => player.userId !== this.userId()) ?? null;
+    if (previousMe && nextMe?.score !== previousMe.score) {
+      this.pulse(this.localScorePulsed, 'localScorePulseId');
+    }
+    if (previousMe && nextMe?.streak !== previousMe.streak) {
+      this.pulse(this.localMultiplierPulsed, 'localMultiplierPulseId');
+    }
+    if (previousOpponent && nextOpponent?.score !== previousOpponent.score) {
+      this.pulse(this.opponentScorePulsed, 'opponentScorePulseId');
+    }
+    if (previousOpponent && nextOpponent?.streak !== previousOpponent.streak) {
+      this.pulse(this.opponentMultiplierPulsed, 'opponentMultiplierPulseId');
+    }
     this.state.set(state);
     this.answerRejected.set(false);
     this.error.set(null);
@@ -263,6 +290,34 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
 
   private rejectAnswer(): void {
     this.answerRejected.set(true);
+  }
+
+  private pulse(
+    pulsed: WritableSignal<boolean>,
+    timer:
+      | 'localScorePulseId'
+      | 'localMultiplierPulseId'
+      | 'opponentScorePulseId'
+      | 'opponentMultiplierPulseId',
+  ): void {
+    if (this[timer]) clearTimeout(this[timer]);
+    pulsed.set(false);
+    this[timer] = setTimeout(() => {
+      pulsed.set(true);
+      this[timer] = setTimeout(() => pulsed.set(false), 180);
+    });
+  }
+
+  private clearPulseTimers(): void {
+    for (const timer of [
+      'localScorePulseId',
+      'localMultiplierPulseId',
+      'opponentScorePulseId',
+      'opponentMultiplierPulseId',
+    ] as const) {
+      if (this[timer]) clearTimeout(this[timer]);
+      this[timer] = null;
+    }
   }
 
   private async joinInviteRoom(): Promise<void> {

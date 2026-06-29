@@ -57,10 +57,16 @@
       @if (gameMode() === 'progression') {
         <div class="hud-score">
           <span>Score</span>
-          <strong>{{ score() }}</strong>
+          <strong [class.score-pop]="scorePulsed()">{{ score() }}</strong>
           <div class="score-meta">
             <span>Streak {{ streak() }}</span>
-            <span>{{ multiplier() }}x</span>
+            <span
+              class="multiplier"
+              [class.multiplier--boosted]="streak() > 1"
+              [class.multiplier--hot]="streak() >= 10"
+              [class.multiplier-pop]="multiplierPulsed()"
+              >{{ multiplier() }}x</span
+            >
           </div>
         </div>
         <div class="hud-level">

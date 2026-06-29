@@ -401,10 +401,11 @@ function problemForLevel(
 
   const secondOperation = random() < 0.5 ? 'addition' : 'subtraction';
   const second = problemForOperation(secondOperation, random, config.level);
+  const secondPrompt = groupCompoundPrompt(second.prompt);
   const prompt =
     config.level >= 15 && random() < 0.5
-      ? `(${first.prompt}) ${secondOperation === 'addition' ? '+' : '-'} ${second.prompt}`
-      : `${first.prompt} ${secondOperation === 'addition' ? '+' : '-'} ${second.prompt}`;
+      ? `(${first.prompt}) ${secondOperation === 'addition' ? '+' : '-'} ${secondPrompt}`
+      : `${first.prompt} ${secondOperation === 'addition' ? '+' : '-'} ${secondPrompt}`;
   return {
     prompt,
     answer:
@@ -412,6 +413,10 @@ function problemForLevel(
         ? first.answer! + second.answer!
         : first.answer! - second.answer!,
   };
+}
+
+function groupCompoundPrompt(prompt: string): string {
+  return prompt.includes(' + ') || prompt.includes(' - ') ? `(${prompt})` : prompt;
 }
 
 function problemForOperation(

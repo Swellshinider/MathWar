@@ -72,6 +72,8 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   readonly gameOver = signal(false);
   readonly answerRejected = signal(false);
   readonly answerRejectionCount = signal(0);
+  readonly scorePulsed = signal(false);
+  readonly multiplierPulsed = signal(false);
   readonly timeRemainingMs = signal(this.problem().deadlineMs);
   readonly answerControl = new FormControl('', { nonNullable: true });
   readonly averageSolveTime = computed(() => {
@@ -87,6 +89,8 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private problemStartedAt = 0;
   private timeoutId: ReturnType<typeof setTimeout> | null = null;
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private scorePulseId: ReturnType<typeof setTimeout> | null = null;
+  private multiplierPulseId: ReturnType<typeof setTimeout> | null = null;
   private nextTickAtMs = 0;
 
   ngOnInit(): void {
@@ -95,6 +99,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearTimers();
+    this.clearPulseTimers();
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -122,6 +127,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
       this.totalSolveTimeMs.update((total) => total + solveTimeMs);
       this.totalCorrect.update((total) => total + 1);
       this.score.update((score) => score + 1);
+      this.pulseScore();
       this.answerRejected.set(false);
       this.answerRejectionCount.set(0);
       this.answerControl.setValue('');
@@ -146,11 +152,13 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
           this.problem().level,
         ),
     );
+    this.pulseScore();
     this.experience.set(nextExperience);
     this.level.set(progress.level);
     this.xp.set(progress.xp);
     this.xpRequired.set(progress.xpRequired);
     this.streak.set(nextStreak);
+    this.pulseMultiplier();
     this.bestStreak.update((best) => Math.max(best, nextStreak));
     if (nextStreak % 5 === 0) this.hearts.update((hearts) => Math.min(3, hearts + 1));
     this.highestLevel.update((highest) => Math.max(highest, progress.level));
@@ -167,11 +175,13 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   restart(): void {
     this.score.set(0);
+    this.scorePulsed.set(false);
     this.experience.set(0);
     this.level.set(1);
     this.xp.set(0);
     this.xpRequired.set(FORMULA_LEVELS[0].xpRequired);
     this.streak.set(0);
+    this.multiplierPulsed.set(false);
     this.bestStreak.set(0);
     this.hearts.set(3);
     this.highestLevel.set(1);
@@ -184,6 +194,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.answerControl.setValue('');
     this.problem.set(this.nextProblem());
     this.clearTimers();
+    this.clearPulseTimers();
     this.timeRemainingMs.set(this.gameMode() === 'progression' ? this.problem().deadlineMs : 0);
     this.syncAnswerControl();
   }
@@ -248,6 +259,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   private missAnswer(): void {
     this.rejectAnswer();
     this.streak.set(0);
+    this.pulseMultiplier();
     if (this.gameMode() !== 'progression') return;
     this.hearts.update((hearts) => Math.max(0, hearts - 1));
     if (this.hearts() === 0) this.lose();
@@ -288,6 +300,31 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     if (this.intervalId) clearInterval(this.intervalId);
     this.timeoutId = null;
     this.intervalId = null;
+  }
+
+  private clearPulseTimers(): void {
+    if (this.scorePulseId) clearTimeout(this.scorePulseId);
+    if (this.multiplierPulseId) clearTimeout(this.multiplierPulseId);
+    this.scorePulseId = null;
+    this.multiplierPulseId = null;
+  }
+
+  private pulseScore(): void {
+    if (this.scorePulseId) clearTimeout(this.scorePulseId);
+    this.scorePulsed.set(false);
+    this.scorePulseId = setTimeout(() => {
+      this.scorePulsed.set(true);
+      this.scorePulseId = setTimeout(() => this.scorePulsed.set(false), 180);
+    });
+  }
+
+  private pulseMultiplier(): void {
+    if (this.multiplierPulseId) clearTimeout(this.multiplierPulseId);
+    this.multiplierPulsed.set(false);
+    this.multiplierPulseId = setTimeout(() => {
+      this.multiplierPulsed.set(true);
+      this.multiplierPulseId = setTimeout(() => this.multiplierPulsed.set(false), 180);
+    });
   }
 
   private playSound(file: string): void {

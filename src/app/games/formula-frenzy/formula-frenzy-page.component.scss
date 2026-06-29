@@ -29,12 +29,6 @@
   align-items: center;
 }
 
-.practice-options input {
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: var(--accent);
-}
-
 .frenzy-surface {
   position: relative;
   display: grid;
@@ -79,6 +73,11 @@
 
 .hud-score strong {
   font-size: var(--fs-xl);
+  transition: transform var(--duration-fast) var(--ease-spring);
+}
+
+.score-pop {
+  transform: scale(1.14);
 }
 
 .hud-level {
@@ -98,6 +97,27 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   color: var(--text-muted);
+}
+
+.multiplier {
+  color: var(--accent);
+  font-size: var(--fs-md);
+  font-weight: var(--weight-black);
+  transition: transform var(--duration-fast) var(--ease-spring);
+}
+
+.multiplier--boosted {
+  color: var(--success);
+  transform: scale(1.08);
+}
+
+.multiplier--hot {
+  color: var(--accent-hover);
+  transform: scale(1.16);
+}
+
+.multiplier-pop {
+  transform: scale(1.26);
 }
 
 .hearts {
@@ -208,20 +228,12 @@ input {
   box-shadow: 0 0 0 3px rgb(244 91 105 / 0.18);
 }
 
-.answer-input--invalid:focus,
-.answer-input--invalid:focus-visible {
-  border-color: var(--danger);
-  outline: 2px solid var(--danger);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgb(244 91 105 / 0.22);
-}
-
 .answer-input--shake-a {
   animation: answer-shake-a 180ms ease-in-out;
 }
 
 .answer-input--shake-b {
-  animation: answer-shake-b 180ms ease-in-out;
+  animation: answer-shake-a 180ms ease-in-out reverse;
 }
 
 .game-over {
@@ -245,21 +257,6 @@ input {
 }
 
 @keyframes answer-shake-a {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  25% {
-    transform: translateX(-0.35rem);
-  }
-
-  75% {
-    transform: translateX(0.35rem);
-  }
-}
-
-@keyframes answer-shake-b {
   0%,
   100% {
     transform: translateX(0);

@@ -28,10 +28,16 @@
         <div class="hud">
           <div class="hud-score">
             <span>Score</span>
-            <strong>{{ me()?.score ?? 0 }}</strong>
+            <strong [class.score-pop]="localScorePulsed()">{{ me()?.score ?? 0 }}</strong>
             <div class="score-meta">
               <span>Streak {{ me()?.streak ?? 0 }}</span>
-              <span>{{ multiplier() }}x</span>
+              <span
+                class="multiplier"
+                [class.multiplier--boosted]="(me()?.streak ?? 0) > 1"
+                [class.multiplier--hot]="(me()?.streak ?? 0) >= 10"
+                [class.multiplier-pop]="localMultiplierPulsed()"
+                >{{ multiplier() }}x</span
+              >
             </div>
           </div>
           <div class="hud-level">
@@ -84,10 +90,16 @@
         <div class="hud">
           <div class="hud-score">
             <span>Score</span>
-            <strong>{{ opponent()?.score ?? 0 }}</strong>
+            <strong [class.score-pop]="opponentScorePulsed()">{{ opponent()?.score ?? 0 }}</strong>
             <div class="score-meta">
               <span>Streak {{ opponent()?.streak ?? 0 }}</span>
-              <span>{{ multiplier(opponent()) }}x</span>
+              <span
+                class="multiplier"
+                [class.multiplier--boosted]="(opponent()?.streak ?? 0) > 1"
+                [class.multiplier--hot]="(opponent()?.streak ?? 0) >= 10"
+                [class.multiplier-pop]="opponentMultiplierPulsed()"
+                >{{ multiplier(opponent()) }}x</span
+              >
             </div>
           </div>
           <div class="hud-level">
