@@ -446,8 +446,29 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           socket.data.user.id,
           command.answer,
         );
-        if (!resolved.ok)
-          return ack({ ok: false, code: 'WRONG_ANSWER', error: 'The answer is not correct.' });
+        if (!resolved.ok) {
+          if (resolved.state === match)
+            return ack({ ok: false, code: 'WRONG_ANSWER', error: 'The answer is not correct.' });
+          const missed = await options.repository.update(
+            match.id,
+            command.expectedVersion,
+            command.commandId,
+            () => resolved.state,
+          );
+          if (!missed.ok)
+            return ack({
+              ok: false,
+              code: missed.reason.toUpperCase(),
+              error: `Answer rejected: ${missed.reason}.`,
+            });
+          await emitState(missed.state);
+          return ack({
+            ok: false,
+            code: 'WRONG_ANSWER',
+            error: 'The answer is not correct.',
+            data: publicState(missed.state as FormulaFrenzyMatchState),
+          });
+        }
         const next = await options.repository.update(
           match.id,
           command.expectedVersion,

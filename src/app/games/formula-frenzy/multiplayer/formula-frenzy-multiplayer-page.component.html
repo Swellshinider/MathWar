@@ -25,9 +25,40 @@
           <p>You</p>
           <strong>{{ me()?.displayName ?? auth.session()?.user?.displayName }}</strong>
         </header>
-        <div class="stats">
-          <span>Score {{ me()?.score ?? 0 }}</span>
-          <span>Level {{ me()?.currentProblem?.level ?? 1 }}</span>
+        <div class="hud">
+          <div class="hud-score">
+            <span>Score</span>
+            <strong [class.score-pop]="localScorePulsed()">{{ me()?.score ?? 0 }}</strong>
+            <div class="score-meta">
+              <span>Streak {{ me()?.streak ?? 0 }}</span>
+              <span
+                class="multiplier"
+                [class.multiplier--boosted]="(me()?.streak ?? 0) > 1"
+                [class.multiplier--hot]="(me()?.streak ?? 0) >= 10"
+                [class.multiplier-pop]="localMultiplierPulsed()"
+                >{{ multiplier() }}x</span
+              >
+            </div>
+          </div>
+          <div class="hud-level">
+            <span>Level {{ me()?.level ?? 1 }}</span>
+            <strong>{{ levelName(me()?.level ?? 1) }}</strong>
+            <div class="xp-bar" aria-label="Your XP progress">
+              <span class="xp-bar__fill" [style.width.%]="xpProgress()"></span>
+              <span class="xp-bar__text">{{ me()?.xp ?? 0 }} / {{ me()?.xpRequired ?? 0 }}</span>
+            </div>
+          </div>
+          <div class="hearts" aria-label="Your hearts">
+            @for (heart of heartSlots; track heart) {
+              <svg
+                lucideHeart
+                [class.heart--empty]="heart > playerHearts(me())"
+                aria-hidden="true"
+              ></svg>
+            }
+          </div>
+        </div>
+        <div class="run-meta" aria-label="Your run details">
           <span>Time {{ timeRemaining() }}</span>
         </div>
         <p class="problem-prompt">{{ me()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
@@ -56,9 +87,42 @@
           <p>Opponent</p>
           <strong>{{ opponentName() }}</strong>
         </header>
-        <div class="stats">
-          <span>Score {{ opponent()?.score ?? 0 }}</span>
-          <span>Level {{ opponent()?.currentProblem?.level ?? 1 }}</span>
+        <div class="hud">
+          <div class="hud-score">
+            <span>Score</span>
+            <strong [class.score-pop]="opponentScorePulsed()">{{ opponent()?.score ?? 0 }}</strong>
+            <div class="score-meta">
+              <span>Streak {{ opponent()?.streak ?? 0 }}</span>
+              <span
+                class="multiplier"
+                [class.multiplier--boosted]="(opponent()?.streak ?? 0) > 1"
+                [class.multiplier--hot]="(opponent()?.streak ?? 0) >= 10"
+                [class.multiplier-pop]="opponentMultiplierPulsed()"
+                >{{ multiplier(opponent()) }}x</span
+              >
+            </div>
+          </div>
+          <div class="hud-level">
+            <span>Level {{ opponent()?.level ?? 1 }}</span>
+            <strong>{{ levelName(opponent()?.level ?? 1) }}</strong>
+            <div class="xp-bar" aria-label="Opponent XP progress">
+              <span class="xp-bar__fill" [style.width.%]="xpProgress(opponent())"></span>
+              <span class="xp-bar__text">
+                {{ opponent()?.xp ?? 0 }} / {{ opponent()?.xpRequired ?? 0 }}
+              </span>
+            </div>
+          </div>
+          <div class="hearts" aria-label="Opponent hearts">
+            @for (heart of heartSlots; track heart) {
+              <svg
+                lucideHeart
+                [class.heart--empty]="heart > playerHearts(opponent())"
+                aria-hidden="true"
+              ></svg>
+            }
+          </div>
+        </div>
+        <div class="run-meta" aria-label="Opponent run details">
           <span>Time {{ timeRemaining(opponent()) }}</span>
         </div>
         <p class="problem-prompt">{{ opponent()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
@@ -72,6 +136,14 @@
       <section class="result" role="status">
         <strong>{{ state()?.winnerUserId === userId() ? 'You won.' : 'You lost.' }}</strong>
         <span>{{ state()?.endReason }}</span>
+        <span>Final score {{ me()?.score ?? 0 }}</span>
+        <span
+          >Highest level {{ me()?.highestLevel ?? 1 }}
+          {{ levelName(me()?.highestLevel ?? 1) }}</span
+        >
+        <span>Total correct {{ me()?.totalCorrect ?? 0 }}</span>
+        <span>Average {{ averageSolveTime() }}</span>
+        <span>Best streak {{ me()?.bestStreak ?? 0 }}</span>
         @if (isHost()) {
           <button type="button" class="btn btn--primary restart-button" (click)="startRun()">
             Restart

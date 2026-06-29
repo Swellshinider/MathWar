@@ -5,10 +5,7 @@
   [wide]="true"
 >
   <div class="multiplayer-launch">
-    <app-multiplayer-lobby
-      gameId="formula-frenzy"
-      (roomJoined)="enterMultiplayer($event)"
-    />
+    <app-multiplayer-lobby gameId="formula-frenzy" (roomJoined)="enterMultiplayer($event)" />
   </div>
 
   <section class="mode-panel" aria-label="Formula Frenzy mode">
@@ -16,10 +13,10 @@
       <button
         type="button"
         class="mode-tab"
-        [class.mode-tab--active]="gameMode() === 'sprint'"
-        (click)="selectSprint()"
+        [class.mode-tab--active]="gameMode() === 'progression'"
+        (click)="selectProgression()"
       >
-        Sprint
+        Progression
       </button>
       <button
         type="button"
@@ -31,7 +28,7 @@
       </button>
     </div>
 
-    @if (gameMode() === 'sprint' && !runStarted() && !gameOver()) {
+    @if (gameMode() === 'progression' && !runStarted() && !gameOver()) {
       <div class="sprint-control">
         <button type="button" class="btn btn--subtle start-button" (click)="startRun()">
           Start run
@@ -56,25 +53,64 @@
   </section>
 
   <section class="frenzy-surface" aria-label="Formula Frenzy game">
-    <div class="stats" aria-label="Run stats">
-      @if (gameMode() === 'sprint') {
-        <span>Score {{ score() }}</span>
-        <span>Level {{ problem().level }}</span>
-        <span>Time {{ timeRemaining() }}</span>
+    <div class="hud" aria-label="Run stats">
+      @if (gameMode() === 'progression') {
+        <div class="hud-score">
+          <span>Score</span>
+          <strong [class.score-pop]="scorePulsed()">{{ score() }}</strong>
+          <div class="score-meta">
+            <span>Streak {{ streak() }}</span>
+            <span
+              class="multiplier"
+              [class.multiplier--boosted]="streak() > 1"
+              [class.multiplier--hot]="streak() >= 10"
+              [class.multiplier-pop]="multiplierPulsed()"
+              >{{ multiplier() }}x</span
+            >
+          </div>
+        </div>
+        <div class="hud-level">
+          <span>Level {{ level() }}</span>
+          <strong>{{ levelName() }}</strong>
+          <div class="xp-bar" aria-label="XP progress">
+            <span class="xp-bar__fill" [style.width.%]="xpProgress()"></span>
+            <span class="xp-bar__text">{{ xp() }} / {{ xpRequired() }}</span>
+          </div>
+        </div>
+        <div class="hearts" aria-label="Hearts">
+          @for (heart of heartSlots; track heart) {
+            <svg lucideHeart [class.heart--empty]="heart > hearts()" aria-hidden="true"></svg>
+          }
+        </div>
       } @else {
         <span>Solved {{ score() }}</span>
-        <span>Free Practice</span>
+        <span class="hud-mode">Free Practice</span>
+        <div class="hud-streak">
+          <span>Streak {{ streak() }}</span>
+          <span
+            class="multiplier"
+            [class.multiplier--boosted]="streak() > 1"
+            [class.multiplier--hot]="streak() >= 10"
+            [class.multiplier-pop]="multiplierPulsed()"
+            >{{ multiplier() }}x</span
+          >
+        </div>
       }
     </div>
 
     <div class="problem-panel">
-      @if (gameMode() === 'sprint' && !runStarted() && !gameOver()) {
+      @if (gameMode() === 'progression' && !runStarted() && !gameOver()) {
         <p class="problem-prompt">?? + ??</p>
       } @else {
         <p class="problem-prompt">{{ problem().prompt }}</p>
       }
       @if (practicePaused()) {
         <p class="practice-warning" role="alert">Choose at least one calculation type.</p>
+      }
+      @if (gameMode() === 'progression') {
+        <div class="run-meta" aria-label="Current run details">
+          <span>Time {{ timeRemaining() }}</span>
+        </div>
       }
       <form (submit)="submitAnswer($event)">
         <label for="formula-answer">Answer</label>
@@ -98,10 +134,13 @@
 
     @if (gameOver()) {
       <div class="game-over" role="dialog" aria-labelledby="formula-game-over-title">
-        <h2 id="formula-game-over-title">Time up</h2>
-        <p>Score {{ score() }}</p>
+        <h2 id="formula-game-over-title">Game over</h2>
+        <p>Final score {{ score() }}</p>
+        <p>Highest level {{ highestLevel() }} {{ highestLevelName() }}</p>
+        <p>Total correct {{ totalCorrect() }}</p>
         <p>Answer {{ problem().answer }}</p>
         <p>Average {{ averageSolveTime() }}</p>
+        <p>Best streak {{ bestStreak() }}</p>
         <button type="button" class="btn restart-button" (click)="restart()">Restart</button>
       </div>
     }

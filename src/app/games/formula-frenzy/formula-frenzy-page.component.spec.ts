@@ -56,7 +56,7 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(root.textContent).toContain('Formula Frenzy');
     expect(root.textContent).toContain('Create private room');
     expect(root.textContent).toContain('Join room');
-    expect(root.textContent).toContain('Sprint');
+    expect(root.textContent).toContain('Progression');
     expect(root.textContent).toContain('Free Practice');
     expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe('?? + ??');
     expect(root.querySelector('#formula-answer')?.getAttribute('type')).toBe('text');
@@ -82,7 +82,9 @@ describe('FormulaFrenzyPageComponent', () => {
     component.submitAnswer();
     fixture.detectChanges();
 
-    expect(component.score()).toBe(1);
+    expect(component.score()).toBe(220);
+    expect(component.totalCorrect()).toBe(1);
+    expect(component.streak()).toBe(1);
     expect(component.answerControl.value).toBe('');
     expect(component.answerRejected()).toBe(false);
     expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/right-answer.wav');
@@ -149,7 +151,21 @@ describe('FormulaFrenzyPageComponent', () => {
     fixture.detectChanges();
 
     expect(component.gameOver()).toBe(true);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Time up');
+  });
+
+  it('spends hearts on wrong answers and recovers one on a five-answer streak', () => {
+    component.startRun();
+    component.answerControl.setValue(String(component.problem().answer! + 1));
+    component.submitAnswer();
+    expect(component.hearts()).toBe(2);
+
+    for (let index = 0; index < 5; index += 1) {
+      component.answerControl.setValue(String(component.problem().answer));
+      component.submitAnswer();
+    }
+
+    expect(component.hearts()).toBe(3);
+    expect(component.streak()).toBe(5);
   });
 
   it('prevents Backspace navigation after the sprint result appears', () => {
@@ -172,11 +188,12 @@ describe('FormulaFrenzyPageComponent', () => {
     vi.advanceTimersByTime(2500);
     component.answerControl.setValue(String(component.problem().answer));
     component.submitAnswer();
+    component.hearts.set(1);
     vi.advanceTimersByTime(component.problem().deadlineMs);
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('.game-over')?.textContent).toContain('Score 1');
+    expect(root.querySelector('.game-over')?.textContent).toContain('Final score 193');
     expect(root.querySelector('.game-over')?.textContent).toContain(
       `Answer ${component.problem().answer}`,
     );
@@ -184,6 +201,8 @@ describe('FormulaFrenzyPageComponent', () => {
   });
 
   it('restarts the run from the game over screen', () => {
+    component.startRun();
+    component.hearts.set(1);
     vi.advanceTimersByTime(component.problem().deadlineMs);
     fixture.detectChanges();
 
@@ -203,6 +222,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     expect(component.gameMode()).toBe('free-practice');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Solved 0');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 0');
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Time ');
 
     vi.advanceTimersByTime(60000);
@@ -216,6 +236,8 @@ describe('FormulaFrenzyPageComponent', () => {
     component.setPracticeOperation('addition', false);
     component.setPracticeOperation('subtraction', false);
     component.setPracticeOperation('division', false);
+    component.setPracticeOperation('power', false);
+    component.setPracticeOperation('root', false);
 
     component.answerControl.setValue(String(component.problem().answer));
     component.submitAnswer();
@@ -224,6 +246,21 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.practiceOperations()).toEqual(['multiplication']);
     expect(component.problem().prompt).toMatch(/^\d+ \* \d+$/);
     expect(component.score()).toBe(1);
+    expect(component.streak()).toBe(1);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 1');
+  });
+
+  it('resets the free practice streak on a wrong answer', () => {
+    component.selectFreePractice();
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    component.answerControl.setValue(String(component.problem().answer! + 1));
+    component.submitAnswer();
+    fixture.detectChanges();
+
+    expect(component.score()).toBe(1);
+    expect(component.streak()).toBe(0);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 0');
   });
 
   it('pauses free practice when all operation types are unchecked', () => {

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-06-29
+
+- Expanded Formula Frenzy progression to 25 named levels with XP bars, root and power
+  calculations, streak-based score multipliers, 3-heart lives, heart recovery, and updated solo and
+  multiplayer HUDs.
+
+### Fixed - 2026-06-29
+
+- Displayed Formula Frenzy powers and roots with math symbols instead of raw operator syntax.
+- Centered the Formula Frenzy Free Practice HUD label.
+- Added a Free Practice streak display that increments on correct answers and resets on misses.
+
 ### Added - 2026-06-28
 
 - Added Formula Frenzy private-room multiplayer with parallel sprint panels, live opponent
