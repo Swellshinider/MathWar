@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded Formula Frenzy progression to 25 named levels with XP bars, root and power
   calculations, streak-based score multipliers, 3-heart lives, heart recovery, and updated solo and
   multiplayer HUDs.
+- Split the GitHub Actions CI into separate workflows for UI build, UI tests, server build, and
+  server tests.
+- Added issue templates, a pull request template, and CONTRIBUTING, SECURITY, and CODE_OF_CONDUCT
+  guides for the public release.
 
 ### Fixed - 2026-06-29
 
