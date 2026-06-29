@@ -164,6 +164,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.streak.set(nextStreak);
     this.pulseMultiplier();
     this.bestStreak.update((best) => Math.max(best, nextStreak));
+    const previousHearts = this.hearts();
     if (nextStreak % 5 === 0) this.hearts.update((hearts) => Math.min(3, hearts + 1));
     this.highestLevel.update((highest) => Math.max(highest, progress.level));
     this.answerRejected.set(false);
@@ -172,6 +173,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     this.problem.set(this.nextProblem());
     if (this.gameMode() === 'progression') this.startProblemTimer();
     this.playSound('right-answer.wav');
+    if (this.hearts() > previousHearts) this.playSound('heart-up.wav');
     if (this.gameMode() === 'progression' && this.level() > previousLevel) {
       this.playSound('level-up.wav');
     }

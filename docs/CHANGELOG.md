@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expanded Formula Frenzy progression to 25 named levels with XP bars, root and power
   calculations, streak-based score multipliers, 3-heart lives, heart recovery, and updated solo and
   multiplayer HUDs.
+- Added Formula Frenzy heart recovery audio and local-only multiplayer sprint sound effects.
 - Split the GitHub Actions CI into separate workflows for UI build, UI tests, server build, and
   server tests.
 - Added issue templates, a pull request template, and CONTRIBUTING, SECURITY, and CODE_OF_CONDUCT
@@ -19,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed - 2026-06-29
 
+- Ranked Formula Frenzy multiplayer winners by score, level, and average solve time instead of
+  automatically awarding timeout and last-heart wins to the surviving player.
+- Replaced the Formula Frenzy level-up sound and cleaned up the multiplayer result summary.
 - Displayed Formula Frenzy powers and roots with math symbols instead of raw operator syntax.
 - Centered the Formula Frenzy Free Practice HUD label.
 - Added a Free Practice streak display that increments on correct answers and resets on misses.

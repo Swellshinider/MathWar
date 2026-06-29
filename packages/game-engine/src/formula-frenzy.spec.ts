@@ -212,6 +212,46 @@ describe('formula frenzy multiplayer simulation', () => {
     expect(expired.endReason).toBe('timeout');
   });
 
+  it('uses score, then level, then average solve time when a player times out', () => {
+    const state = startFormulaFrenzyMatch(
+      createFormulaFrenzyMatchState(
+        'match-1',
+        'FORM-FREN',
+        'seed',
+        { userId: 'left', displayName: 'Left' },
+        { userId: 'right', displayName: 'Right' },
+      ),
+    );
+    const withHigherExpiredScore = {
+      ...state,
+      formulaPlayers: state.formulaPlayers.map((player) =>
+        player.userId === 'left'
+          ? { ...player, score: 500, level: 2, totalCorrect: 5, totalSolveTimeMs: 5000 }
+          : player,
+      ),
+    };
+    const withHigherExpiredLevel = {
+      ...state,
+      formulaPlayers: state.formulaPlayers.map((player) =>
+        player.userId === 'left'
+          ? { ...player, score: 500, level: 3, totalCorrect: 5, totalSolveTimeMs: 5000 }
+          : { ...player, score: 500, level: 2, totalCorrect: 5, totalSolveTimeMs: 1000 },
+      ),
+    };
+    const withFasterExpiredAverage = {
+      ...state,
+      formulaPlayers: state.formulaPlayers.map((player) =>
+        player.userId === 'left'
+          ? { ...player, score: 500, level: 2, totalCorrect: 5, totalSolveTimeMs: 5000 }
+          : { ...player, score: 500, level: 2, totalCorrect: 5, totalSolveTimeMs: 6000 },
+      ),
+    };
+
+    expect(expireFormulaFrenzyPlayer(withHigherExpiredScore, 'left').winnerUserId).toBe('left');
+    expect(expireFormulaFrenzyPlayer(withHigherExpiredLevel, 'left').winnerUserId).toBe('left');
+    expect(expireFormulaFrenzyPlayer(withFasterExpiredAverage, 'left').winnerUserId).toBe('left');
+  });
+
   it('ends the match when a wrong answer spends the last heart', () => {
     const state = {
       ...startFormulaFrenzyMatch(
@@ -236,6 +276,29 @@ describe('formula frenzy multiplayer simulation', () => {
     expect(result.state.status).toBe('ended');
     expect(result.state.endReason).toBe('out-of-hearts');
     expect(result.state.winnerUserId).toBe('right');
+  });
+
+  it('uses match stats when a wrong answer spends the last heart', () => {
+    const state = startFormulaFrenzyMatch(
+      createFormulaFrenzyMatchState(
+        'match-1',
+        'FORM-FREN',
+        'seed',
+        { userId: 'left', displayName: 'Left' },
+        { userId: 'right', displayName: 'Right' },
+      ),
+    );
+    const lowHearts = {
+      ...state,
+      formulaPlayers: state.formulaPlayers.map((player) =>
+        player.userId === 'left'
+          ? { ...player, hearts: 1, score: 500, level: 2, totalCorrect: 5, totalSolveTimeMs: 5000 }
+          : player,
+      ),
+    };
+    const result = resolveFormulaFrenzyAnswer(lowHearts, 'left', 999);
+
+    expect(result.state.winnerUserId).toBe('left');
   });
 
   it('generates integer power and root answers', () => {

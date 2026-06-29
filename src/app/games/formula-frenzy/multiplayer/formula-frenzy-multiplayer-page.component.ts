@@ -19,6 +19,7 @@ import {
   FormulaFrenzyPlayerState,
   MultiplayerMatchState,
 } from '@math-war/game-engine';
+import { AudioSettingsService } from '../../../shared/audio/audio-settings.service';
 import { preventBackspaceNavigation } from '../../../shared/dom/prevent-backspace-navigation';
 import { GameFrameComponent } from '../../../shared/game-frame/game-frame.component';
 import { MultiplayerAuthService } from '../../../shared/multiplayer/multiplayer-auth.service';
@@ -39,6 +40,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly socket = inject(MultiplayerSocketService);
   private readonly toast = inject(ToastService);
+  private readonly audio = inject(AudioSettingsService);
   @ViewChild('answerInput') private answerInput?: ElementRef<HTMLInputElement>;
 
   readonly state = signal<FormulaFrenzyMatchState | null>(null);
@@ -94,6 +96,9 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
     if (!me || me.totalCorrect === 0) return '0.0s';
     return `${(me.totalSolveTimeMs / me.totalCorrect / 1000).toFixed(1)}s`;
   });
+  readonly resultTitle = computed(() =>
+    this.state()?.winnerUserId === this.userId() ? 'You won' : 'Game over',
+  );
 
   constructor() {
     const inviteRoomCode = this.route.snapshot.queryParamMap.get('room');
@@ -118,16 +123,14 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
           if (event.userId !== this.userId()) this.opponentTyping.set(event.input);
         },
         ended: (event) => {
-          this.state.update((state) =>
-            state && state.id === event.matchId
-              ? {
-                  ...state,
-                  status: 'ended',
-                  winnerUserId: event.winnerUserId,
-                  endReason: event.reason,
-                }
-              : state,
-          );
+          const state = this.state();
+          if (state?.id !== event.matchId) return;
+          this.receiveState({
+            ...state,
+            status: 'ended',
+            winnerUserId: event.winnerUserId,
+            endReason: event.reason,
+          });
         },
         error: (message) => this.error.set(message),
         connected: () => {
@@ -154,6 +157,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
     const answer = Number(this.answerControl.value);
     if (Number.isNaN(answer)) {
       this.rejectAnswer();
+      this.playSound('wrong-answer.wav');
       return;
     }
     const response = await this.socket.answerFormula({
@@ -268,9 +272,22 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
       state.formulaPlayers.find((player) => player.userId !== this.userId()) ?? null;
     if (previousMe && nextMe?.score !== previousMe.score) {
       this.pulse(this.localScorePulsed, 'localScorePulseId');
+      this.playSound('right-answer.wav');
     }
     if (previousMe && nextMe?.streak !== previousMe.streak) {
       this.pulse(this.localMultiplierPulsed, 'localMultiplierPulseId');
+    }
+    if (previousMe && nextMe && nextMe.hearts > previousMe.hearts) {
+      this.playSound('heart-up.wav');
+    }
+    if (previousMe && nextMe && nextMe.hearts < previousMe.hearts) {
+      this.playSound('wrong-answer.wav');
+    }
+    if (previousMe && nextMe && nextMe.level > previousMe.level) {
+      this.playSound('level-up.wav');
+    }
+    if (previousMe && state.status === 'ended' && this.state()?.status !== 'ended') {
+      this.playSound('game-over.wav');
     }
     if (previousOpponent && nextOpponent?.score !== previousOpponent.score) {
       this.pulse(this.opponentScorePulsed, 'opponentScorePulseId');
@@ -290,6 +307,10 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
 
   private rejectAnswer(): void {
     this.answerRejected.set(true);
+  }
+
+  private playSound(file: string): void {
+    this.audio.playOneShot(`/sounds/formula-frenzy/${file}`);
   }
 
   private pulse(
