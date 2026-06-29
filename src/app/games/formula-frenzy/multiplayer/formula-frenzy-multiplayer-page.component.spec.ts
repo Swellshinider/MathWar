@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { FormulaFrenzyMatchState } from '@math-war/game-engine';
+import { AudioSettingsService } from '../../../shared/audio/audio-settings.service';
 import { ToastService } from '../../../shared/toast/toast.service';
 import {
   MultiplayerAuthService,
@@ -130,6 +131,7 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
     startFormula: vi.fn(),
   };
   const router = { navigate: vi.fn() };
+  const audio = { playOneShot: vi.fn() };
 
   beforeEach(async () => {
     TestBed.resetTestingModule();
@@ -140,6 +142,7 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
       providers: [
         { provide: MultiplayerAuthService, useValue: auth },
         { provide: MultiplayerSocketService, useValue: socket },
+        { provide: AudioSettingsService, useValue: audio },
         { provide: Router, useValue: router },
         {
           provide: ActivatedRoute,
@@ -182,6 +185,9 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
 
     handlers.state(ended);
     fixture.detectChanges();
+    expect(root.querySelector('.game-over')?.textContent).toContain('Game over');
+    expect(root.querySelector('.game-over')?.textContent).toContain('Final score 0');
+    expect(root.querySelector('.game-over')?.textContent).not.toContain('timeout');
     root.querySelector<HTMLButtonElement>('.restart-button')?.click();
     await fixture.whenStable();
 
@@ -217,5 +223,70 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
     document.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('plays only local player formula sounds', () => {
+    handlers.state(activeState());
+    audio.playOneShot.mockClear();
+
+    handlers.formulaState!(
+      activeState({
+        version: 3,
+        formulaPlayers: [
+          {
+            ...activeState().formulaPlayers[0],
+            score: 100,
+            streak: 1,
+            hearts: 2,
+            level: 2,
+          },
+          {
+            ...activeState().formulaPlayers[1],
+            score: 100,
+            streak: 1,
+            hearts: 2,
+            level: 2,
+          },
+        ],
+      }),
+    );
+
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/right-answer.wav');
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/wrong-answer.wav');
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/level-up.wav');
+    expect(audio.playOneShot).toHaveBeenCalledTimes(3);
+  });
+
+  it('plays the local result sound once when the match ends', () => {
+    handlers.state(activeState());
+    audio.playOneShot.mockClear();
+
+    handlers.ended!({ matchId: 'match-1', reason: 'timeout', winnerUserId: 'right', version: 3 });
+    handlers.ended!({ matchId: 'match-1', reason: 'timeout', winnerUserId: 'right', version: 3 });
+
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/game-over.wav');
+    expect(audio.playOneShot).toHaveBeenCalledTimes(1);
+  });
+
+  it('plays the local heal sound when only the local player recovers a heart', () => {
+    handlers.state(
+      activeState({
+        formulaPlayers: activeState().formulaPlayers.map((player) => ({ ...player, hearts: 2 })),
+      }),
+    );
+    audio.playOneShot.mockClear();
+
+    handlers.formulaState!(
+      activeState({
+        version: 3,
+        formulaPlayers: [
+          { ...activeState().formulaPlayers[0], hearts: 3 },
+          { ...activeState().formulaPlayers[1], hearts: 3 },
+        ],
+      }),
+    );
+
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/heart-up.wav');
+    expect(audio.playOneShot).toHaveBeenCalledTimes(1);
   });
 });

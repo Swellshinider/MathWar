@@ -133,17 +133,16 @@
     </section>
 
     @if (state()?.status === 'ended') {
-      <section class="result" role="status">
-        <strong>{{ state()?.winnerUserId === userId() ? 'You won.' : 'You lost.' }}</strong>
-        <span>{{ state()?.endReason }}</span>
-        <span>Final score {{ me()?.score ?? 0 }}</span>
-        <span
-          >Highest level {{ me()?.highestLevel ?? 1 }}
-          {{ levelName(me()?.highestLevel ?? 1) }}</span
-        >
-        <span>Total correct {{ me()?.totalCorrect ?? 0 }}</span>
-        <span>Average {{ averageSolveTime() }}</span>
-        <span>Best streak {{ me()?.bestStreak ?? 0 }}</span>
+      <section class="game-over" role="dialog" aria-labelledby="formula-multiplayer-result-title">
+        <h2 id="formula-multiplayer-result-title">{{ resultTitle() }}</h2>
+        <p>Final score {{ me()?.score ?? 0 }}</p>
+        <p>
+          Highest level {{ me()?.highestLevel ?? 1 }}
+          {{ levelName(me()?.highestLevel ?? 1) }}
+        </p>
+        <p>Total correct {{ me()?.totalCorrect ?? 0 }}</p>
+        <p>Average {{ averageSolveTime() }}</p>
+        <p>Best streak {{ me()?.bestStreak ?? 0 }}</p>
         @if (isHost()) {
           <button type="button" class="btn btn--primary restart-button" (click)="startRun()">
             Restart

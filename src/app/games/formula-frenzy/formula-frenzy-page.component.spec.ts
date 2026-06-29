@@ -166,6 +166,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     expect(component.hearts()).toBe(3);
     expect(component.streak()).toBe(5);
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/heart-up.wav');
   });
 
   it('prevents Backspace navigation after the sprint result appears', () => {
