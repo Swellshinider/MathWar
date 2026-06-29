@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { LucideHeart } from '@lucide/angular';
 import { MultiplayerMatchState } from '@math-war/game-engine';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { preventBackspaceNavigation } from '../../shared/dom/prevent-backspace-navigation';
@@ -19,12 +20,12 @@ import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-
 import {
   FORMULA_OPERATION_OPTIONS,
   FORMULA_LEVELS,
-  advanceFormulaProgress,
   createFormulaPracticeProblem,
+  createFormulaProblem,
   createFormulaProblemForLevel,
   FormulaOperation,
   FormulaProblem,
-  gainFormulaXp,
+  formulaProgress,
   scoreFormulaAnswer,
 } from './game/problem-generator';
 
@@ -32,7 +33,7 @@ type FormulaFrenzyMode = 'progression' | 'free-practice';
 
 @Component({
   selector: 'app-formula-frenzy-page',
-  imports: [GameFrameComponent, MultiplayerLobbyComponent, ReactiveFormsModule],
+  imports: [GameFrameComponent, MultiplayerLobbyComponent, ReactiveFormsModule, LucideHeart],
   templateUrl: './formula-frenzy-page.component.html',
   styleUrl: './formula-frenzy-page.component.scss',
 })
@@ -44,6 +45,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   readonly problem = signal<FormulaProblem>(createFormulaProblemForLevel(1));
   readonly gameMode = signal<FormulaFrenzyMode>('progression');
   readonly runStarted = signal(false);
+  readonly heartSlots = [1, 2, 3] as const;
   readonly operationOptions = FORMULA_OPERATION_OPTIONS;
   readonly practiceOperations = signal<readonly FormulaOperation[]>(
     FORMULA_OPERATION_OPTIONS.map((option) => option.operation),
@@ -52,6 +54,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     () => this.gameMode() === 'free-practice' && this.practiceOperations().length === 0,
   );
   readonly score = signal(0);
+  readonly experience = signal(0);
   readonly level = signal(1);
   readonly levelName = computed(() => FORMULA_LEVELS[this.level() - 1].name);
   readonly xp = signal(0);
@@ -76,6 +79,9 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     return `${(this.totalSolveTimeMs() / this.totalCorrect() / 1000).toFixed(1)}s`;
   });
   readonly timeRemaining = computed(() => `${(this.timeRemainingMs() / 1000).toFixed(1)}s`);
+  readonly multiplier = computed(() =>
+    Math.min(3, 1 + Math.max(0, this.streak() - 1) * 0.1).toFixed(1),
+  );
 
   private readonly totalSolveTimeMs = signal(0);
   private problemStartedAt = 0;
@@ -125,23 +131,28 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     }
 
     const previousLevel = this.level();
-    const remainingSeconds = Math.max(0, this.timeRemainingMs() / 1000);
     const nextStreak = this.streak() + 1;
-    const progress = advanceFormulaProgress(
-      this.level(),
-      this.xp(),
-      gainFormulaXp(nextStreak, remainingSeconds),
-    );
+    const nextExperience = this.experience() + 1;
+    const progress = formulaProgress(nextExperience);
     this.totalSolveTimeMs.update((total) => total + solveTimeMs);
     this.totalCorrect.update((total) => total + 1);
     this.score.update(
-      (score) => score + scoreFormulaAnswer(nextStreak, remainingSeconds, this.level()),
+      (score) =>
+        score +
+        scoreFormulaAnswer(
+          nextStreak,
+          solveTimeMs,
+          this.problem().deadlineMs,
+          this.problem().level,
+        ),
     );
+    this.experience.set(nextExperience);
     this.level.set(progress.level);
     this.xp.set(progress.xp);
     this.xpRequired.set(progress.xpRequired);
     this.streak.set(nextStreak);
     this.bestStreak.update((best) => Math.max(best, nextStreak));
+    if (nextStreak % 5 === 0) this.hearts.update((hearts) => Math.min(3, hearts + 1));
     this.highestLevel.update((highest) => Math.max(highest, progress.level));
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
@@ -156,6 +167,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   restart(): void {
     this.score.set(0);
+    this.experience.set(0);
     this.level.set(1);
     this.xp.set(0);
     this.xpRequired.set(FORMULA_LEVELS[0].xpRequired);
@@ -242,15 +254,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   }
 
   private timeoutProblem(): void {
-    this.streak.set(0);
-    this.hearts.update((hearts) => Math.max(0, hearts - 1));
-    if (this.hearts() === 0) {
-      this.lose();
-      return;
-    }
-    this.answerControl.setValue('');
-    this.problem.set(this.nextProblem());
-    this.startProblemTimer();
+    this.lose();
   }
 
   private startProblemTimer(): void {
@@ -294,7 +298,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     if (this.gameMode() === 'free-practice' && this.practiceOperations().length > 0) {
       return createFormulaPracticeProblem(this.practiceOperations());
     }
-    return createFormulaProblemForLevel(this.level());
+    return createFormulaProblem(this.experience());
   }
 
   private syncAnswerControl(): void {

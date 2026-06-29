@@ -345,6 +345,28 @@ describe('multiplayer socket server', () => {
       input: String(leftAnswer).slice(0, 1),
     });
 
+    const missed = await emit<{
+      ok: false;
+      code: string;
+      data: {
+        version: number;
+        formulaPlayers: {
+          userId: string;
+          hearts: number;
+          streak: number;
+          currentProblem: { answer?: number };
+        }[];
+      };
+    }>(left, 'formula:answer', {
+      commandId: randomUUID(),
+      expectedVersion: startedResponse.data.version,
+      answer: 999999,
+    });
+    expect(missed.code).toBe('WRONG_ANSWER');
+    const missedLeft = missed.data.formulaPlayers.find((player) => player.userId === 'left');
+    expect(missedLeft).toMatchObject({ hearts: 2, streak: 0 });
+    expect(missedLeft?.currentProblem.answer).toBeUndefined();
+
     const answered = await emit<{
       ok: true;
       data: {
@@ -357,7 +379,7 @@ describe('multiplayer socket server', () => {
       };
     }>(left, 'formula:answer', {
       commandId: randomUUID(),
-      expectedVersion: startedResponse.data.version,
+      expectedVersion: missed.data.version,
       answer: leftAnswer,
     });
     expect(answered.ok).toBe(true);

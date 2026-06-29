@@ -25,17 +25,35 @@
           <p>You</p>
           <strong>{{ me()?.displayName ?? auth.session()?.user?.displayName }}</strong>
         </header>
-        <div class="stats">
-          <span>Score {{ me()?.score ?? 0 }}</span>
-          <span>Level {{ me()?.level ?? 1 }}</span>
-          <span>{{ levelName(me()?.level ?? 1) }}</span>
-          <span>XP {{ me()?.xp ?? 0 }} / {{ me()?.xpRequired ?? 0 }}</span>
-          <span>Streak {{ me()?.streak ?? 0 }}</span>
-          <span>Hearts {{ me()?.hearts ?? 0 }}</span>
-          <span>Time {{ timeRemaining() }}</span>
+        <div class="hud">
+          <div class="hud-score">
+            <span>Score</span>
+            <strong>{{ me()?.score ?? 0 }}</strong>
+            <div class="score-meta">
+              <span>Streak {{ me()?.streak ?? 0 }}</span>
+              <span>{{ multiplier() }}x</span>
+            </div>
+          </div>
+          <div class="hud-level">
+            <span>Level {{ me()?.level ?? 1 }}</span>
+            <strong>{{ levelName(me()?.level ?? 1) }}</strong>
+            <div class="xp-bar" aria-label="Your XP progress">
+              <span class="xp-bar__fill" [style.width.%]="xpProgress()"></span>
+              <span class="xp-bar__text">{{ me()?.xp ?? 0 }} / {{ me()?.xpRequired ?? 0 }}</span>
+            </div>
+          </div>
+          <div class="hearts" aria-label="Your hearts">
+            @for (heart of heartSlots; track heart) {
+              <svg
+                lucideHeart
+                [class.heart--empty]="heart > playerHearts(me())"
+                aria-hidden="true"
+              ></svg>
+            }
+          </div>
         </div>
-        <div class="xp-bar" aria-label="Your XP progress">
-          <span [style.width.%]="xpProgress()"></span>
+        <div class="run-meta" aria-label="Your run details">
+          <span>Time {{ timeRemaining() }}</span>
         </div>
         <p class="problem-prompt">{{ me()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
         @if (state()?.status === 'waiting' && isHost() && state()!.players.length === 2) {
@@ -63,17 +81,37 @@
           <p>Opponent</p>
           <strong>{{ opponentName() }}</strong>
         </header>
-        <div class="stats">
-          <span>Score {{ opponent()?.score ?? 0 }}</span>
-          <span>Level {{ opponent()?.level ?? 1 }}</span>
-          <span>{{ levelName(opponent()?.level ?? 1) }}</span>
-          <span>XP {{ opponent()?.xp ?? 0 }} / {{ opponent()?.xpRequired ?? 0 }}</span>
-          <span>Streak {{ opponent()?.streak ?? 0 }}</span>
-          <span>Hearts {{ opponent()?.hearts ?? 0 }}</span>
-          <span>Time {{ timeRemaining(opponent()) }}</span>
+        <div class="hud">
+          <div class="hud-score">
+            <span>Score</span>
+            <strong>{{ opponent()?.score ?? 0 }}</strong>
+            <div class="score-meta">
+              <span>Streak {{ opponent()?.streak ?? 0 }}</span>
+              <span>{{ multiplier(opponent()) }}x</span>
+            </div>
+          </div>
+          <div class="hud-level">
+            <span>Level {{ opponent()?.level ?? 1 }}</span>
+            <strong>{{ levelName(opponent()?.level ?? 1) }}</strong>
+            <div class="xp-bar" aria-label="Opponent XP progress">
+              <span class="xp-bar__fill" [style.width.%]="xpProgress(opponent())"></span>
+              <span class="xp-bar__text">
+                {{ opponent()?.xp ?? 0 }} / {{ opponent()?.xpRequired ?? 0 }}
+              </span>
+            </div>
+          </div>
+          <div class="hearts" aria-label="Opponent hearts">
+            @for (heart of heartSlots; track heart) {
+              <svg
+                lucideHeart
+                [class.heart--empty]="heart > playerHearts(opponent())"
+                aria-hidden="true"
+              ></svg>
+            }
+          </div>
         </div>
-        <div class="xp-bar" aria-label="Opponent XP progress">
-          <span [style.width.%]="xpProgress(opponent())"></span>
+        <div class="run-meta" aria-label="Opponent run details">
+          <span>Time {{ timeRemaining(opponent()) }}</span>
         </div>
         <p class="problem-prompt">{{ opponent()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
         <div class="opponent-answer" aria-label="Opponent answer">

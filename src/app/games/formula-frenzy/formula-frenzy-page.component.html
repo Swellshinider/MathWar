@@ -53,25 +53,34 @@
   </section>
 
   <section class="frenzy-surface" aria-label="Formula Frenzy game">
-    <div class="stats" aria-label="Run stats">
+    <div class="hud" aria-label="Run stats">
       @if (gameMode() === 'progression') {
-        <span>Score {{ score() }}</span>
-        <span>Level {{ level() }}</span>
-        <span>{{ levelName() }}</span>
-        <span>XP {{ xp() }} / {{ xpRequired() }}</span>
-        <span>Streak {{ streak() }}</span>
-        <span>Hearts {{ hearts() }}</span>
-        <span>Time {{ timeRemaining() }}</span>
+        <div class="hud-score">
+          <span>Score</span>
+          <strong>{{ score() }}</strong>
+          <div class="score-meta">
+            <span>Streak {{ streak() }}</span>
+            <span>{{ multiplier() }}x</span>
+          </div>
+        </div>
+        <div class="hud-level">
+          <span>Level {{ level() }}</span>
+          <strong>{{ levelName() }}</strong>
+          <div class="xp-bar" aria-label="XP progress">
+            <span class="xp-bar__fill" [style.width.%]="xpProgress()"></span>
+            <span class="xp-bar__text">{{ xp() }} / {{ xpRequired() }}</span>
+          </div>
+        </div>
+        <div class="hearts" aria-label="Hearts">
+          @for (heart of heartSlots; track heart) {
+            <svg lucideHeart [class.heart--empty]="heart > hearts()" aria-hidden="true"></svg>
+          }
+        </div>
       } @else {
         <span>Solved {{ score() }}</span>
         <span>Free Practice</span>
       }
     </div>
-    @if (gameMode() === 'progression') {
-      <div class="xp-bar" aria-label="XP progress">
-        <span [style.width.%]="xpProgress()"></span>
-      </div>
-    }
 
     <div class="problem-panel">
       @if (gameMode() === 'progression' && !runStarted() && !gameOver()) {
@@ -81,6 +90,11 @@
       }
       @if (practicePaused()) {
         <p class="practice-warning" role="alert">Choose at least one calculation type.</p>
+      }
+      @if (gameMode() === 'progression') {
+        <div class="run-meta" aria-label="Current run details">
+          <span>Time {{ timeRemaining() }}</span>
+        </div>
       }
       <form (submit)="submitAnswer($event)">
         <label for="formula-answer">Answer</label>

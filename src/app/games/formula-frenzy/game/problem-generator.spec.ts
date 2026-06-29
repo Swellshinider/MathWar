@@ -9,7 +9,7 @@ describe('createFormulaProblemForLevel', () => {
     const problem = createFormulaProblemForLevel(1, () => 0.1);
 
     expect(problem.level).toBe(1);
-    expect(problem.levelName).toBe('Number Rookie');
+    expect(problem.levelName).toBe('Number Scout');
     expect(problem.deadlineMs).toBe(10000);
     expect(Number.isInteger(problem.answer)).toBe(true);
     expect(problem.prompt).toMatch(/^\d+ [+-] \d+$/);
@@ -17,7 +17,7 @@ describe('createFormulaProblemForLevel', () => {
 
   it('has 25 named levels', () => {
     expect(FORMULA_LEVELS).toHaveLength(25);
-    expect(FORMULA_LEVELS[24].name).toBe('Math Warlord');
+    expect(FORMULA_LEVELS[24].name).toBe('MathWar Legend');
   });
 
   it('uses exact division when division is selected', () => {
@@ -32,6 +32,16 @@ describe('createFormulaProblemForLevel', () => {
     expect(createFormulaProblemForLevel(25).deadlineMs).toBe(4000);
   });
 
+  it('creates integer power and root practice problems', () => {
+    const power = createFormulaPracticeProblem(['power'], () => 0);
+    const root = createFormulaPracticeProblem(['root'], () => 0);
+
+    expect(power.prompt).toBe('2 ^ 2');
+    expect(power.answer).toBe(4);
+    expect(root.prompt).toBe('sqrt(4)');
+    expect(root.answer).toBe(2);
+  });
+
   it('creates simple addition practice problems', () => {
     const problem = createFormulaPracticeProblem(['addition'], () => 0);
 
@@ -44,8 +54,8 @@ describe('createFormulaProblemForLevel', () => {
   it('creates simple subtraction practice problems', () => {
     const problem = createFormulaPracticeProblem(['subtraction'], () => 0);
 
-    expect(problem.prompt).toBe('1 - 1');
-    expect(problem.answer).toBe(0);
+    expect(problem.prompt).toBe('2 - 1');
+    expect(problem.answer).toBe(1);
   });
 
   it('creates simple multiplication practice problems', () => {

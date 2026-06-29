@@ -47,7 +47,6 @@ function formulaState(overrides: Partial<FormulaFrenzyMatchState> = {}): Formula
     seed: 'seed',
     version: 2,
     status: 'waiting',
-    mode: 'progression',
     players: [],
     formulaPlayers: [],
     winnerUserId: null,

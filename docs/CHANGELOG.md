@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added - 2026-06-28
+### Added - 2026-06-29
 
-- Added Formula Frenzy's 25-level data-driven progression with XP carryover, streaks, hearts,
-  score bonuses, level names, XP bars, and expanded game-over stats for local and multiplayer play.
+- Expanded Formula Frenzy progression to 25 named levels with XP bars, root and power
+  calculations, streak-based score multipliers, 3-heart lives, heart recovery, and updated solo and
+  multiplayer HUDs.
 
 ### Added - 2026-06-28
 

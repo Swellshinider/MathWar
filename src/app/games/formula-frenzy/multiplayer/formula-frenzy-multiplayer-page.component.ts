@@ -11,9 +11,11 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { LucideHeart } from '@lucide/angular';
 import {
   FORMULA_LEVELS,
   FormulaFrenzyMatchState,
+  FormulaFrenzyPlayerState,
   MultiplayerMatchState,
 } from '@math-war/game-engine';
 import { preventBackspaceNavigation } from '../../../shared/dom/prevent-backspace-navigation';
@@ -26,7 +28,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-formula-frenzy-multiplayer-page',
-  imports: [GameFrameComponent, MultiplayerLobbyComponent, ReactiveFormsModule],
+  imports: [GameFrameComponent, MultiplayerLobbyComponent, ReactiveFormsModule, LucideHeart],
   templateUrl: './formula-frenzy-multiplayer-page.component.html',
   styleUrl: './formula-frenzy-multiplayer-page.component.scss',
 })
@@ -43,6 +45,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
   readonly answerRejected = signal(false);
   readonly opponentTyping = signal('');
   readonly now = signal(Date.now());
+  readonly heartSlots = [1, 2, 3] as const;
   readonly answerControl = new FormControl({ value: '', disabled: true }, { nonNullable: true });
 
   private tickId: ReturnType<typeof setInterval> | null = null;
@@ -149,11 +152,13 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
       expectedVersion: state.version,
       answer,
     });
-    if (!response.ok || !response.data) {
+    if (!response.ok) {
       this.rejectAnswer();
+      if (response.data) this.receiveState(response.data);
       this.error.set(response.error ?? 'The answer was rejected.');
       return;
     }
+    if (!response.data) return;
     this.receiveState(response.data);
     this.answerControl.setValue('');
     this.sendTyping();
@@ -228,6 +233,15 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
 
   levelName(level = 1): string {
     return FORMULA_LEVELS[level - 1]?.name ?? FORMULA_LEVELS[0].name;
+  }
+
+  multiplier(player = this.me()): string {
+    const streak = player?.streak ?? 0;
+    return Math.min(3, 1 + Math.max(0, streak - 1) * 0.1).toFixed(1);
+  }
+
+  playerHearts(player: FormulaFrenzyPlayerState | null): number {
+    return player?.hearts ?? 0;
   }
 
   ngOnDestroy(): void {

@@ -45,7 +45,7 @@ export interface Wall {
 
 export type GameId = 'equation-artillery' | 'formula-frenzy';
 export type MatchStatus = 'waiting' | 'active' | 'paused' | 'ended';
-export type MatchEndReason = 'hit' | 'abandonment' | 'left' | 'timeout' | 'wrong-answer';
+export type MatchEndReason = 'hit' | 'abandonment' | 'left' | 'timeout' | 'out-of-hearts';
 
 export interface ShotHistoryEntry {
   readonly commandId: string;
@@ -82,7 +82,6 @@ export type FormulaOperation =
   | 'division'
   | 'power'
   | 'root';
-export type FormulaGameMode = 'progression' | 'hardcore';
 
 export interface FormulaLevelConfig {
   readonly level: number;
@@ -114,6 +113,7 @@ export interface FormulaFrenzyPlayerState {
   readonly displayName: string;
   readonly connected: boolean;
   readonly score: number;
+  readonly experience: number;
   readonly level: number;
   readonly xp: number;
   readonly xpRequired: number;
@@ -136,7 +136,6 @@ export interface FormulaFrenzyMatchState {
   readonly seed: string;
   readonly version: number;
   readonly status: MatchStatus;
-  readonly mode: FormulaGameMode;
   readonly players: readonly PlayerState[];
   readonly formulaPlayers: readonly FormulaFrenzyPlayerState[];
   readonly winnerUserId: string | null;

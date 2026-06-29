@@ -82,7 +82,7 @@ describe('FormulaFrenzyPageComponent', () => {
     component.submitAnswer();
     fixture.detectChanges();
 
-    expect(component.score()).toBe(225);
+    expect(component.score()).toBe(220);
     expect(component.totalCorrect()).toBe(1);
     expect(component.streak()).toBe(1);
     expect(component.answerControl.value).toBe('');
@@ -145,13 +145,27 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(answerInput?.classList).toContain('answer-input--shake-b');
   });
 
-  it('removes a heart when the problem timer expires', () => {
+  it('ends the run when the problem timer expires', () => {
     component.startRun();
     vi.advanceTimersByTime(component.problem().deadlineMs);
     fixture.detectChanges();
 
-    expect(component.gameOver()).toBe(false);
+    expect(component.gameOver()).toBe(true);
+  });
+
+  it('spends hearts on wrong answers and recovers one on a five-answer streak', () => {
+    component.startRun();
+    component.answerControl.setValue(String(component.problem().answer! + 1));
+    component.submitAnswer();
     expect(component.hearts()).toBe(2);
+
+    for (let index = 0; index < 5; index += 1) {
+      component.answerControl.setValue(String(component.problem().answer));
+      component.submitAnswer();
+    }
+
+    expect(component.hearts()).toBe(3);
+    expect(component.streak()).toBe(5);
   });
 
   it('prevents Backspace navigation after the sprint result appears', () => {
@@ -179,7 +193,7 @@ describe('FormulaFrenzyPageComponent', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('.game-over')?.textContent).toContain('Final score 200');
+    expect(root.querySelector('.game-over')?.textContent).toContain('Final score 193');
     expect(root.querySelector('.game-over')?.textContent).toContain(
       `Answer ${component.problem().answer}`,
     );
@@ -221,6 +235,8 @@ describe('FormulaFrenzyPageComponent', () => {
     component.setPracticeOperation('addition', false);
     component.setPracticeOperation('subtraction', false);
     component.setPracticeOperation('division', false);
+    component.setPracticeOperation('power', false);
+    component.setPracticeOperation('root', false);
 
     component.answerControl.setValue(String(component.problem().answer));
     component.submitAnswer();
