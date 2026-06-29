@@ -281,7 +281,7 @@ export function missFormulaFrenzyPlayer(
   if (hearts > 0)
     return { ...state, version: state.version + 1, updatedAt: timestamp, formulaPlayers };
 
-  const winner = state.formulaPlayers.find((candidate) => candidate.userId !== userId);
+  const winner = formulaFrenzyWinner(formulaPlayers, userId);
   return {
     ...state,
     version: state.version + 1,
@@ -299,7 +299,7 @@ export function expireFormulaFrenzyPlayer(
   now = new Date(),
 ): FormulaFrenzyMatchState {
   if (state.status !== 'active') return state;
-  const winner = state.formulaPlayers.find((player) => player.userId !== userId);
+  const winner = formulaFrenzyWinner(state.formulaPlayers, userId);
   return {
     ...state,
     version: state.version + 1,
@@ -340,6 +340,30 @@ export function expiredFormulaFrenzyPlayer(
         now.getTime(),
     )?.userId ?? null
   );
+}
+
+function formulaFrenzyWinner(
+  players: readonly FormulaFrenzyPlayerState[],
+  expiredUserId: string,
+): FormulaFrenzyPlayerState | null {
+  const [first, second] = players;
+  if (!first || !second) return players.find((player) => player.userId !== expiredUserId) ?? null;
+
+  const scoreDiff = first.score - second.score;
+  if (scoreDiff !== 0) return scoreDiff > 0 ? first : second;
+
+  const levelDiff = first.level - second.level;
+  if (levelDiff !== 0) return levelDiff > 0 ? first : second;
+
+  const averageDiff = averageSolveTime(first) - averageSolveTime(second);
+  if (averageDiff !== 0) return averageDiff < 0 ? first : second;
+
+  return players.find((player) => player.userId !== expiredUserId) ?? null;
+}
+
+function averageSolveTime(player: FormulaFrenzyPlayerState): number {
+  if (player.totalCorrect === 0) return Number.POSITIVE_INFINITY;
+  return player.totalSolveTimeMs / player.totalCorrect;
 }
 
 function createFormulaPlayerState(
@@ -448,9 +472,7 @@ function problemForOperation(
   if (operation === 'root') {
     const cube = levelNumber >= 20 && random() < 0.35;
     const answer = randomInt(random, 2, cube ? 6 : 12);
-    return cube
-      ? { prompt: `∛${answer ** 3}`, answer }
-      : { prompt: `√${answer ** 2}`, answer };
+    return cube ? { prompt: `∛${answer ** 3}`, answer } : { prompt: `√${answer ** 2}`, answer };
   }
 
   const left = randomInt(random, 1, max);
