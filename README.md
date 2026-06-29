@@ -1,6 +1,9 @@
 # MathWar
 
-[![CI](https://github.com/Swellshinider/MathWar/actions/workflows/ci.yml/badge.svg)](https://github.com/Swellshinider/MathWar/actions/workflows/ci.yml)
+[![UI Build](https://github.com/Swellshinider/MathWar/actions/workflows/ci-ui-build.yml/badge.svg)](https://github.com/Swellshinider/MathWar/actions/workflows/ci-ui-build.yml)
+[![UI Tests](https://github.com/Swellshinider/MathWar/actions/workflows/ci-ui-test.yml/badge.svg)](https://github.com/Swellshinider/MathWar/actions/workflows/ci-ui-test.yml)
+[![Server Build](https://github.com/Swellshinider/MathWar/actions/workflows/ci-server-build.yml/badge.svg)](https://github.com/Swellshinider/MathWar/actions/workflows/ci-server-build.yml)
+[![Server Tests](https://github.com/Swellshinider/MathWar/actions/workflows/ci-server-test.yml/badge.svg)](https://github.com/Swellshinider/MathWar/actions/workflows/ci-server-test.yml)
 
 MathWar is an open-source project for browser-based math mini-games. Have fun playing!
 
@@ -105,6 +108,11 @@ checks that the multiplayer tables exist. `DATABASE_URL`, `SESSION_SECRET`, and
 - `server/db/migrations`: PostgreSQL schema migrations
 - `docs`: architecture notes and changelog
 - `public`: static browser assets and runtime config example
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) to set up the project and submit
+changes. To report a security issue, see [SECURITY.md](SECURITY.md).
 
 ## License
 
