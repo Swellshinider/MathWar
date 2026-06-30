@@ -60,8 +60,8 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(root.textContent).toContain('Free Practice');
     expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe('?? + ??');
     expect(root.querySelector('#formula-answer')?.getAttribute('type')).toBe('text');
-    expect(root.querySelector('#formula-answer')?.getAttribute('inputmode')).toBe('decimal');
-    expect(root.querySelector('.problem-panel button[type="submit"]')).toBeNull();
+    expect(root.querySelector('#formula-answer')?.getAttribute('inputmode')).toBe('none');
+    expect(root.querySelector('.answer-keypad__send')?.textContent).toContain('Send');
     expect(root.textContent).not.toContain(
       'Each correct answer raises your score. The deadline gets tighter as you climb.',
     );
@@ -118,6 +118,29 @@ describe('FormulaFrenzyPageComponent', () => {
     form.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('enters and sends answers from the mobile keypad', () => {
+    component.startRun();
+    const answer = String(component.problem().answer);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    for (const digit of answer.replace('-', '')) {
+      const button = Array.from(
+        root.querySelectorAll<HTMLButtonElement>('.answer-keypad button'),
+      ).find((current) => current.textContent?.trim() === digit);
+      button?.click();
+    }
+    if (answer.startsWith('-')) {
+      root.querySelector<HTMLButtonElement>('[aria-label="Toggle sign"]')?.click();
+    }
+    fixture.detectChanges();
+    root.querySelector<HTMLButtonElement>('.answer-keypad__send')?.click();
+    fixture.detectChanges();
+
+    expect(component.totalCorrect()).toBe(1);
+    expect(component.answerControl.value).toBe('');
   });
 
   it('marks the answer input invalid without showing an error message', () => {
@@ -194,11 +217,12 @@ describe('FormulaFrenzyPageComponent', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('.game-over')?.textContent).toContain('Final score 193');
-    expect(root.querySelector('.game-over')?.textContent).toContain(
+    expect(root.querySelector<HTMLDialogElement>('dialog.game-over')?.open).toBe(true);
+    expect(root.querySelector('dialog.game-over')?.textContent).toContain('Final score 193');
+    expect(root.querySelector('dialog.game-over')?.textContent).toContain(
       `Answer ${component.problem().answer}`,
     );
-    expect(root.querySelector('.game-over')?.textContent).toContain('Average 2.5s');
+    expect(root.querySelector('dialog.game-over')?.textContent).toContain('Average 2.5s');
   });
 
   it('restarts the run from the game over screen', () => {

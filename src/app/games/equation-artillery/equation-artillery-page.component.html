@@ -172,49 +172,51 @@
       </section>
     }
 
-    <div class="board-row">
-      <app-board
-        [player]="playerForBoard()"
-        [characters]="boardCharacters()"
-        [targets]="targetsForBoard()"
-        [walls]="wallsForBoard()"
-        [bullet]="bullet()"
-        [previewTrail]="previewTrail()"
-        [trail]="trail()"
-        [movementEnabled]="movementEnabled()"
-        [pointSelectionEnabled]="pointSelectionEnabled()"
-        (boardPoint)="handleFreePracticeBoardPoint($event)"
-      >
-        <button
-          boardActions
-          type="button"
-          class="board-action"
-          aria-label="Open equation help"
-          aria-describedby="local-help-tooltip"
-          aria-haspopup="dialog"
-          (click)="helpDialog.open()"
+    <div class="play-layout">
+      <div #boardAnchor class="board-anchor">
+        <app-board
+          [player]="playerForBoard()"
+          [characters]="boardCharacters()"
+          [targets]="targetsForBoard()"
+          [walls]="wallsForBoard()"
+          [bullet]="bullet()"
+          [previewTrail]="previewTrail()"
+          [trail]="trail()"
+          [movementEnabled]="movementEnabled()"
+          [pointSelectionEnabled]="pointSelectionEnabled()"
+          (boardPoint)="handleFreePracticeBoardPoint($event)"
         >
-          <svg lucideCircleHelp aria-hidden="true"></svg>
-          <span id="local-help-tooltip" class="board-action__tooltip" role="tooltip">Help</span>
-        </button>
-      </app-board>
+          <button
+            boardActions
+            type="button"
+            class="board-action"
+            aria-label="Open equation help"
+            aria-describedby="local-help-tooltip"
+            aria-haspopup="dialog"
+            (click)="helpDialog.open()"
+          >
+            <svg lucideCircleHelp aria-hidden="true"></svg>
+            <span id="local-help-tooltip" class="board-action__tooltip" role="tooltip">Help</span>
+          </button>
+        </app-board>
+      </div>
+
+      <div class="controls-row">
+        <app-equation-controls
+          [(equation)]="equation"
+          [active]="controlsActive()"
+          [roundComplete]="roundComplete()"
+          [error]="error()"
+          [status]="status()"
+          [showPreview]="gameMode() !== 'free-practice'"
+          (fire)="fire($event)"
+          (newRound)="newRound()"
+        />
+      </div>
 
       <app-equation-history
         [equations]="equationHistory()"
         (selectEquation)="equation.set($event)"
-      />
-    </div>
-
-    <div class="controls-row">
-      <app-equation-controls
-        [(equation)]="equation"
-        [active]="controlsActive()"
-        [roundComplete]="roundComplete()"
-        [error]="error()"
-        [status]="status()"
-        [showPreview]="gameMode() !== 'free-practice'"
-        (fire)="fire($event)"
-        (newRound)="newRound()"
       />
     </div>
   </div>

@@ -1,4 +1,5 @@
 import {
+  AfterViewChecked,
   Component,
   ElementRef,
   HostListener,
@@ -34,7 +35,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
   templateUrl: './formula-frenzy-multiplayer-page.component.html',
   styleUrl: './formula-frenzy-multiplayer-page.component.scss',
 })
-export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
+export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, OnDestroy {
   readonly auth = inject(MultiplayerAuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -42,8 +43,10 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly audio = inject(AudioSettingsService);
   @ViewChild('answerInput') private answerInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('resultDialog') private resultDialog?: ElementRef<HTMLDialogElement>;
 
   readonly state = signal<FormulaFrenzyMatchState | null>(null);
+  readonly keypadKeys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'] as const;
   readonly error = signal<string | null>(null);
   readonly answerRejected = signal(false);
   readonly opponentTyping = signal('');
@@ -150,6 +153,10 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
     preventBackspaceNavigation(event);
   }
 
+  ngAfterViewChecked(): void {
+    this.syncResultDialog();
+  }
+
   async submitAnswer(event?: SubmitEvent): Promise<void> {
     event?.preventDefault();
     const state = this.state();
@@ -189,6 +196,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
       this.error.set(response.error ?? 'Could not start the match.');
       return;
     }
+    this.closeResultDialog();
     this.receiveState(response.data);
     this.answerInput?.nativeElement.focus();
   }
@@ -228,8 +236,34 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
       this.error.set(response.error ?? 'Could not leave the match.');
       return;
     }
+    this.closeResultDialog();
     this.state.set(null);
     void this.router.navigate(['/games/formula-frenzy']);
+  }
+
+  pressKeypadDigit(digit: string): void {
+    if (this.answerControl.disabled) return;
+    this.answerControl.setValue(`${this.answerControl.value}${digit}`);
+    this.sendTyping();
+  }
+
+  toggleKeypadSign(): void {
+    if (this.answerControl.disabled) return;
+    const value = this.answerControl.value;
+    this.answerControl.setValue(value.startsWith('-') ? value.slice(1) : `-${value}`);
+    this.sendTyping();
+  }
+
+  backspaceKeypad(): void {
+    if (this.answerControl.disabled) return;
+    this.answerControl.setValue(this.answerControl.value.slice(0, -1));
+    this.sendTyping();
+  }
+
+  clearKeypad(): void {
+    if (this.answerControl.disabled) return;
+    this.answerControl.setValue('');
+    this.sendTyping();
   }
 
   timeRemaining(player = this.me()): string {
@@ -303,6 +337,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
     } else {
       this.answerControl.disable({ emitEvent: false });
     }
+    this.syncResultDialog();
   }
 
   private rejectAnswer(): void {
@@ -362,5 +397,29 @@ export class FormulaFrenzyMultiplayerPageComponent implements OnDestroy {
     else this.error.set(response.error ?? 'Could not join the room.');
     this.inviteJoinPending = false;
     this.inviteJoinInFlight = false;
+  }
+
+  private syncResultDialog(): void {
+    const dialog = this.resultDialog?.nativeElement;
+    if (!dialog) return;
+    if (this.state()?.status === 'ended' && !dialog.open) {
+      try {
+        if (typeof dialog.showModal === 'function') dialog.showModal();
+        else dialog.setAttribute('open', '');
+        if (!dialog.open) dialog.setAttribute('open', '');
+      } catch {
+        dialog.setAttribute('open', '');
+      }
+    } else if (this.state()?.status !== 'ended' && dialog.open) {
+      dialog.close?.();
+      dialog.removeAttribute('open');
+    }
+  }
+
+  private closeResultDialog(): void {
+    const dialog = this.resultDialog?.nativeElement;
+    if (!dialog?.open) return;
+    dialog.close?.();
+    dialog.removeAttribute('open');
   }
 }

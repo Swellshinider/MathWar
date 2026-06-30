@@ -20,49 +20,51 @@
             </button>
           </div>
         </section>
-        <div class="board-row">
-          <app-board
-            [player]="playerForBoard()"
-            [characters]="boardCharacters()"
-            [targets]="opponentTarget()"
-            [walls]="state()?.walls ?? []"
-            [bullet]="bullet()"
-            [trail]="trail()"
-          >
-            <button
-              boardActions
-              type="button"
-              class="board-action"
-              aria-label="Open equation help"
-              aria-describedby="multiplayer-help-tooltip"
-              aria-haspopup="dialog"
-              (click)="helpDialog.open()"
+        <div class="play-layout">
+          <div #boardAnchor class="board-anchor">
+            <app-board
+              [player]="playerForBoard()"
+              [characters]="boardCharacters()"
+              [targets]="opponentTarget()"
+              [walls]="state()?.walls ?? []"
+              [bullet]="bullet()"
+              [trail]="trail()"
             >
-              <svg lucideCircleHelp aria-hidden="true"></svg>
-              <span id="multiplayer-help-tooltip" class="board-action__tooltip" role="tooltip">
-                Help
-              </span>
+              <button
+                boardActions
+                type="button"
+                class="board-action"
+                aria-label="Open equation help"
+                aria-describedby="multiplayer-help-tooltip"
+                aria-haspopup="dialog"
+                (click)="helpDialog.open()"
+              >
+                <svg lucideCircleHelp aria-hidden="true"></svg>
+                <span id="multiplayer-help-tooltip" class="board-action__tooltip" role="tooltip">
+                  Help
+                </span>
+              </button>
+            </app-board>
+          </div>
+          <form class="controls" (submit)="$event.preventDefault(); fire()">
+            <label class="field-label" for="mp-equation">f(x)</label>
+            <input
+              id="mp-equation"
+              class="field"
+              name="equation"
+              maxlength="180"
+              [(ngModel)]="equation"
+              placeholder="0.35x"
+            />
+            <button type="submit" class="btn btn--primary" [disabled]="!isMyTurn() || activeShot()">
+              Fire
             </button>
-          </app-board>
+          </form>
           <app-equation-history
             [equations]="equationHistory()"
             (selectEquation)="equation.set($event)"
           />
         </div>
-        <form class="controls" (submit)="$event.preventDefault(); fire()">
-          <label class="field-label" for="mp-equation">f(x)</label>
-          <input
-            id="mp-equation"
-            class="field"
-            name="equation"
-            maxlength="180"
-            [(ngModel)]="equation"
-            placeholder="0.35x"
-          />
-          <button type="submit" class="btn btn--primary" [disabled]="!isMyTurn() || activeShot()">
-            Fire
-          </button>
-        </form>
         <p class="status" aria-live="polite">{{ status() }}</p>
       </div>
     </div>

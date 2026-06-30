@@ -249,19 +249,31 @@ input {
   animation: answer-shake-a 180ms ease-in-out reverse;
 }
 
+.answer-keypad {
+  display: none;
+}
+
 .game-over {
-  position: absolute;
-  inset: 50% auto auto 50%;
   display: grid;
   min-width: min(22rem, calc(100% - 2rem));
   gap: var(--space-3);
-  transform: translate(-50%, -50%);
   padding: var(--space-5);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-lg);
   background: var(--surface-1);
+  color: var(--text-strong);
   box-shadow: var(--shadow-3);
   text-align: center;
+}
+
+.game-over:not([open]) {
+  display: none;
+}
+
+.game-over::backdrop {
+  background: rgb(2 8 15 / 75%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .game-over h2,
@@ -301,5 +313,28 @@ input {
   .hud-mode {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+}
+
+@media (max-width: 48rem) {
+  .answer-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .answer-keypad button {
+    min-height: 3rem;
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    color: var(--text-strong);
+    font: inherit;
+    font-weight: var(--weight-bold);
+  }
+
+  .answer-keypad .answer-keypad__send {
+    background: var(--accent);
+    color: var(--text-strong);
   }
 }

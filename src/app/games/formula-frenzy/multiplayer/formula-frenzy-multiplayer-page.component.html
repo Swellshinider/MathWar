@@ -73,12 +73,21 @@
             #answerInput
             id="formula-multiplayer-answer"
             type="text"
-            inputmode="decimal"
+            inputmode="none"
             autocomplete="off"
             [class.answer-input--invalid]="answerRejected()"
             [formControl]="answerControl"
             (input)="sendTyping()"
           />
+          <div class="answer-keypad" aria-label="Answer keypad">
+            @for (key of keypadKeys; track key) {
+              <button type="button" (click)="pressKeypadDigit(key)">{{ key }}</button>
+            }
+            <button type="button" aria-label="Toggle sign" (click)="toggleKeypadSign()">+/-</button>
+            <button type="button" aria-label="Backspace" (click)="backspaceKeypad()">Del</button>
+            <button type="button" (click)="clearKeypad()">Clear</button>
+            <button type="submit" class="answer-keypad__send">Send</button>
+          </div>
         </form>
       </article>
 
@@ -132,8 +141,8 @@
       </article>
     </section>
 
-    @if (state()?.status === 'ended') {
-      <section class="game-over" role="dialog" aria-labelledby="formula-multiplayer-result-title">
+    <dialog #resultDialog class="game-over" aria-labelledby="formula-multiplayer-result-title">
+      @if (state()?.status === 'ended') {
         <h2 id="formula-multiplayer-result-title">{{ resultTitle() }}</h2>
         <p>Final score {{ me()?.score ?? 0 }}</p>
         <p>
@@ -148,8 +157,11 @@
             Restart
           </button>
         }
-      </section>
-    }
+        <button type="button" class="btn btn--subtle leave-result-button" (click)="leave()">
+          Leave match
+        </button>
+      }
+    </dialog>
   }
 
   <p class="status" aria-live="polite">{{ status() }}</p>

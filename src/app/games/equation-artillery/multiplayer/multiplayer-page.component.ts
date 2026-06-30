@@ -1,4 +1,13 @@
-import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  ViewChild,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideCircleHelp } from '@lucide/angular';
@@ -54,6 +63,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   private readonly animation = inject(AnimationService);
   private readonly audio = inject(EquationArtilleryAudioService);
   private readonly toast = inject(ToastService);
+  @ViewChild('boardAnchor') private boardAnchor?: ElementRef<HTMLElement>;
   readonly state = signal<MatchState | null>(null);
   readonly equation = signal('0');
   readonly error = signal<string | null>(null);
@@ -240,7 +250,9 @@ export class MultiplayerPageComponent implements OnDestroy {
     if (!response.ok) {
       this.pendingLocalShotCommandIds.delete(commandId);
       this.error.set(response.error ?? 'The shot was rejected.');
+      return;
     }
+    this.scrollBoardIntoView();
   }
 
   async leave(): Promise<void> {
@@ -437,6 +449,10 @@ export class MultiplayerPageComponent implements OnDestroy {
     this.lastEndedSoundKey = key;
     if (event.winnerUserId === this.userId()) this.audio.playWin();
     else this.audio.playLose();
+  }
+
+  private scrollBoardIntoView(): void {
+    this.boardAnchor?.nativeElement.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }
 
   private charactersForState(state: MatchState | null | undefined): readonly CharacterState[] {

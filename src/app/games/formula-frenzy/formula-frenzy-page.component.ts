@@ -1,4 +1,5 @@
 import {
+  AfterViewChecked,
   Component,
   ElementRef,
   HostListener,
@@ -37,12 +38,14 @@ type FormulaFrenzyMode = 'progression' | 'free-practice';
   templateUrl: './formula-frenzy-page.component.html',
   styleUrl: './formula-frenzy-page.component.scss',
 })
-export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
+export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnDestroy {
   private readonly audio = inject(AudioSettingsService);
   private readonly router = inject(Router);
   @ViewChild('answerInput') private answerInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('resultDialog') private resultDialog?: ElementRef<HTMLDialogElement>;
 
   readonly problem = signal<FormulaProblem>(createFormulaProblemForLevel(1));
+  readonly keypadKeys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'] as const;
   readonly gameMode = signal<FormulaFrenzyMode>('progression');
   readonly runStarted = signal(false);
   readonly heartSlots = [1, 2, 3] as const;
@@ -95,6 +98,10 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.syncAnswerControl();
+  }
+
+  ngAfterViewChecked(): void {
+    this.syncResultDialog();
   }
 
   ngOnDestroy(): void {
@@ -180,6 +187,7 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
   }
 
   restart(): void {
+    this.closeResultDialog();
     this.score.set(0);
     this.scorePulsed.set(false);
     this.experience.set(0);
@@ -248,11 +256,33 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  pressKeypadDigit(digit: string): void {
+    if (this.answerControl.disabled) return;
+    this.answerControl.setValue(`${this.answerControl.value}${digit}`);
+  }
+
+  toggleKeypadSign(): void {
+    if (this.answerControl.disabled) return;
+    const value = this.answerControl.value;
+    this.answerControl.setValue(value.startsWith('-') ? value.slice(1) : `-${value}`);
+  }
+
+  backspaceKeypad(): void {
+    if (this.answerControl.disabled) return;
+    this.answerControl.setValue(this.answerControl.value.slice(0, -1));
+  }
+
+  clearKeypad(): void {
+    if (this.answerControl.disabled) return;
+    this.answerControl.setValue('');
+  }
+
   private lose(): void {
     this.gameOver.set(true);
     this.runStarted.set(false);
     this.clearTimers();
     this.syncAnswerControl();
+    this.syncResultDialog();
     this.playSound('game-over.wav');
   }
 
@@ -354,5 +384,29 @@ export class FormulaFrenzyPageComponent implements OnInit, OnDestroy {
 
   private progressionPaused(): boolean {
     return this.gameMode() === 'progression' && !this.runStarted();
+  }
+
+  private syncResultDialog(): void {
+    const dialog = this.resultDialog?.nativeElement;
+    if (!dialog) return;
+    if (this.gameOver() && !dialog.open) {
+      try {
+        if (typeof dialog.showModal === 'function') dialog.showModal();
+        else dialog.setAttribute('open', '');
+        if (!dialog.open) dialog.setAttribute('open', '');
+      } catch {
+        dialog.setAttribute('open', '');
+      }
+    } else if (!this.gameOver() && dialog.open) {
+      dialog.close?.();
+      dialog.removeAttribute('open');
+    }
+  }
+
+  private closeResultDialog(): void {
+    const dialog = this.resultDialog?.nativeElement;
+    if (!dialog?.open) return;
+    dialog.close?.();
+    dialog.removeAttribute('open');
   }
 }

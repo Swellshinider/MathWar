@@ -58,8 +58,9 @@ describe('EquationControlsComponent', () => {
       .querySelector('app-function-preview path')
       .getAttribute('d');
     const preview = fixture.nativeElement.querySelector('app-function-preview');
+    const entryRow = fixture.nativeElement.querySelector('.entry-row');
     expect(updatedPath).not.toBe(initialPath);
-    expect(fixture.nativeElement.querySelector('.controls-layout').firstElementChild).toBe(preview);
+    expect(entryRow.nextElementSibling).toBe(preview);
     expect(preview.querySelector('svg')).not.toBeNull();
     expect(preview.querySelectorAll('line, text, circle, rect')).toHaveLength(0);
     expect(preview.textContent).not.toContain('Position and scale hidden');

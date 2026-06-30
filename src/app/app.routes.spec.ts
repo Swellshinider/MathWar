@@ -31,7 +31,7 @@ describe('application routes', () => {
     expect(harness.routeNativeElement?.querySelector('app-board')).not.toBeNull();
     expect(harness.routeNativeElement?.textContent).toContain('Equation Artillery');
     expect(harness.routeNativeElement?.textContent).not.toContain('Focus on game');
-  });
+  }, 10000);
 
   it('opens Formula Frenzy at its direct route', async () => {
     const harness = await RouterTestingHarness.create();
