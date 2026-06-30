@@ -12,6 +12,7 @@
     "test:server": "npm run build:engine && vitest run --config server/vitest.config.ts",
     "server:dev": "tsx watch server/src/main.ts",
     "server:dev:memory": "tsx watch server/src/dev-main.ts",
+    "check:release-version": "node scripts/check-release-version.mjs",
     "build:engine": "tsc -p packages/game-engine/tsconfig.json",
     "clean:angular-cache": "node -e \"require('node:fs').rmSync('.angular/cache', { recursive: true, force: true })\"",
     "server:build": "npm run build:engine && tsc -p server/tsconfig.json",
