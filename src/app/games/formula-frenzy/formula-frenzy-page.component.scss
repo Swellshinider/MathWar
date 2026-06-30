@@ -110,9 +110,11 @@
   gap: var(--space-1);
   margin-top: var(--space-2);
   color: var(--text-muted);
+  overflow: hidden;
 }
 
 .multiplier {
+  display: inline-block;
   color: var(--accent);
   font-size: var(--fs-md);
   font-weight: var(--weight-black);
@@ -121,16 +123,14 @@
 
 .multiplier--boosted {
   color: var(--success);
-  transform: scale(1.08);
 }
 
 .multiplier--hot {
   color: var(--accent-hover);
-  transform: scale(1.16);
 }
 
 .multiplier-pop {
-  transform: scale(1.26);
+  transform: scale(1.08);
 }
 
 .hearts {

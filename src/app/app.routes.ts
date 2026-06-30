@@ -10,6 +10,12 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'about',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./about/about-page.component').then((module) => module.AboutPageComponent),
+  },
+  {
     path: 'games/equation-artillery',
     pathMatch: 'full',
     loadComponent: () =>

@@ -22,5 +22,7 @@ describe('SiteFooterComponent', () => {
     const link = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
     expect(link.textContent).toContain('GitHub Repository');
     expect(link.getAttribute('href')).toBe('https://github.com/Swellshinider/MathWar');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
   });
 });
