@@ -1,3 +1,5 @@
+<center>
+
 # MathWar
 
 [![UI Build](https://github.com/Swellshinider/MathWar/actions/workflows/ci-ui-build.yml/badge.svg)](https://github.com/Swellshinider/MathWar/actions/workflows/ci-ui-build.yml)
@@ -7,28 +9,19 @@
 
 MathWar is an open-source project for browser-based math mini-games. Have fun playing!
 
+</center>
+
 ## Available Mini-Games
 
 ### Equation Artillery
 
 Equation Artillery is a graph-based artillery game inspired by
 [Graphwar](https://github.com/catabriga/graphwar). Players type equations, fire shots
-that follow the resulting curve, and use function shape to hit targets, walls, CPU
-soldiers, or private multiplayer opponents.
-
-![Equation Artillery example](docs/images/equation-artillery-example.png)
-
-Current modes:
-
-- Target Practice
-- Free Practice
-- CPU vs.
-- Private 1v1 multiplayer
+that follow the resulting curve, and use function shape to hit targets.
 
 ### Formula Frenzy
 
-Formula Frenzy is a progression-based arithmetic sprint with an untimed Free Practice
-mode for drilling selected operation types. Solve each formula before its timer expires,
+Formula Frenzy is a progression-based arithmetic sprint. Solve each formula before its timer expires,
 keep your streak alive, and watch the problems get harder as your score climbs.
 
 ## Requirements
