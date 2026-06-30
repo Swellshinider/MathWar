@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed - 2026-06-29
 
+- Improved mobile play layouts for Equation Artillery and Formula Frenzy, including accepted-shot
+  board scrolling, Equation Artillery function previews below the input, mobile Formula Frenzy
+  keypads, and result dialogs.
 - Ranked Formula Frenzy multiplayer winners by score, level, and average solve time instead of
   automatically awarding timeout and last-heart wins to the surviving player.
 - Replaced the Formula Frenzy level-up sound and cleaned up the multiplayer result summary.

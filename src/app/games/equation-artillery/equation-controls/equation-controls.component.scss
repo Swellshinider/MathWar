@@ -4,14 +4,7 @@
 }
 
 .controls-layout {
-  display: grid;
-  grid-template-columns: minmax(8rem, 10rem) minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.controls-layout--full {
-  grid-template-columns: minmax(0, 1fr);
+  display: block;
 }
 
 .control-content {
@@ -26,6 +19,10 @@ form,
 
 form {
   gap: var(--space-2);
+}
+
+app-function-preview {
+  width: min(10rem, 100%);
 }
 
 label {
@@ -66,14 +63,6 @@ label {
 }
 
 @media (max-width: 37.5rem) {
-  .controls-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  app-function-preview {
-    width: min(10rem, 100%);
-  }
-
   .entry-row {
     grid-template-columns: auto 1fr auto;
   }

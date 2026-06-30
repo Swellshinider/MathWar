@@ -1,7 +1,4 @@
 <div class="controls-layout" [class.controls-layout--full]="!showPreview()">
-  @if (showPreview()) {
-    <app-function-preview [equation]="equationValue()" />
-  }
   <div class="control-content">
     <form (submit)="submit($event)">
       <label for="equation">Trajectory equation</label>
@@ -25,6 +22,9 @@
           <button type="button" class="btn btn--ghost" (click)="newRound.emit()">New Round</button>
         }
       </div>
+      @if (showPreview()) {
+        <app-function-preview [equation]="equationValue()" />
+      }
     </form>
     <p class="status" aria-live="polite">{{ status() }}</p>
     @if (error()) {

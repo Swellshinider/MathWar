@@ -185,9 +185,11 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
 
     handlers.state(ended);
     fixture.detectChanges();
-    expect(root.querySelector('.game-over')?.textContent).toContain('Game over');
-    expect(root.querySelector('.game-over')?.textContent).toContain('Final score 0');
-    expect(root.querySelector('.game-over')?.textContent).not.toContain('timeout');
+    expect(root.querySelector<HTMLDialogElement>('dialog.game-over')?.open).toBe(true);
+    expect(root.querySelector('dialog.game-over')?.textContent).toContain('Game over');
+    expect(root.querySelector('dialog.game-over')?.textContent).toContain('Final score 0');
+    expect(root.querySelector('dialog.game-over')?.textContent).toContain('Leave match');
+    expect(root.querySelector('dialog.game-over')?.textContent).not.toContain('timeout');
     root.querySelector<HTMLButtonElement>('.restart-button')?.click();
     await fixture.whenStable();
 
@@ -208,6 +210,49 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
 
     expect(root.querySelector<HTMLButtonElement>('.restart-button')).toBeNull();
     expect(socket.startFormula).not.toHaveBeenCalled();
+  });
+
+  it('enters answers from the mobile keypad and sends typing updates', () => {
+    vi.useFakeTimers();
+    handlers.state(activeState());
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    root.querySelector<HTMLInputElement>('#formula-multiplayer-answer')?.focus();
+    expect(root.querySelector('#formula-multiplayer-answer')?.getAttribute('inputmode')).toBe(
+      'none',
+    );
+    Array.from(root.querySelectorAll<HTMLButtonElement>('.answer-keypad button'))
+      .find((button) => button.textContent?.trim() === '4')
+      ?.click();
+    Array.from(root.querySelectorAll<HTMLButtonElement>('.answer-keypad button'))
+      .find((button) => button.textContent?.trim() === '5')
+      ?.click();
+    vi.advanceTimersByTime(100);
+
+    expect(fixture.componentInstance.answerControl.value).toBe('45');
+    expect(socket.sendFormulaTyping).toHaveBeenCalledWith({ input: '45' });
+    vi.useRealTimers();
+  });
+
+  it('sends the keypad answer through the existing form submit', async () => {
+    const next = activeState({ version: 3 });
+    socket.answerFormula.mockResolvedValue({ ok: true, data: next });
+    handlers.state(activeState());
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    Array.from(root.querySelectorAll<HTMLButtonElement>('.answer-keypad button'))
+      .find((button) => button.textContent?.trim() === '4')
+      ?.click();
+    root.querySelector<HTMLButtonElement>('.answer-keypad__send')?.click();
+    await fixture.whenStable();
+
+    expect(socket.answerFormula).toHaveBeenCalledWith({
+      commandId: expect.any(String),
+      expectedVersion: 2,
+      answer: 4,
+    });
   });
 
   it('prevents Backspace navigation after the multiplayer result appears', () => {

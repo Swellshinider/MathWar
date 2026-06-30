@@ -171,6 +171,7 @@ describe('MultiplayerPageComponent', () => {
     setMuted: vi.fn(),
     setVolume: vi.fn(),
   };
+  const scrollIntoView = vi.fn();
 
   beforeEach(async () => {
     TestBed.resetTestingModule();
@@ -195,6 +196,10 @@ describe('MultiplayerPageComponent', () => {
         disconnect(): void {}
       },
     );
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+    });
     TestBed.overrideComponent(MultiplayerPageComponent, {
       set: { providers: [{ provide: AnimationService, useValue: animation }] },
     });
@@ -393,6 +398,22 @@ describe('MultiplayerPageComponent', () => {
     });
 
     expect(audio.playFire).toHaveBeenCalledOnce();
+  });
+
+  it('scrolls to the board only after the server accepts a fire action', async () => {
+    socket.fire.mockResolvedValueOnce({ ok: false, error: 'Nope' });
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    handlers.state(matchState());
+    fixture.detectChanges();
+
+    await fixture.componentInstance.fire();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    socket.fire.mockResolvedValueOnce({ ok: true });
+    await fixture.componentInstance.fire();
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
   it('plays opponent hit and lose sounds after a resolved final shot', () => {

@@ -31,6 +31,7 @@ describe('EquationArtilleryPageComponent', () => {
     setMuted: vi.fn(),
     setVolume: vi.fn(),
   };
+  const scrollIntoView = vi.fn();
 
   beforeEach(async () => {
     TestBed.resetTestingModule();
@@ -44,6 +45,10 @@ describe('EquationArtilleryPageComponent', () => {
         disconnect(): void {}
       },
     );
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+    });
     TestBed.overrideComponent(EquationArtilleryPageComponent, {
       set: {
         providers: [{ provide: AnimationService, useValue: animation }],
@@ -73,6 +78,31 @@ describe('EquationArtilleryPageComponent', () => {
     component.fire('x+(');
     expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['sin(x)']);
     expect(component.error()).not.toBeNull();
+  });
+
+  it('orders mobile play content as board, controls, then history', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    fixture.detectChanges();
+    const playLayout = fixture.nativeElement.querySelector('.play-layout') as HTMLElement;
+
+    expect(Array.from(playLayout.children).map((child) => child.tagName.toLowerCase())).toEqual([
+      'div',
+      'div',
+      'app-equation-history',
+    ]);
+  });
+
+  it('scrolls to the board only after a valid local shot starts', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.fire('x+(');
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    component.fire('0');
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
   it('keeps only help controls on the board', () => {

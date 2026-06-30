@@ -1,4 +1,12 @@
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import {
   LucideBrickWall,
@@ -91,6 +99,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   private readonly animation = inject(AnimationService);
   private readonly audio = inject(EquationArtilleryAudioService);
   private readonly router = inject(Router);
+  @ViewChild('boardAnchor') private boardAnchor?: ElementRef<HTMLElement>;
   private readonly initialRound = spawnRound();
   private pendingCpuTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingSinglePlayerState: MatchState | null = null;
@@ -267,6 +276,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.audio.playFire();
     this.audio.startEquationSound(shotFrames[0].bullet.position);
     this.active.set(true);
+    this.scrollBoardIntoView();
     this.bullet.set(shotFrames[0].bullet);
     this.trail.set(shotFrames[0].trail);
     let renderedIndex = 0;
@@ -481,6 +491,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       return;
     }
     this.audio.playFire();
+    this.scrollBoardIntoView();
     this.animateSinglePlayerShot(event);
   }
 
@@ -601,6 +612,10 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   private nextCommandId(prefix: string): string {
     this.commandSequence += 1;
     return `${prefix}-${this.commandSequence}`;
+  }
+
+  private scrollBoardIntoView(): void {
+    this.boardAnchor?.nativeElement.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }
 
   private charactersForState(state: MatchState): readonly CharacterState[] {

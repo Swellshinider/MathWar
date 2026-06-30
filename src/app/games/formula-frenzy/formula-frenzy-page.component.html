@@ -119,7 +119,7 @@
             #answerInput
             id="formula-answer"
             type="text"
-            inputmode="decimal"
+            inputmode="none"
             autocomplete="off"
             [class.answer-input--invalid]="answerRejected()"
             [class.answer-input--shake-a]="answerRejectionCount() % 2 === 1"
@@ -129,11 +129,20 @@
             [formControl]="answerControl"
           />
         </div>
+        <div class="answer-keypad" aria-label="Answer keypad">
+          @for (key of keypadKeys; track key) {
+            <button type="button" (click)="pressKeypadDigit(key)">{{ key }}</button>
+          }
+          <button type="button" aria-label="Toggle sign" (click)="toggleKeypadSign()">+/-</button>
+          <button type="button" aria-label="Backspace" (click)="backspaceKeypad()">Del</button>
+          <button type="button" (click)="clearKeypad()">Clear</button>
+          <button type="submit" class="answer-keypad__send">Send</button>
+        </div>
       </form>
     </div>
 
-    @if (gameOver()) {
-      <div class="game-over" role="dialog" aria-labelledby="formula-game-over-title">
+    <dialog #resultDialog class="game-over" aria-labelledby="formula-game-over-title">
+      @if (gameOver()) {
         <h2 id="formula-game-over-title">Game over</h2>
         <p>Final score {{ score() }}</p>
         <p>Highest level {{ highestLevel() }} {{ highestLevelName() }}</p>
@@ -142,7 +151,7 @@
         <p>Average {{ averageSolveTime() }}</p>
         <p>Best streak {{ bestStreak() }}</p>
         <button type="button" class="btn restart-button" (click)="restart()">Restart</button>
-      </div>
-    }
+      }
+    </dialog>
   </section>
 </app-game-frame>
