@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced the header About dialog with a dedicated About page with suggestion and contributing
   links, refreshed site chrome link colors, opened the GitHub repository link in a new tab, and
   improved the mobile footer layout, and updated the Formula Frenzy catalog preview.
+- Matched workspace package versions to the latest release tag.
 
 ### Fixed - 2026-06-30
 
