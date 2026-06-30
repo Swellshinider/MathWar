@@ -24,6 +24,16 @@ describe('application routes', () => {
     expect(harness.routeNativeElement?.textContent).toContain('Practice mathematical ideas');
   });
 
+  it('opens the About page at its direct route', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/about');
+
+    expect(harness.routeNativeElement?.textContent).toContain('About MathWar');
+    expect(harness.routeNativeElement?.textContent).toContain('Suggestions');
+    expect(harness.routeNativeElement?.textContent).toContain('Contributing');
+    expect(harness.routeNativeElement?.textContent).not.toContain('Inspiration');
+  });
+
   it('opens Equation Artillery at its direct route', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/games/equation-artillery');

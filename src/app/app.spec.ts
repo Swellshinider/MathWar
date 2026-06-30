@@ -31,28 +31,14 @@ describe('App', () => {
     expect(logo.getAttribute('alt')).toBe('');
   });
 
-  it('opens the About dialog from the header', () => {
+  it('links to the About page from the header', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    const dialog = root.querySelector<HTMLDialogElement>('app-site-header dialog')!;
-    const showModal = vi.fn();
-    dialog.showModal = showModal;
+    const aboutLink = root.querySelector<HTMLAnchorElement>('app-site-header a[href="/about"]')!;
 
-    root
-      .querySelector<HTMLButtonElement>('app-site-header button[aria-haspopup="dialog"]')!
-      .click();
-
-    expect(showModal).toHaveBeenCalledOnce();
-    expect(dialog.textContent).toContain('MathWar is an open-source math mini-game collection.');
-    expect(dialog.textContent).toContain('Equation Artillery');
-    expect(dialog.textContent).toContain('Formula Frenzy');
-    expect(dialog.textContent).toContain('Graphwar');
-    expect(
-      dialog.querySelector<HTMLAnchorElement>(
-        'a[href="https://github.com/Swellshinider/MathWar/issues"]',
-      ),
-    ).not.toBeNull();
+    expect(root.querySelector('app-site-header dialog')).toBeNull();
+    expect(aboutLink.textContent).toContain('About');
   });
 
   it('opens global sound controls from the header', () => {

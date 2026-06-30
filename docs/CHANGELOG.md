@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added issue templates, a pull request template, and CONTRIBUTING, SECURITY, and CODE_OF_CONDUCT
   guides for the public release.
 
+### Changed - 2026-06-30
+
+- Replaced the header About dialog with a dedicated About page with suggestion and contributing
+  links, refreshed site chrome link colors, opened the GitHub repository link in a new tab, and
+  improved the mobile footer layout, and updated the Formula Frenzy catalog preview.
+
 ### Fixed - 2026-06-29
 
 - Improved mobile play layouts for Equation Artillery and Formula Frenzy, including accepted-shot
