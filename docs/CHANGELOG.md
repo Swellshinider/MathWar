@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   links, refreshed site chrome link colors, opened the GitHub repository link in a new tab, and
   improved the mobile footer layout, and updated the Formula Frenzy catalog preview.
 
+### Fixed - 2026-06-30
+
+- Kept the Formula Frenzy streak multiplier inside the HUD at high streaks.
+
 ### Fixed - 2026-06-29
 
 - Improved mobile play layouts for Equation Artillery and Formula Frenzy, including accepted-shot
