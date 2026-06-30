@@ -1,4 +1,4 @@
-<center>
+<div align="center">
 
 # MathWar
 
@@ -9,7 +9,7 @@
 
 MathWar is an open-source project for browser-based math mini-games. Have fun playing!
 
-</center>
+</div>
 
 ## Available Mini-Games
 
