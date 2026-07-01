@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated Angular build tooling and added targeted dependency overrides for vulnerable transitive
   build packages reported by `npm audit`.
+- Cleared stale persisted multiplayer sessions when Socket.IO authentication rejects an old guest
+  token while preserving remembered display names.
 - Improved multiplayer load tests to generate gameplay traffic, track authoritative match versions,
   report command and acknowledgement breakdowns, verify reconnects, and check post-run socket
   cleanup metrics.

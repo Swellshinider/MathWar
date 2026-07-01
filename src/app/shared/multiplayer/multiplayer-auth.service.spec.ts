@@ -83,6 +83,7 @@ describe('MultiplayerAuthService', () => {
       JSON.stringify({ token: 'token', user: { id: 'user-1', displayName: 'Player One' } }),
     );
     localStorage.setItem('math-war-multiplayer-display-name', 'Player One');
+    localStorage.setItem('unrelated-key', 'keep me');
     TestBed.configureTestingModule({
       providers: [
         MultiplayerAuthService,
@@ -97,6 +98,31 @@ describe('MultiplayerAuthService', () => {
     expect(service.storedDisplayName()).toBe('Player One');
     expect(localStorage.getItem('math-war-multiplayer-session')).toBeNull();
     expect(localStorage.getItem('math-war-multiplayer-display-name')).toBe('Player One');
+    expect(localStorage.getItem('unrelated-key')).toBe('keep me');
+  });
+
+  it('clears invalid guest sessions without clearing remembered or unrelated storage', async () => {
+    localStorage.setItem(
+      'math-war-multiplayer-session',
+      JSON.stringify({ token: 'token', user: { id: 'user-1', displayName: 'Player One' } }),
+    );
+    localStorage.setItem('math-war-multiplayer-display-name', 'Player One');
+    localStorage.setItem('unrelated-key', 'keep me');
+    TestBed.configureTestingModule({
+      providers: [
+        MultiplayerAuthService,
+        { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
+      ],
+    });
+
+    const service = TestBed.inject(MultiplayerAuthService);
+    service.clearInvalidSession();
+
+    expect(service.session()).toBeNull();
+    expect(service.storedDisplayName()).toBe('Player One');
+    expect(localStorage.getItem('math-war-multiplayer-session')).toBeNull();
+    expect(localStorage.getItem('math-war-multiplayer-display-name')).toBe('Player One');
+    expect(localStorage.getItem('unrelated-key')).toBe('keep me');
   });
 
   it('removes invalid stored sessions without clearing the remembered display name', () => {

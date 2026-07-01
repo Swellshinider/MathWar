@@ -375,6 +375,26 @@ describe('MultiplayerPageComponent', () => {
     expect(fixture.componentInstance.equationHistory()).toEqual([]);
   });
 
+  it('returns to the lobby when the multiplayer session expires', () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    handlers.state(matchState());
+    fixture.detectChanges();
+
+    auth.session.set(null);
+    handlers.error('Your multiplayer session expired. Please enter again.');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.state()).toBeNull();
+    expect(socket.disconnect).toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Your multiplayer session expired. Please enter again.',
+    );
+    expect(fixture.nativeElement.textContent).toContain(
+      'Enter a display name to create or join a private match.',
+    );
+  });
+
   it('plays local fire immediately and does not double-play it for the resolved shot event', async () => {
     socket.fire.mockResolvedValue({ ok: true });
     const fixture = TestBed.createComponent(MultiplayerPageComponent);
