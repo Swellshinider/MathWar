@@ -16,6 +16,7 @@ export interface BoardScene {
   readonly bullet: Bullet | null;
   readonly previewTrail?: readonly Point[];
   readonly trail: readonly Point[];
+  readonly visibleTrailPointCount?: number | null;
 }
 
 export interface BoardCharacter extends Player {
@@ -41,7 +42,7 @@ export class BoardRenderer {
     context.fillRect(0, 0, size.width, size.height);
     this.drawGrid(context, size, bounds);
     this.drawPreviewTrail(context, size, bounds, scene.previewTrail ?? []);
-    this.drawTrail(context, size, bounds, scene.trail, glow);
+    this.drawTrail(context, size, bounds, scene.trail, glow, scene.visibleTrailPointCount);
     scene.walls.forEach((wall) =>
       wall.pieces.forEach((piece) => this.drawWallPiece(context, size, bounds, piece)),
     );
@@ -106,15 +107,18 @@ export class BoardRenderer {
     bounds: WorldBounds,
     trail: readonly Point[],
     glow: boolean,
+    visiblePointCount?: number | null,
   ): void {
-    if (trail.length < 2) return;
+    const pointCount = Math.min(trail.length, visiblePointCount ?? trail.length);
+    if (pointCount < 2) return;
     context.beginPath();
     const first = worldToCanvas(trail[0], bounds, size);
     context.moveTo(first.x, first.y);
-    trail.slice(1).forEach((point) => {
+    for (let index = 1; index < pointCount; index += 1) {
+      const point = trail[index];
       const screen = worldToCanvas(point, bounds, size);
       context.lineTo(screen.x, screen.y);
-    });
+    }
     context.lineCap = 'round';
     context.lineJoin = 'round';
     context.strokeStyle = BOARD_PALETTE.trail;
@@ -137,10 +141,11 @@ export class BoardRenderer {
     context.beginPath();
     const first = worldToCanvas(trail[0], bounds, size);
     context.moveTo(first.x, first.y);
-    trail.slice(1).forEach((point) => {
+    for (let index = 1; index < trail.length; index += 1) {
+      const point = trail[index];
       const screen = worldToCanvas(point, bounds, size);
       context.lineTo(screen.x, screen.y);
-    });
+    }
     context.lineCap = 'round';
     context.lineJoin = 'round';
     context.strokeStyle = BOARD_PALETTE.previewTrail;

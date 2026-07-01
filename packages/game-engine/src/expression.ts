@@ -1,6 +1,7 @@
 import { FunctionNode, MathNode, OperatorNode, parse, SymbolNode } from 'mathjs/number';
 
 export const MAX_EXPRESSION_LENGTH = 180;
+const COMPILE_CACHE_LIMIT = 128;
 const ORIGIN_FALLBACK_SAMPLES = [0.08, 0.16, 0.32, 0.64, 1] as const;
 const FUNCTIONS = new Map([
   ['sin', 'sin'],
@@ -43,6 +44,18 @@ export interface CompiledExpression {
 }
 
 export class ExpressionError extends Error {}
+
+const compileCache = new Map<string, CompiledExpression>();
+
+function cacheCompiledExpression(expression: CompiledExpression): CompiledExpression {
+  compileCache.delete(expression.source);
+  compileCache.set(expression.source, expression);
+  if (compileCache.size > COMPILE_CACHE_LIMIT) {
+    const oldest = compileCache.keys().next().value;
+    if (oldest) compileCache.delete(oldest);
+  }
+  return expression;
+}
 
 function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -133,6 +146,12 @@ function validateAst(root: MathNode): void {
 
 export function compileExpression(value: string): CompiledExpression {
   const source = normalizeExpression(value);
+  const cached = compileCache.get(source);
+  if (cached) {
+    compileCache.delete(source);
+    compileCache.set(source, cached);
+    return cached;
+  }
   let node: MathNode;
   try {
     node = parse(source);
@@ -169,5 +188,5 @@ export function compileExpression(value: string): CompiledExpression {
     if (!hasFiniteForwardSample) throw originError;
     usesOriginFallback = true;
   }
-  return { source, originValue, evaluate };
+  return cacheCompiledExpression({ source, originValue, evaluate });
 }

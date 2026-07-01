@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   OnDestroy,
@@ -94,6 +95,7 @@ const LOCAL_SHOT_MAX_FRAMES = 2000;
   providers: [AnimationService],
   templateUrl: './equation-artillery-page.component.html',
   styleUrl: './equation-artillery-page.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EquationArtilleryPageComponent implements OnDestroy {
   private readonly animation = inject(AnimationService);
@@ -119,6 +121,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly walls = signal<readonly Wall[]>(this.initialRound.walls);
   readonly bullet = signal<Bullet | null>(null);
   readonly trail = signal<readonly Point[]>([]);
+  readonly visibleTrailPointCount = signal<number | null>(null);
   readonly active = signal(false);
   readonly activeShot = signal(false);
   readonly cpuThinking = signal(false);
@@ -278,7 +281,8 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.active.set(true);
     this.scrollBoardIntoView();
     this.bullet.set(shotFrames[0].bullet);
-    this.trail.set(shotFrames[0].trail);
+    this.trail.set(shotFrames.at(-1)?.trail ?? shotFrames[0].trail);
+    this.visibleTrailPointCount.set(shotFrames[0].trail.length);
     let renderedIndex = 0;
     let previousTargetCount = shotFrames[0].targets.length;
     this.animation.startTimeline(
@@ -291,7 +295,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         renderedIndex = frameIndex;
         shot = shotFrames[frameIndex];
         this.bullet.set(shot.bullet);
-        this.trail.set(shot.trail);
+        this.visibleTrailPointCount.set(shot.trail.length);
         if (practiceMode) {
           this.freePracticeTargets.set(shot.targets);
           this.freePracticeWalls.set(shot.walls);
@@ -331,6 +335,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.walls.set(round.walls);
     this.bullet.set(null);
     this.trail.set([]);
+    this.visibleTrailPointCount.set(null);
     this.active.set(false);
     this.error.set(null);
     this.wonRound = false;
@@ -348,6 +353,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.cpuThinking.set(false);
     this.bullet.set(null);
     this.trail.set([]);
+    this.visibleTrailPointCount.set(null);
     this.error.set(null);
   }
 
@@ -367,6 +373,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.lastShotLabel.set(null);
     this.bullet.set(null);
     this.trail.set([]);
+    this.visibleTrailPointCount.set(null);
     this.error.set(null);
   }
 
@@ -386,6 +393,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.lastShotLabel.set(null);
     this.bullet.set(null);
     this.trail.set([]);
+    this.visibleTrailPointCount.set(null);
     this.error.set(null);
   }
 
@@ -413,6 +421,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.lastShotLabel.set(null);
     this.bullet.set(null);
     this.trail.set([]);
+    this.visibleTrailPointCount.set(null);
     this.error.set(null);
     this.wonRound = false;
   }
@@ -539,7 +548,8 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         ? null
         : { characterId: event.shooterCharacterId, equation: event.equation },
     );
-    this.trail.set([firstPoint]);
+    this.trail.set(event.trail);
+    this.visibleTrailPointCount.set(1);
     this.bullet.set({ position: firstPoint, radius: BULLET_RADIUS });
     this.audio.startEquationSound(firstPoint);
     this.animation.startTimeline((progress) => {
@@ -554,7 +564,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         this.finishSinglePlayerShot(event);
         return false;
       }
-      this.trail.set(event.trail.slice(0, index + 1));
+      this.visibleTrailPointCount.set(index + 1);
       this.bullet.set({ position: point, radius: BULLET_RADIUS });
       this.audio.updateEquationSound(point);
       if (progress >= 1) {
@@ -571,6 +581,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.singlePlayerState.set(nextState);
     this.bullet.set(null);
     this.trail.set([]);
+    this.visibleTrailPointCount.set(null);
     this.activeShot.set(false);
     this.activeShotCharacterId.set(null);
     this.activeShotEquation.set(null);

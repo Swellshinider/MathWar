@@ -106,6 +106,8 @@ export function routeMetricLabel(method: string, url: string): string {
 }
 
 export function createMathWarMetrics(): MathWarMetrics {
+  if (process.env['METRICS_ENABLED'] === 'false') return createNoopMathWarMetrics();
+
   const registry = new Registry();
   collectDefaultMetrics({ register: registry });
 
@@ -349,5 +351,33 @@ export function createMathWarMetrics(): MathWarMetrics {
     recordCleanupDeleted(kind, count) {
       cleanupDeleted.inc(labels({ kind }), count);
     },
+  };
+}
+
+function createNoopMathWarMetrics(): MathWarMetrics {
+  const registry = new Registry();
+  return {
+    registry,
+    contentType: registry.contentType,
+    metrics: () => registry.metrics(),
+    shutdown() {},
+    observeHttp() {},
+    recordHealthCall() {},
+    recordGuestAuth() {},
+    setActiveSockets() {},
+    setActiveMatches() {},
+    recordSocketConnection() {},
+    recordSocketDisconnect() {},
+    recordSocketAuthFailure() {},
+    recordResumeCheck() {},
+    recordReconnect() {},
+    recordSocketCommand() {},
+    observeRepository() {},
+    recordRepositoryUpdateResult() {},
+    observeGameOperation() {},
+    recordShot() {},
+    recordFormulaAnswer() {},
+    observeCleanup() {},
+    recordCleanupDeleted() {},
   };
 }

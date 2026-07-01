@@ -29,19 +29,23 @@ export class InMemoryMatchRepository implements MatchRepository {
   private readonly matches = new Map<string, MultiplayerMatchState>();
   private readonly commands = new Set<string>();
   private readonly emptySince = new Map<string, number>();
+  private readonly roomIdsByCode = new Map<string, string>();
+  private readonly activeMatchIdsByUser = new Map<string, string>();
 
   async initialize(): Promise<void> {}
 
   async create(state: MultiplayerMatchState, commandId: string): Promise<boolean> {
-    if ([...this.matches.values()].some((match) => match.roomCode === state.roomCode)) return false;
+    if (this.roomIdsByCode.has(state.roomCode)) return false;
     this.matches.set(state.id, structuredClone(state));
     this.commands.add(`${state.id}:${commandId}`);
     this.emptySince.delete(state.id);
+    this.indexMatch(state);
     return true;
   }
 
   async findByCode(roomCode: string): Promise<MultiplayerMatchState | null> {
-    const state = [...this.matches.values()].find((match) => match.roomCode === roomCode);
+    const id = this.roomIdsByCode.get(roomCode);
+    const state = id ? this.matches.get(id) : null;
     return state ? structuredClone(state) : null;
   }
 
@@ -51,10 +55,8 @@ export class InMemoryMatchRepository implements MatchRepository {
   }
 
   async findActiveByUser(userId: string): Promise<MultiplayerMatchState | null> {
-    const state = [...this.matches.values()].find(
-      (match) =>
-        match.status !== 'ended' && match.players.some((player) => player.userId === userId),
-    );
+    const id = this.activeMatchIdsByUser.get(userId);
+    const state = id ? this.matches.get(id) : null;
     return state ? structuredClone(state) : null;
   }
 
@@ -72,6 +74,7 @@ export class InMemoryMatchRepository implements MatchRepository {
     const next = transform(structuredClone(current));
     this.matches.set(id, structuredClone(next));
     this.commands.add(key);
+    this.reindexMatch(current, next);
     return { ok: true, state: structuredClone(next) };
   }
 
@@ -119,14 +122,40 @@ export class InMemoryMatchRepository implements MatchRepository {
   }
 
   private deleteMatch(id: string): boolean {
-    if (!this.matches.has(id)) return false;
+    const match = this.matches.get(id);
+    if (!match) return false;
     this.matches.delete(id);
     this.emptySince.delete(id);
+    this.removeMatchIndex(match);
     const prefix = `${id}:`;
     for (const key of [...this.commands].filter((command) => command.startsWith(prefix))) {
       this.commands.delete(key);
     }
     return true;
+  }
+
+  private reindexMatch(previous: MultiplayerMatchState, next: MultiplayerMatchState): void {
+    this.removeMatchIndex(previous);
+    this.indexMatch(next);
+  }
+
+  private indexMatch(match: MultiplayerMatchState): void {
+    this.roomIdsByCode.set(match.roomCode, match.id);
+    if (match.status === 'ended') return;
+    for (const player of match.players) {
+      this.activeMatchIdsByUser.set(player.userId, match.id);
+    }
+  }
+
+  private removeMatchIndex(match: MultiplayerMatchState): void {
+    if (this.roomIdsByCode.get(match.roomCode) === match.id) {
+      this.roomIdsByCode.delete(match.roomCode);
+    }
+    for (const player of match.players) {
+      if (this.activeMatchIdsByUser.get(player.userId) === match.id) {
+        this.activeMatchIdsByUser.delete(player.userId);
+      }
+    }
   }
 
   async close(): Promise<void> {}

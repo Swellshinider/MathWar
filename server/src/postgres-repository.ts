@@ -5,6 +5,10 @@ import { MatchRepository, UpdateResult } from './repository.js';
 
 const { Pool } = pg;
 
+function reconnectDeadline(state: MultiplayerMatchState): string | null {
+  return state.reconnectDeadline;
+}
+
 export class PostgresMatchRepository implements MatchRepository {
   private readonly pool: pg.Pool;
 
@@ -30,9 +34,19 @@ export class PostgresMatchRepository implements MatchRepository {
     try {
       await client.query('begin');
       await client.query(
-        `insert into private.multiplayer_matches(id, room_code, state, version, status, updated_at)
-         values ($1, $2, $3, $4, $5, $6)`,
-        [state.id, state.roomCode, state, state.version, state.status, state.updatedAt],
+        `insert into private.multiplayer_matches(
+           id, room_code, state, version, status, updated_at, reconnect_deadline
+         )
+         values ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          state.id,
+          state.roomCode,
+          state,
+          state.version,
+          state.status,
+          state.updatedAt,
+          reconnectDeadline(state),
+        ],
       );
       await client.query(
         'insert into private.multiplayer_commands(match_id, command_id) values ($1, $2)',
@@ -106,9 +120,9 @@ export class PostgresMatchRepository implements MatchRepository {
       const state = transform(selected.rows[0].state as MultiplayerMatchState);
       await client.query(
         `update private.multiplayer_matches
-         set state = $2, version = $3, status = $4, updated_at = $5
+         set state = $2, version = $3, status = $4, updated_at = $5, reconnect_deadline = $6
          where id = $1`,
-        [id, state, state.version, state.status, state.updatedAt],
+        [id, state, state.version, state.status, state.updatedAt, reconnectDeadline(state)],
       );
       await client.query('commit');
       return { ok: true, state };
@@ -123,7 +137,7 @@ export class PostgresMatchRepository implements MatchRepository {
   async listExpiredReconnects(now: Date): Promise<readonly MultiplayerMatchState[]> {
     const result = await this.pool.query(
       `select state from private.multiplayer_matches where status = 'paused'
-       and (state->>'reconnectDeadline')::timestamptz <= $1`,
+       and reconnect_deadline is not null and reconnect_deadline <= $1`,
       [now],
     );
     return result.rows.map((row) => row.state as MultiplayerMatchState);

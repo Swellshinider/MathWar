@@ -170,4 +170,48 @@ describe('BoardRenderer', () => {
     expect(strokeStyles).toContain(BOARD_PALETTE.previewTrail);
     expect(strokeStyles).toContain(BOARD_PALETTE.trail);
   });
+
+  it('draws only the visible active trail points when a limit is provided', () => {
+    const context = {
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      strokeRect: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 80 })),
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 0,
+      shadowColor: '',
+      shadowBlur: 0,
+      font: '',
+      textAlign: '',
+      textBaseline: '',
+      lineCap: '',
+      lineJoin: '',
+    } as unknown as CanvasRenderingContext2D;
+
+    new BoardRenderer().draw(context, { width: 800, height: 500 }, WORLD_BOUNDS, {
+      player: { position: { x: -8, y: 0 }, radius: 0.3 },
+      characters: [],
+      targets: [],
+      walls: [],
+      bullet: null,
+      trail: [
+        { x: -8, y: 0 },
+        { x: -4, y: 2 },
+        { x: 0, y: 3 },
+        { x: 4, y: 2 },
+      ],
+      visibleTrailPointCount: 2,
+    });
+
+    expect(context.lineTo).toHaveBeenCalledWith(300, 200);
+    expect(context.lineTo).not.toHaveBeenCalledWith(400, 175);
+  });
 });

@@ -2,7 +2,7 @@ import { Bullet } from '../models/bullet';
 import { Player } from '../models/player';
 import { Point } from '../models/point';
 import { Target } from '../models/target';
-import { Wall } from '../models/wall';
+import { Wall, WallPiece } from '../models/wall';
 import { WorldBounds } from '../models/world-bounds';
 import { damageWalls, pointHitsTarget, pointHitsWallPiece } from './collision';
 import { CompiledExpression, ExpressionError } from './expression';
@@ -100,9 +100,11 @@ export function advanceShot(
       impact: 'bounds',
     };
   }
-  const hitPiece = state.walls
-    .flatMap((wall) => wall.pieces)
-    .find((piece) => pointHitsWallPiece(point, piece, state.bullet.radius));
+  let hitPiece: WallPiece | undefined;
+  for (const wall of state.walls) {
+    hitPiece = wall.pieces.find((piece) => pointHitsWallPiece(point, piece, state.bullet.radius));
+    if (hitPiece) break;
+  }
   if (hitPiece) {
     return {
       ...state,

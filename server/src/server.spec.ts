@@ -380,6 +380,10 @@ describe('multiplayer socket server', () => {
     expect(startedResponse.data.status).toBe('active');
     const started = await startedPromise;
     expect(started.formulaPlayers[0].currentProblem.answer).toBeUndefined();
+    let legacyFormulaStateEmitted = false;
+    right.once('formula:state', () => {
+      legacyFormulaStateEmitted = true;
+    });
 
     const persisted = await harness.repository.findByCode(created.data.roomCode);
     const leftAnswer = persisted!.formulaPlayers.find((player) => player.userId === 'left')!
@@ -454,6 +458,8 @@ describe('multiplayer socket server', () => {
     expect(leftPlayer?.score).toBeGreaterThan(100);
     expect(leftPlayer?.totalCorrect).toBe(1);
     expect(answered.data.formulaPlayers[0].currentProblem.answer).toBeUndefined();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(legacyFormulaStateEmitted).toBe(false);
   });
 
   it('ends a formula frenzy room when a player timer expires', async () => {
@@ -496,9 +502,13 @@ describe('multiplayer socket server', () => {
       version: started.data.version + 1,
     }));
 
-    const ended = await once<{ reason: string; winnerUserId: string }>(right, 'match:ended');
+    const ended = once<{ reason: string; winnerUserId: string }>(right, 'match:ended');
+    await emit(left, 'formula:hint', {
+      commandId: randomUUID(),
+      expectedVersion: started.data.version + 1,
+    });
 
-    expect(ended).toMatchObject({ reason: 'timeout', winnerUserId: 'right' });
+    await expect(ended).resolves.toMatchObject({ reason: 'timeout', winnerUserId: 'right' });
     const endedState = await harness.repository.findByCode(created.data.roomCode);
     const rejectedRestart = await emit<{ ok: false; code: string }>(right, 'formula:start', {
       commandId: randomUUID(),
@@ -646,6 +656,89 @@ describe('multiplayer socket server', () => {
     const remaining = await harness.repository.findByCode(created.data.roomCode);
     expect(remaining?.status).toBe('waiting');
     host.disconnect();
+  });
+
+  it('deletes a waiting room immediately when the host leaves', async () => {
+    const harness = await createHarness(60_000, 60_000);
+    const host = await connect(harness, 'host');
+    const created = await emit<{
+      ok: true;
+      data: { id: string; roomCode: string; version: number };
+    }>(host, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+
+    const left = await emit<{ ok: boolean; data?: { winnerUserId: string | null } }>(
+      host,
+      'match:leave',
+      {
+        commandId: randomUUID(),
+        expectedVersion: created.data.version,
+      },
+    );
+
+    expect(left).toMatchObject({ ok: true, data: { winnerUserId: null } });
+    expect(await harness.repository.findByCode(created.data.roomCode)).toBeNull();
+    expect(harness.server.io.sockets.adapter.rooms.get(`match:${created.data.id}`)).toBeUndefined();
+  });
+
+  it('keeps an ended match for the remaining player, then deletes it when the room empties', async () => {
+    const harness = await createHarness(60_000, 60_000);
+    const left = await connect(harness, 'left');
+    const right = await connect(harness, 'right');
+    const created = await emit<{
+      ok: true;
+      data: { id: string; roomCode: string; version: number };
+    }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    const joined = await emit<{ ok: true; data: { version: number } }>(right, 'room:join', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      roomCode: created.data.roomCode,
+    });
+    const endedEvent = once<{ reason: string; winnerUserId: string }>(right, 'match:ended');
+
+    const leftAck = await emit<{ ok: boolean; data?: { winnerUserId: string; endReason: string } }>(
+      left,
+      'match:leave',
+      {
+        commandId: randomUUID(),
+        expectedVersion: joined.data.version,
+      },
+    );
+
+    expect(leftAck).toMatchObject({
+      ok: true,
+      data: { winnerUserId: 'right', endReason: 'left' },
+    });
+    await expect(endedEvent).resolves.toMatchObject({
+      reason: 'left',
+      winnerUserId: 'right',
+    });
+    expect(await harness.repository.findByCode(created.data.roomCode)).toMatchObject({
+      status: 'ended',
+      winnerUserId: 'right',
+      endReason: 'left',
+    });
+    expect(harness.server.io.sockets.adapter.rooms.get(`match:${created.data.id}`)?.size).toBe(1);
+
+    const rightAck = await emit<{
+      ok: boolean;
+      data?: { winnerUserId: string; endReason: string };
+    }>(right, 'match:leave', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+
+    expect(rightAck).toMatchObject({
+      ok: true,
+      data: { winnerUserId: 'right', endReason: 'left' },
+    });
+    expect(await harness.repository.findByCode(created.data.roomCode)).toBeNull();
+    expect(harness.server.io.sockets.adapter.rooms.get(`match:${created.data.id}`)).toBeUndefined();
   });
 
   it('deletes an active match once both players leave', async () => {

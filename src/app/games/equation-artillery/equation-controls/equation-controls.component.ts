@@ -1,4 +1,4 @@
-import { Component, effect, input, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, input, model, output } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FunctionPreviewComponent } from '../function-preview/function-preview.component';
@@ -8,6 +8,7 @@ import { FunctionPreviewComponent } from '../function-preview/function-preview.c
   imports: [ReactiveFormsModule, FunctionPreviewComponent],
   templateUrl: './equation-controls.component.html',
   styleUrl: './equation-controls.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EquationControlsComponent {
   readonly active = input(false);

@@ -322,7 +322,7 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
     handlers.state(activeState());
     audio.playOneShot.mockClear();
 
-    handlers.formulaState!(
+    handlers.state(
       activeState({
         version: 3,
         formulaPlayers: [
@@ -369,7 +369,7 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
     );
     audio.playOneShot.mockClear();
 
-    handlers.formulaState!(
+    handlers.state(
       activeState({
         version: 3,
         formulaPlayers: [
