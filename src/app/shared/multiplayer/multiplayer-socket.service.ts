@@ -14,9 +14,15 @@ import {
   VersionedCommand,
 } from '@math-war/game-engine';
 import { io, Socket } from 'socket.io-client';
+import { MultiplayerAuthService } from './multiplayer-auth.service';
 import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 
 const CONNECTION_ERROR_MESSAGE = 'Connection interrupted. Trying to reconnect...';
+const SESSION_EXPIRED_MESSAGE = 'Your multiplayer session expired. Please enter again.';
+const AUTHENTICATION_ERROR_MESSAGES = new Set([
+  'Invalid access token.',
+  'Authentication required.',
+]);
 
 type MultiplayerSocketFactory = (serverUrl: string, token: string) => Socket;
 
@@ -31,6 +37,7 @@ export const MULTIPLAYER_SOCKET_FACTORY = new InjectionToken<MultiplayerSocketFa
 
 @Injectable({ providedIn: 'root' })
 export class MultiplayerSocketService {
+  private readonly auth = inject(MultiplayerAuthService);
   private readonly config = inject(MULTIPLAYER_CONFIG);
   private readonly createSocket = inject(MULTIPLAYER_SOCKET_FACTORY);
   private readonly zone = inject(NgZone);
@@ -62,8 +69,16 @@ export class MultiplayerSocketService {
     if (handlers.shot) this.socket.on('shot:resolved', run(handlers.shot));
     if (handlers.ended) this.socket.on('match:ended', run(handlers.ended));
     this.socket.on('connect', () => this.zone.run(() => handlers.connected?.()));
-    this.socket.on('connect_error', () =>
-      this.zone.run(() => handlers.error(CONNECTION_ERROR_MESSAGE)),
+    this.socket.on('connect_error', (error: Error) =>
+      this.zone.run(() => {
+        if (isAuthenticationError(error)) {
+          this.auth.clearInvalidSession();
+          this.disconnect();
+          handlers.error(SESSION_EXPIRED_MESSAGE);
+          return;
+        }
+        handlers.error(CONNECTION_ERROR_MESSAGE);
+      }),
     );
   }
 
@@ -125,4 +140,15 @@ export class MultiplayerSocketService {
         });
     });
   }
+}
+
+function isAuthenticationError(error: Error): boolean {
+  return AUTHENTICATION_ERROR_MESSAGES.has(error.message) || isAuthenticationErrorData(error);
+}
+
+function isAuthenticationErrorData(error: Error): boolean {
+  const data = (error as { data?: unknown }).data;
+  if (!data || typeof data !== 'object') return false;
+  const message = (data as { message?: unknown }).message;
+  return typeof message === 'string' && AUTHENTICATION_ERROR_MESSAGES.has(message);
 }

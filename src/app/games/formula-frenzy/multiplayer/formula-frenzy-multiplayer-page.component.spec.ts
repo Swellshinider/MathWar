@@ -300,6 +300,24 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('returns to the lobby when the multiplayer session expires', () => {
+    handlers.state(activeState());
+    fixture.detectChanges();
+
+    auth.session.set(null);
+    handlers.error('Your multiplayer session expired. Please enter again.');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.state()).toBeNull();
+    expect(socket.disconnect).toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Your multiplayer session expired. Please enter again.',
+    );
+    expect(fixture.nativeElement.textContent).toContain(
+      'Enter a display name to create or join a private match.',
+    );
+  });
+
   it('plays only local player formula sounds', () => {
     handlers.state(activeState());
     audio.playOneShot.mockClear();

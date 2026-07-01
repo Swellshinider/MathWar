@@ -57,6 +57,11 @@ export class MultiplayerAuthService {
     this.storage?.removeItem(STORAGE_KEY);
   }
 
+  clearInvalidSession(): void {
+    this.session.set(null);
+    this.storage?.removeItem(STORAGE_KEY);
+  }
+
   private get storage(): Storage | null {
     return typeof localStorage !== 'undefined' ? localStorage : null;
   }
