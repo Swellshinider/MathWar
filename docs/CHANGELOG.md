@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cleanup metrics.
 - Added an all-scenarios load test mode that runs Formula Frenzy and Equation Artillery gameplay and
   reconnect phases sequentially.
+- Split Formula Frenzy load tests into correct-answer and wrong-answer scenarios, separated
+  scheduled reconnect delay from actual restore latency, and split resume-check metrics from actual
+  reconnect metrics.
 
 ### Added - 2026-06-30
 

@@ -52,7 +52,8 @@ export interface MathWarMetrics {
   recordSocketConnection(): void;
   recordSocketDisconnect(reason: string): void;
   recordSocketAuthFailure(reason: 'missing_token' | 'invalid_token'): void;
-  recordReconnect(outcome: 'attempt' | 'success' | 'miss'): void;
+  recordResumeCheck(outcome: 'hit' | 'miss'): void;
+  recordReconnect(outcome: 'success' | 'failure'): void;
   recordSocketCommand(
     command: SocketCommand,
     outcome: 'accepted' | 'rejected',
@@ -187,9 +188,15 @@ export function createMathWarMetrics(): MathWarMetrics {
     labelNames: ['reason'],
     registers: [registry],
   });
+  const resumeChecks = new Counter({
+    name: 'mathwar_socket_resume_checks_total',
+    help: 'Socket resume checks for active matches on connection.',
+    labelNames: ['outcome'],
+    registers: [registry],
+  });
   const reconnects = new Counter({
     name: 'mathwar_socket_reconnects_total',
-    help: 'Reconnect attempts, successes, and misses.',
+    help: 'Actual paused-match reconnect outcomes.',
     labelNames: ['outcome'],
     registers: [registry],
   });
@@ -306,6 +313,9 @@ export function createMathWarMetrics(): MathWarMetrics {
     },
     recordSocketAuthFailure(reason) {
       socketAuthFailures.inc(labels({ reason }));
+    },
+    recordResumeCheck(outcome) {
+      resumeChecks.inc(labels({ outcome }));
     },
     recordReconnect(outcome) {
       reconnects.inc(labels({ outcome }));

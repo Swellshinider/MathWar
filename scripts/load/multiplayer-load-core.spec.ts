@@ -8,6 +8,7 @@ import {
   parseArgs,
   parsePostRunMetrics,
   reconnectTokenFor,
+  solveFormulaPrompt,
   versionedPayload,
   VersionTracker,
   type Options,
@@ -130,13 +131,24 @@ describe('multiplayer load runner core', () => {
     expect(reconnectTokenFor({ token: 'guest-token' })).toBe('guest-token');
   });
 
+  it('solves public Formula Frenzy prompts for correct-answer load', () => {
+    expect(solveFormulaPrompt('12 + 7')).toBe(19);
+    expect(solveFormulaPrompt('(4 * 5) - 3')).toBe(17);
+    expect(solveFormulaPrompt('42 / 6')).toBe(7);
+    expect(solveFormulaPrompt('5²')).toBe(25);
+    expect(solveFormulaPrompt('3³')).toBe(27);
+    expect(solveFormulaPrompt('√144')).toBe(12);
+    expect(solveFormulaPrompt('∛216')).toBe(6);
+  });
+
   it('expands the all scenario across gameplay and reconnect runs for both games', () => {
     const expanded = expandAllScenario(
       parseArgs(['--scenario', 'all', '--players', '8', '--matches', '4', '--duration', '1s']),
     );
 
     expect(expanded.map((run) => `${run.scenario}:${run.game}`)).toEqual([
-      'formula:formula-frenzy',
+      'formula-correct:formula-frenzy',
+      'formula-wrong:formula-frenzy',
       'artillery:equation-artillery',
       'reconnect:formula-frenzy',
       'reconnect:equation-artillery',
@@ -170,5 +182,20 @@ describe('multiplayer load runner core', () => {
     expect(suite.commands).toBe(1);
     expect(suite.commandsByRun['formula:formula-frenzy']).toBe(0);
     expect(suite.commandsByRun['artillery:equation-artillery']).toBe(1);
+  });
+
+  it('reports scheduled reconnect delay separately from restore latency', () => {
+    const baseOptions = { ...options(), reconnectDelayMs: 2_000 };
+    const stats = new LoadStats();
+    stats.reconnectLatencies.push(12);
+
+    const summary = createSummary(baseOptions, stats, 100, {
+      socketActive: 0,
+      socketConnectionsTotal: 2,
+      socketDisconnectsTotal: 2,
+    });
+
+    expect(summary.reconnects.scheduledReconnectDelayMs).toBe(2_000);
+    expect(summary.latencyMs.actualReconnectRestore.avg).toBe(12);
   });
 });

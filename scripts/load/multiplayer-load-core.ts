@@ -11,6 +11,8 @@ export type ScenarioName =
   | 'stress'
   | 'custom'
   | 'formula'
+  | 'formula-wrong'
+  | 'formula-correct'
   | 'artillery'
   | 'reconnect'
   | 'all';
@@ -38,6 +40,7 @@ export interface Options {
   readonly formulaAnswerRatePerPlayerPerSecond: number;
   readonly formulaTypingRatePerPlayerPerSecond: number;
   readonly wrongAnswerRatio: number;
+  readonly formulaAnswerMode: 'correct' | 'wrong' | 'mixed';
   readonly artilleryFireRatePerMatchPerSecond: number;
   readonly reconnectRatio: number;
   readonly reconnectDelayMs: number;
@@ -70,6 +73,12 @@ interface MatchStateLike {
   readonly status?: string;
   readonly turnUserId?: string | null;
   readonly gameId?: GameMode;
+  readonly formulaPlayers?: readonly {
+    readonly userId: string;
+    readonly currentProblem?: {
+      readonly prompt?: string;
+    };
+  }[];
 }
 
 interface Participant {
@@ -77,6 +86,7 @@ interface Participant {
   readonly token: string;
   readonly userId: string;
   readonly role: 'host' | 'guest';
+  currentFormulaAnswer: number | null;
 }
 
 interface MatchRunner {
@@ -127,6 +137,7 @@ export interface LoadSummary {
     readonly staleShots: number;
   };
   readonly reconnects: {
+    readonly scheduledReconnectDelayMs: number;
     readonly attempted: number;
     readonly succeeded: number;
     readonly failed: number;
@@ -136,7 +147,7 @@ export interface LoadSummary {
   readonly latencyMs: {
     readonly auth: LatencySummary;
     readonly socketCommandAck: LatencySummary;
-    readonly reconnect: LatencySummary;
+    readonly actualReconnectRestore: LatencySummary;
     readonly byEvent: Record<string, LatencySummary>;
   };
   readonly postRunMetrics: PostRunMetrics;
@@ -202,6 +213,23 @@ const SCENARIOS: Record<ScenarioName, Partial<Options>> = {
     rampUpMs: 30_000,
     durationMs: 60_000,
     game: 'formula-frenzy',
+    formulaAnswerMode: 'correct',
+  },
+  'formula-wrong': {
+    players: 100,
+    matches: 50,
+    rampUpMs: 30_000,
+    durationMs: 60_000,
+    game: 'formula-frenzy',
+    formulaAnswerMode: 'wrong',
+  },
+  'formula-correct': {
+    players: 100,
+    matches: 50,
+    rampUpMs: 30_000,
+    durationMs: 60_000,
+    game: 'formula-frenzy',
+    formulaAnswerMode: 'correct',
   },
   artillery: {
     players: 100,
@@ -240,6 +268,7 @@ const DEFAULT_OPTIONS: Omit<Options, 'url' | 'scenario' | 'metricsUrl'> = {
   formulaAnswerRatePerPlayerPerSecond: 1,
   formulaTypingRatePerPlayerPerSecond: 0.5,
   wrongAnswerRatio: 1,
+  formulaAnswerMode: 'correct',
   artilleryFireRatePerMatchPerSecond: 1,
   reconnectRatio: 0.1,
   reconnectDelayMs: 2_000,
@@ -459,6 +488,7 @@ export function parseArgs(argv: readonly string[]): Options {
       defaults.formulaTypingRatePerPlayerPerSecond,
     ),
     wrongAnswerRatio: floatValue(values, 'wrong-answer-ratio', defaults.wrongAnswerRatio),
+    formulaAnswerMode: formulaAnswerModeValue(values, defaults.formulaAnswerMode ?? 'correct'),
     artilleryFireRatePerMatchPerSecond: floatValue(
       values,
       'artillery-fire-rate-per-match-per-second',
@@ -505,6 +535,16 @@ function floatValue(values: Map<string, string | boolean>, key: string, fallback
   return parsed;
 }
 
+function formulaAnswerModeValue(
+  values: Map<string, string | boolean>,
+  fallback: 'correct' | 'wrong' | 'mixed',
+): 'correct' | 'wrong' | 'mixed' {
+  const value = values.get('formula-answer-mode');
+  if (value === undefined || typeof value === 'boolean') return fallback;
+  if (value === 'correct' || value === 'wrong' || value === 'mixed') return value;
+  throw new Error('--formula-answer-mode must be correct, wrong, or mixed');
+}
+
 function durationValue(
   values: Map<string, string | boolean>,
   secondsKey: string,
@@ -545,9 +585,22 @@ export function expandAllScenario(options: Options): readonly Options[] {
     jsonOut: undefined,
   };
   return [
-    { ...base, scenario: 'formula', game: 'formula-frenzy', reconnectRatio: 0 },
+    {
+      ...base,
+      scenario: 'formula-correct',
+      game: 'formula-frenzy',
+      reconnectRatio: 0,
+      formulaAnswerMode: 'correct',
+    },
+    {
+      ...base,
+      scenario: 'formula-wrong',
+      game: 'formula-frenzy',
+      reconnectRatio: 0,
+      formulaAnswerMode: 'wrong',
+    },
     { ...base, scenario: 'artillery', game: 'equation-artillery', reconnectRatio: 0 },
-    { ...base, scenario: 'reconnect', game: 'formula-frenzy' },
+    { ...base, scenario: 'reconnect', game: 'formula-frenzy', formulaAnswerMode: 'correct' },
     { ...base, scenario: 'reconnect', game: 'equation-artillery' },
   ];
 }
@@ -615,9 +668,36 @@ function attachStateTracking(match: MatchRunner, participant: Participant, stats
     participant.socket.on(event, (state: MatchStateLike) => {
       const previousStatus = match.tracker.currentStatus;
       match.tracker.update(state);
+      const prompt = state.formulaPlayers?.find((player) => player.userId === participant.userId)
+        ?.currentProblem?.prompt;
+      if (prompt) {
+        const answer = solveFormulaPrompt(prompt);
+        if (answer === null) {
+          participant.currentFormulaAnswer = null;
+          stats.warnings.push(`Could not solve Formula Frenzy prompt shape: ${prompt}`);
+        } else {
+          participant.currentFormulaAnswer = answer;
+        }
+      }
       if (previousStatus === 'active' && state.status === 'paused') stats.matchesPaused += 1;
       if (previousStatus === 'paused' && state.status === 'active') stats.matchesResumed += 1;
     });
+  }
+}
+
+export function solveFormulaPrompt(prompt: string): number | null {
+  let expression = prompt
+    .replace(/(\d+)²/g, (_match, value: string) => String(Number(value) ** 2))
+    .replace(/(\d+)³/g, (_match, value: string) => String(Number(value) ** 3))
+    .replace(/√(\d+)/g, (_match, value: string) => String(Math.sqrt(Number(value))))
+    .replace(/∛(\d+)/g, (_match, value: string) => String(Math.cbrt(Number(value))));
+  expression = expression.replace(/\s+/g, '');
+  if (!/^[0-9+\-*/().]+$/.test(expression)) return null;
+  try {
+    const result = Function(`"use strict"; return (${expression});`)() as unknown;
+    return typeof result === 'number' && Number.isFinite(result) ? Math.round(result) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -647,12 +727,14 @@ async function setupMatch(
       token: hostSession.token,
       userId: hostSession.user.id,
       role: 'host',
+      currentFormulaAnswer: null,
     },
     guest: {
       socket: guestSocket,
       token: guestSession.token,
       userId: guestSession.user.id,
       role: 'guest',
+      currentFormulaAnswer: null,
     },
     tracker,
     reconnectTargets: [],
@@ -731,8 +813,7 @@ async function exerciseFormula(
 
   for (const participant of [match.host, match.guest]) {
     stats.formulaAnswersSent += 1;
-    const answer =
-      options.wrongAnswerRatio >= 1 || Math.random() < options.wrongAnswerRatio ? 999_999 : 999_998;
+    const answer = formulaAnswerFor(participant, options);
     const response = await emitAck<MatchStateLike>(
       stats,
       participant.socket,
@@ -748,6 +829,14 @@ async function exerciseFormula(
     if (match.tracker.currentStatus !== 'active') break;
   }
   match.nextFormulaAnswerAt = now + answerInterval;
+}
+
+function formulaAnswerFor(participant: Participant, options: Options): number {
+  if (options.formulaAnswerMode === 'wrong') return 999_999;
+  if (options.formulaAnswerMode === 'mixed' && Math.random() < options.wrongAnswerRatio) {
+    return 999_999;
+  }
+  return participant.currentFormulaAnswer ?? 999_999;
 }
 
 async function exerciseArtillery(
@@ -786,10 +875,10 @@ async function maybeReconnect(
   const target = match.reconnectTargets[0];
   stats.recordCommand('reconnect');
   stats.reconnectAttempted += 1;
-  const start = performance.now();
   target.socket.disconnect();
   await wait(options.reconnectDelayMs);
   try {
+    const restoreStart = performance.now();
     let restoredState = Promise.resolve(false);
     target.socket = await connect(options.url, reconnectTokenFor(target), (socket) => {
       target.socket = socket;
@@ -797,7 +886,7 @@ async function maybeReconnect(
       restoredState = waitForState(socket, options.reconnectDelayMs + 3_000);
     });
     const restored = await restoredState;
-    stats.reconnectLatencies.push(performance.now() - start);
+    stats.reconnectLatencies.push(performance.now() - restoreStart);
     if (restored) stats.reconnectSucceeded += 1;
     else {
       stats.reconnectFailed += 1;
@@ -945,6 +1034,7 @@ export function createSummary(
       staleShots: stats.artilleryStaleShots,
     },
     reconnects: {
+      scheduledReconnectDelayMs: options.reconnectDelayMs,
       attempted: stats.reconnectAttempted,
       succeeded: stats.reconnectSucceeded,
       failed: stats.reconnectFailed,
@@ -954,7 +1044,7 @@ export function createSummary(
     latencyMs: {
       auth: latencySummary(stats.authLatencies),
       socketCommandAck: latencySummary(stats.commandLatencies),
-      reconnect: latencySummary(stats.reconnectLatencies),
+      actualReconnectRestore: latencySummary(stats.reconnectLatencies),
       byEvent: Object.fromEntries(
         [...stats.eventLatencies.entries()].map(([event, values]) => [
           event,

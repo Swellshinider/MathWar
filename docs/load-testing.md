@@ -17,6 +17,8 @@ rtk npm run load:smoke
 rtk npm run load:small
 rtk npm run load:stress
 rtk npm run load:formula
+rtk npm run load:formula:correct
+rtk npm run load:formula:wrong
 rtk npm run load:artillery
 rtk npm run load:reconnect
 rtk npm run load:all
@@ -36,11 +38,10 @@ rtk npm run load:custom -- \
   --json-out artifacts/mathwar-load.json
 ```
 
-Use `--game formula-frenzy` or `rtk npm run load:formula` to exercise Formula Frenzy start,
-typing, answer, reconnect, and leave traffic. Formula Frenzy correct-answer traffic is not
-available from public state because answers are intentionally hidden from clients, so this runner
-uses controlled wrong answers by default. That stresses validation, state updates, wrong-answer
-rejections, restart flow, and repository writes, but it is not a successful-answer scoring test.
+Use `rtk npm run load:formula:correct` to exercise Formula Frenzy successful-answer scoring,
+progression, state updates, and emits. The runner computes answers from the public prompt text.
+Use `rtk npm run load:formula:wrong` to stress validation, wrong-answer rejections, restart flow,
+and repository writes.
 
 ## Scenarios
 
@@ -48,7 +49,8 @@ rejections, restart flow, and repository writes, but it is not a successful-answ
 - Small: 20 players, 10 matches, 2 minutes.
 - Stress: 100 players, 50 matches, 5 minutes by default. Increase toward 500 players and
   250 matches only on a machine intended for stress testing.
-- Formula: Formula Frenzy gameplay traffic with typing and answer commands.
+- Formula Correct: Formula Frenzy gameplay with correct answers.
+- Formula Wrong: Formula Frenzy validation and wrong-answer flow.
 - Artillery: Equation Artillery `match:fire` traffic using safe equation inputs.
 - Reconnect: Equation Artillery gameplay plus same-token reconnect attempts.
 - All: sequential Formula gameplay, Artillery gameplay, Formula reconnect, and Artillery reconnect
@@ -61,16 +63,25 @@ the final `/metrics` scrape for baseline comparison.
 
 ## Gameplay Commands
 
-Formula Frenzy options:
+Formula Frenzy correct-answer options:
 
 ```bash
-rtk npm run load:formula -- \
+rtk npm run load:formula:correct -- \
   --players 100 \
   --matches 50 \
   --duration 60s \
   --formula-answer-rate-per-player-per-second 1 \
-  --formula-typing-rate-per-player-per-second 0.5 \
-  --wrong-answer-ratio 1
+  --formula-typing-rate-per-player-per-second 0.5
+```
+
+Formula Frenzy wrong-answer options:
+
+```bash
+rtk npm run load:formula:wrong -- \
+  --players 100 \
+  --matches 50 \
+  --duration 60s \
+  --formula-answer-rate-per-player-per-second 1
 ```
 
 Equation Artillery options:
@@ -107,7 +118,7 @@ rtk npm run load:all -- \
 ```
 
 `load:all` writes one combined JSON summary. If `--metrics-out` is provided, each phase gets a
-suffixed Prometheus snapshot such as `mathwar.formula-formula-frenzy.prom` and
+suffixed Prometheus snapshot such as `mathwar.formula-correct-formula-frenzy.prom` and
 `mathwar.reconnect-equation-artillery.prom`.
 
 Warm-up, duration, cooldown, and metrics scrape options:
@@ -149,9 +160,24 @@ Focus first on p95 latency and saturation signals:
 - `mathwar_event_loop_delay_p95_seconds` shows Node event-loop pressure.
 - `mathwar_socket_commands_total{outcome="rejected"}` shows protocol and concurrency rejections.
 - `mathwar_socket_active` and `mathwar_matches_active` show the server load reached during the run.
+- `mathwar_socket_resume_checks_total` counts connection-time active-match lookup hits and misses.
+- `mathwar_socket_reconnects_total` counts only actual paused-match reconnect success or failure.
 - `postRunMetrics.socketActive` should return to `0` after cooldown. If it does not, inspect
   whether clients failed to disconnect, the metric update is stale, Socket.IO lifecycle handling is
   wrong, or the metrics scrape happened too early.
+
+For Equation Artillery, treat load JSON `latencyMs.byEvent["match:fire"]` as end-to-end client ack
+latency. Break that down with Prometheus:
+
+- `mathwar_game_operation_duration_seconds{game="equation-artillery",operation="resolve_shot"}`
+  isolates deterministic shot simulation.
+- `mathwar_repository_operation_duration_seconds{operation="findById"}` and
+  `{operation="update"}` isolate persisted state reads and writes.
+- `mathwar_socket_command_duration_seconds{command="match:fire"}` shows server handler time.
+
+If `match:fire` ack latency is much higher than `resolve_shot`, the bottleneck is likely
+repository IO, serialized per-match command flow, Socket.IO ack timing, or large state JSON
+read/write cost rather than raw game-engine simulation.
 
 Compare future changes against the same scenario, machine, Node version, database location, commit,
 and server mode.

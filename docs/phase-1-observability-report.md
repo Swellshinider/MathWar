@@ -28,5 +28,6 @@ single-instance architecture, the most likely pressure points are:
   database-wide census.
 - `/metrics` is intended for local and trusted-network scraping. Disable it with
   `METRICS_ENABLED=false` if exposing the server publicly without a scrape boundary.
-- Formula Frenzy load tests do not automate correct answers because public state intentionally
-  hides answer values.
+- Formula Frenzy correct-answer load tests compute answers from the public prompt text. This keeps
+  hidden answer values out of the multiplayer protocol while still exercising successful scoring
+  and progression.

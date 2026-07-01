@@ -172,6 +172,8 @@ describe('multiplayer socket server', () => {
     expect(metrics.body).toContain(
       'mathwar_repository_operations_total{operation="create",outcome="ok"} 1',
     );
+    expect(metrics.body).toContain('mathwar_socket_resume_checks_total{outcome="miss"}');
+    expect(metrics.body).not.toContain('mathwar_socket_reconnects_total{outcome="attempt"}');
   });
 
   it('requires authentication during the handshake', async () => {

@@ -297,11 +297,10 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   }
 
   async function reconnect(socket: AuthenticatedSocket): Promise<void> {
-    metrics.recordReconnect('attempt');
     const start = nowSeconds();
     const match = await repository.findActiveByUser(socket.data.user.id);
     if (!match) {
-      metrics.recordReconnect('miss');
+      metrics.recordResumeCheck('miss');
       logCommand(fastify.log, {
         command: 'reconnect',
         outcome: 'miss',
@@ -309,6 +308,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       });
       return;
     }
+    metrics.recordResumeCheck('hit');
     socket.data.matchId = match.id;
     await socket.join(roomName(match.id));
     await clearRoomEmpty(match.id);
@@ -336,8 +336,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         await emitState(result.state);
         return;
       }
+      metrics.recordReconnect('failure');
     }
-    metrics.recordReconnect('success');
     logCommand(fastify.log, {
       command: 'reconnect',
       outcome: 'success',

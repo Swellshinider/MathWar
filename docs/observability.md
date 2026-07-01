@@ -31,8 +31,8 @@ rtk npm run server:dev
   `mathwar_process_active_handles`, and `mathwar_event_loop_delay_p95_seconds`.
 - HTTP: `mathwar_http_requests_total`, `mathwar_http_request_duration_seconds`,
   `mathwar_health_requests_total`, and `mathwar_guest_auth_requests_total`.
-- Socket.IO: active sockets, connection and disconnect totals, auth failures, reconnect outcomes,
-  command outcomes, and command duration.
+- Socket.IO: active sockets, connection and disconnect totals, auth failures, resume-check hits and
+  misses, actual reconnect outcomes, command outcomes, and command duration.
 - Repository: operation counts and durations for the match repository plus update result reasons.
 - Game engine: Equation Artillery shot resolution and expression compilation duration, shot impact,
   shot trail point count, and Formula Frenzy answer outcomes.
