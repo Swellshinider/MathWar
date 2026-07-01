@@ -19,6 +19,7 @@ rtk npm run load:stress
 rtk npm run load:formula
 rtk npm run load:artillery
 rtk npm run load:reconnect
+rtk npm run load:all
 ```
 
 All scenario values can be overridden:
@@ -50,6 +51,9 @@ rejections, restart flow, and repository writes, but it is not a successful-answ
 - Formula: Formula Frenzy gameplay traffic with typing and answer commands.
 - Artillery: Equation Artillery `match:fire` traffic using safe equation inputs.
 - Reconnect: Equation Artillery gameplay plus same-token reconnect attempts.
+- All: sequential Formula gameplay, Artillery gameplay, Formula reconnect, and Artillery reconnect
+  phases. This is useful as a broad confidence pass, but use the individual scenarios for precise
+  per-game baselines.
 
 The runner prints a JSON summary with command counts, acknowledgement breakdowns, latency
 percentiles, reconnect results, and post-run socket metrics. With `--metrics-out`, it also captures
@@ -90,6 +94,21 @@ rtk npm run load:reconnect -- \
   --reconnect-delay-ms 2000 \
   --reconnects-per-selected-player 1
 ```
+
+All mini-game scenarios:
+
+```bash
+rtk npm run load:all -- \
+  --players 100 \
+  --matches 50 \
+  --duration 60s \
+  --metrics-out artifacts/mathwar.prom \
+  --json-out artifacts/mathwar-all.json
+```
+
+`load:all` writes one combined JSON summary. If `--metrics-out` is provided, each phase gets a
+suffixed Prometheus snapshot such as `mathwar.formula-formula-frenzy.prom` and
+`mathwar.reconnect-equation-artillery.prom`.
 
 Warm-up, duration, cooldown, and metrics scrape options:
 

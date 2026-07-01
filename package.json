@@ -19,6 +19,7 @@
     "load:formula": "tsx scripts/load/multiplayer-load.ts --scenario formula",
     "load:artillery": "tsx scripts/load/multiplayer-load.ts --scenario artillery",
     "load:reconnect": "tsx scripts/load/multiplayer-load.ts --scenario reconnect",
+    "load:all": "tsx scripts/load/multiplayer-load.ts --scenario all",
     "load:dry-run": "tsx scripts/load/multiplayer-load.ts --dry-run",
     "check:release-version": "node scripts/check-release-version.mjs",
     "build:engine": "tsc -p packages/game-engine/tsconfig.json",

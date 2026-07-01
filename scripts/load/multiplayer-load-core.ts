@@ -12,7 +12,8 @@ export type ScenarioName =
   | 'custom'
   | 'formula'
   | 'artillery'
-  | 'reconnect';
+  | 'reconnect'
+  | 'all';
 export type CommandEvent =
   | 'room:create'
   | 'room:join'
@@ -143,6 +144,20 @@ export interface LoadSummary {
   readonly errors: string[];
 }
 
+export interface LoadSuiteSummary {
+  readonly scenario: 'all';
+  readonly url: string;
+  readonly players: number;
+  readonly matches: number;
+  readonly durationMs: number;
+  readonly elapsedMs: number;
+  readonly runs: readonly LoadSummary[];
+  readonly commands: number;
+  readonly commandsByRun: Record<string, number>;
+  readonly warnings: readonly string[];
+  readonly errors: readonly string[];
+}
+
 export interface LatencySummary {
   readonly count: number;
   readonly avg: number;
@@ -201,6 +216,14 @@ const SCENARIOS: Record<ScenarioName, Partial<Options>> = {
     rampUpMs: 30_000,
     durationMs: 60_000,
     game: 'equation-artillery',
+    reconnectRatio: 0.1,
+  },
+  all: {
+    players: 100,
+    matches: 50,
+    rampUpMs: 30_000,
+    durationMs: 60_000,
+    game: 'formula-frenzy',
     reconnectRatio: 0.1,
   },
 };
@@ -512,6 +535,21 @@ export function assertOptions(options: Options): void {
   if (options.game !== 'equation-artillery' && options.game !== 'formula-frenzy') {
     throw new Error('--game must be equation-artillery or formula-frenzy');
   }
+}
+
+export function expandAllScenario(options: Options): readonly Options[] {
+  if (options.scenario !== 'all') return [options];
+  const base = {
+    ...options,
+    metricsOut: undefined,
+    jsonOut: undefined,
+  };
+  return [
+    { ...base, scenario: 'formula', game: 'formula-frenzy', reconnectRatio: 0 },
+    { ...base, scenario: 'artillery', game: 'equation-artillery', reconnectRatio: 0 },
+    { ...base, scenario: 'reconnect', game: 'formula-frenzy' },
+    { ...base, scenario: 'reconnect', game: 'equation-artillery' },
+  ];
 }
 
 async function createGuest(url: string, index: number, stats: LoadStats): Promise<GuestSession> {
@@ -927,6 +965,32 @@ export function createSummary(
     postRunMetrics,
     warnings: stats.warnings,
     errors: stats.errors,
+  };
+}
+
+export function createSuiteSummary(
+  options: Options,
+  runs: readonly LoadSummary[],
+  elapsedMs: number,
+): LoadSuiteSummary {
+  return {
+    scenario: 'all',
+    url: options.url,
+    players: options.players,
+    matches: options.matches,
+    durationMs: options.durationMs,
+    elapsedMs,
+    runs,
+    commands: runs.reduce((sum, run) => sum + run.commands, 0),
+    commandsByRun: Object.fromEntries(
+      runs.map((run) => [`${run.scenario}:${run.game}`, run.commands]),
+    ),
+    warnings: runs.flatMap((run) =>
+      run.warnings.map((warning) => `${run.scenario}:${run.game}: ${warning}`),
+    ),
+    errors: runs.flatMap((run) =>
+      run.errors.map((error) => `${run.scenario}:${run.game}: ${error}`),
+    ),
   };
 }
 

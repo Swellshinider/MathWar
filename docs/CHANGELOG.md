@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved multiplayer load tests to generate gameplay traffic, track authoritative match versions,
   report command and acknowledgement breakdowns, verify reconnects, and check post-run socket
   cleanup metrics.
+- Added an all-scenarios load test mode that runs Formula Frenzy and Equation Artillery gameplay and
+  reconnect phases sequentially.
 
 ### Added - 2026-06-30
 

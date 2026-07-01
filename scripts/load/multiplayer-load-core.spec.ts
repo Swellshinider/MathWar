@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   createSummary,
+  createSuiteSummary,
+  expandAllScenario,
   latencySummary,
   LoadStats,
   parseArgs,
@@ -126,5 +128,47 @@ describe('multiplayer load runner core', () => {
 
   it('uses the same guest token for reconnects', () => {
     expect(reconnectTokenFor({ token: 'guest-token' })).toBe('guest-token');
+  });
+
+  it('expands the all scenario across gameplay and reconnect runs for both games', () => {
+    const expanded = expandAllScenario(
+      parseArgs(['--scenario', 'all', '--players', '8', '--matches', '4', '--duration', '1s']),
+    );
+
+    expect(expanded.map((run) => `${run.scenario}:${run.game}`)).toEqual([
+      'formula:formula-frenzy',
+      'artillery:equation-artillery',
+      'reconnect:formula-frenzy',
+      'reconnect:equation-artillery',
+    ]);
+    expect(expanded.every((run) => run.players === 8 && run.matches === 4)).toBe(true);
+  });
+
+  it('aggregates all-scenario run summaries', () => {
+    const baseOptions = options();
+    const first = createSummary(baseOptions, new LoadStats(), 100, {
+      socketActive: 0,
+      socketConnectionsTotal: 2,
+      socketDisconnectsTotal: 2,
+    });
+    const stats = new LoadStats();
+    stats.recordCommand('match:fire');
+    const second = createSummary(
+      { ...baseOptions, scenario: 'artillery', game: 'equation-artillery' },
+      stats,
+      100,
+      {
+        socketActive: 0,
+        socketConnectionsTotal: 2,
+        socketDisconnectsTotal: 2,
+      },
+    );
+
+    const suite = createSuiteSummary({ ...baseOptions, scenario: 'all' }, [first, second], 250);
+
+    expect(suite.scenario).toBe('all');
+    expect(suite.commands).toBe(1);
+    expect(suite.commandsByRun['formula:formula-frenzy']).toBe(0);
+    expect(suite.commandsByRun['artillery:equation-artillery']).toBe(1);
   });
 });
