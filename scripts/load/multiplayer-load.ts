@@ -1,5 +1,6 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { dirname } from 'node:path';
 import { io, Socket } from 'socket.io-client';
 
 type GameMode = 'equation-artillery' | 'formula-frenzy';
@@ -173,6 +174,11 @@ async function wait(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function writeOutputFile(path: string, content: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, content);
+}
+
 async function setupMatch(
   url: string,
   game: GameMode,
@@ -338,10 +344,10 @@ async function run(options: Options): Promise<Record<string, unknown>> {
 
   if (options.metricsOut) {
     const metrics = await fetch(`${options.url}/metrics`).then((response) => response.text());
-    await writeFile(options.metricsOut, metrics);
+    await writeOutputFile(options.metricsOut, metrics);
   }
   if (options.jsonOut) {
-    await writeFile(options.jsonOut, `${JSON.stringify(summary, null, 2)}\n`);
+    await writeOutputFile(options.jsonOut, `${JSON.stringify(summary, null, 2)}\n`);
   }
   return summary;
 }
