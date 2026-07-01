@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - 2026-07-01
+
+- Updated Angular build tooling and added targeted dependency overrides for vulnerable transitive
+  build packages reported by `npm audit`.
+
+### Added - 2026-06-30
+
+- Added server observability with structured logs, Prometheus-style metrics, Socket.IO command
+  instrumentation, repository and game-operation timing, and configurable multiplayer load testing.
+
 ### Added - 2026-06-29
 
 - Expanded Formula Frenzy progression to 25 named levels with XP bars, root and power

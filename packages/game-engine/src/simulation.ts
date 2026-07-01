@@ -18,6 +18,10 @@ const WALL_BLAST_RADIUS = 0.75;
 const WALL_PIECE_SIZE = 0.5;
 const WALL_SHAPES: readonly Wall['shape'][] = ['vertical', 'circle', 'square', 'triangle'];
 
+export interface ShotResolutionObserver {
+  expressionCompiled(durationMs: number, outcome: 'ok' | 'invalid'): void;
+}
+
 function integerBetween(random: () => number, minimum: number, maximum: number): number {
   return minimum + Math.floor(random() * (maximum - minimum + 1));
 }
@@ -341,6 +345,7 @@ export function resolveShot(
   commandId: string,
   equation: string,
   now = new Date(),
+  observer?: ShotResolutionObserver,
 ): ShotResolvedEvent {
   const characters = normalizeCharacters(state);
   const fallbackShooter = state.players.find((player) => player.userId === shooterUserId);
@@ -358,9 +363,12 @@ export function resolveShot(
     throw new Error('Both players require living characters to fire.');
   }
   let expression;
+  const compileStart = globalThis.performance.now();
   try {
     expression = compileExpression(equation);
+    observer?.expressionCompiled(globalThis.performance.now() - compileStart, 'ok');
   } catch (error) {
+    observer?.expressionCompiled(globalThis.performance.now() - compileStart, 'invalid');
     return {
       commandId,
       matchId: state.id,

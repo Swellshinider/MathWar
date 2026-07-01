@@ -130,6 +130,50 @@ describe('multiplayer socket server', () => {
     });
   });
 
+  it('exposes HTTP, auth, socket, and repository metrics', async () => {
+    const harness = await createHarness();
+    await harness.server.fastify.inject({ method: 'GET', url: '/healthz' });
+    await harness.server.fastify.inject({
+      method: 'POST',
+      url: '/api/auth/guest',
+      payload: {},
+    });
+    await harness.server.fastify.inject({
+      method: 'POST',
+      url: '/api/auth/guest',
+      payload: { displayName: 'Metrics Guest' },
+    });
+
+    const socket = await connect(harness, 'metrics-user');
+    const rejected = await emit<{ ok: false; code: string }>(socket, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 2,
+    });
+    expect(rejected.code).toBe('INVALID_COMMAND');
+    const created = await emit<{ ok: true }>(socket, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    expect(created.ok).toBe(true);
+
+    const metrics = await harness.server.fastify.inject({ method: 'GET', url: '/metrics' });
+    expect(metrics.statusCode).toBe(200);
+    expect(metrics.headers['content-type']).toContain('text/plain');
+    expect(metrics.body).toContain('mathwar_http_requests_total');
+    expect(metrics.body).toContain('route="/healthz",status_code="200"');
+    expect(metrics.body).toContain('mathwar_guest_auth_requests_total{outcome="accepted"} 1');
+    expect(metrics.body).toContain('mathwar_guest_auth_requests_total{outcome="rejected"} 1');
+    expect(metrics.body).toContain(
+      'mathwar_socket_commands_total{command="room:create",outcome="rejected",code="INVALID_COMMAND"} 1',
+    );
+    expect(metrics.body).toContain(
+      'mathwar_socket_commands_total{command="room:create",outcome="accepted",code="OK"} 1',
+    );
+    expect(metrics.body).toContain(
+      'mathwar_repository_operations_total{operation="create",outcome="ok"} 1',
+    );
+  });
+
   it('requires authentication during the handshake', async () => {
     const harness = await createHarness();
     const socket = createClient(harness.url, { transports: ['websocket'] });
