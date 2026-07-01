@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   OnDestroy,
@@ -54,6 +55,7 @@ import { formatRoomCode } from '../../../shared/multiplayer/room-code';
   providers: [AnimationService],
   templateUrl: './multiplayer-page.component.html',
   styleUrl: './multiplayer-page.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MultiplayerPageComponent implements OnDestroy {
   readonly auth = inject(MultiplayerAuthService);
@@ -73,6 +75,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly lastShotLabel = signal<{ characterId: number; equation: string } | null>(null);
   readonly bullet = signal<Bullet | null>(null);
   readonly trail = signal<readonly Point[]>([]);
+  readonly visibleTrailPointCount = signal<number | null>(null);
   private pendingState: MatchState | null = null;
   private readonly pendingLocalShotCommandIds = new Set<string>();
   private lastEndedSoundKey: string | null = null;
@@ -370,7 +373,8 @@ export class MultiplayerPageComponent implements OnDestroy {
         ? null
         : { characterId: event.shooterCharacterId, equation: event.equation },
     );
-    this.trail.set([firstPoint]);
+    this.trail.set(event.trail);
+    this.visibleTrailPointCount.set(1);
     this.bullet.set({ position: firstPoint, radius: 0.18 });
     this.audio.startEquationSound(firstPoint);
     this.animation.startTimeline((progress) => {
@@ -385,7 +389,7 @@ export class MultiplayerPageComponent implements OnDestroy {
         this.finishShot(event);
         return false;
       }
-      this.trail.set(event.trail.slice(0, index + 1));
+      this.visibleTrailPointCount.set(index + 1);
       this.bullet.set({ position: point, radius: 0.18 });
       this.audio.updateEquationSound(point);
       if (progress >= 1) {
@@ -413,6 +417,7 @@ export class MultiplayerPageComponent implements OnDestroy {
     this.setState(nextState);
     this.bullet.set(null);
     this.trail.set([]);
+    this.visibleTrailPointCount.set(null);
     this.activeShot.set(false);
     this.activeShotCharacterId.set(null);
     this.activeShotEquation.set(null);

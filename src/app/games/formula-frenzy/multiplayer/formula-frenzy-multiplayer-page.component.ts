@@ -1,5 +1,6 @@
 import {
   AfterViewChecked,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   HostListener,
@@ -40,6 +41,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
   ],
   templateUrl: './formula-frenzy-multiplayer-page.component.html',
   styleUrl: './formula-frenzy-multiplayer-page.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, OnDestroy {
   readonly auth = inject(MultiplayerAuthService);
@@ -125,7 +127,6 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
       this.inviteRoomCode = formatRoomCode(inviteRoomCode);
       this.inviteJoinPending = true;
     }
-    this.tickId = setInterval(() => this.now.set(Date.now()), 100);
     effect(() => {
       const token = this.auth.session()?.token;
       if (!token) {
@@ -137,7 +138,6 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
         state: (state) => {
           if (state.gameId === 'formula-frenzy') this.receiveState(state);
         },
-        formulaState: (state) => this.receiveState(state),
         formulaTyping: (event) => {
           if (event.userId !== this.userId()) this.opponentTyping.set(event.input);
         },
@@ -328,7 +328,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
   }
 
   ngOnDestroy(): void {
-    if (this.tickId) clearInterval(this.tickId);
+    this.stopCountdown();
     if (this.typingId) clearTimeout(this.typingId);
     this.clearPulseTimers();
     this.socket.disconnect();
@@ -370,10 +370,24 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
     this.error.set(null);
     if (state.status === 'active') {
       this.answerControl.enable({ emitEvent: false });
+      this.startCountdown();
     } else {
       this.answerControl.disable({ emitEvent: false });
+      this.stopCountdown();
     }
     this.syncResultDialog();
+  }
+
+  private startCountdown(): void {
+    if (this.tickId) return;
+    this.now.set(Date.now());
+    this.tickId = setInterval(() => this.now.set(Date.now()), 100);
+  }
+
+  private stopCountdown(): void {
+    if (!this.tickId) return;
+    clearInterval(this.tickId);
+    this.tickId = null;
   }
 
   private rejectAnswer(): void {

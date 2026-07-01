@@ -136,11 +136,11 @@ function activeShooter(state: MatchState, shooterUserId: string): CharacterState
 }
 
 function distanceToTargets(point: Point, targets: readonly CharacterState[]): number {
-  return Math.min(
-    ...targets.map((target) =>
-      Math.hypot(point.x - target.position.x, point.y - target.position.y),
-    ),
-  );
+  let closest = Number.POSITIVE_INFINITY;
+  for (const target of targets) {
+    closest = Math.min(closest, Math.hypot(point.x - target.position.x, point.y - target.position.y));
+  }
+  return closest;
 }
 
 function uniqueCandidates(equations: readonly string[]): readonly CpuCandidate[] {
@@ -261,7 +261,10 @@ function scoreEquation(
   const targets = state.characters.filter(
     (character) => character.ownerUserId !== shooterUserId && character.alive,
   );
-  const distance = Math.min(...shot.trail.map((point) => distanceToTargets(point, targets)));
+  let distance = Number.POSITIVE_INFINITY;
+  for (const point of shot.trail) {
+    distance = Math.min(distance, distanceToTargets(point, targets));
+  }
   const wallDamage =
     state.walls.reduce((count, wall) => count + wall.pieces.length, 0) -
     shot.state.walls.reduce((count, wall) => count + wall.pieces.length, 0);

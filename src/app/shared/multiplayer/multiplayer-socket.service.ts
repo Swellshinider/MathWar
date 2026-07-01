@@ -47,7 +47,6 @@ export class MultiplayerSocketService {
     token: string,
     handlers: {
       state: (state: MultiplayerMatchState) => void;
-      formulaState?: (state: FormulaFrenzyMatchState) => void;
       formulaTyping?: (event: { userId: string; input: string }) => void;
       shot?: (event: ShotResolvedEvent) => void;
       ended?: (event: MatchEndedEvent) => void;
@@ -64,7 +63,6 @@ export class MultiplayerSocketService {
     this.socket.on('room:state', run(handlers.state));
     this.socket.on('match:started', run(handlers.state));
     this.socket.on('match:state', run(handlers.state));
-    if (handlers.formulaState) this.socket.on('formula:state', run(handlers.formulaState));
     if (handlers.formulaTyping) this.socket.on('formula:typing', run(handlers.formulaTyping));
     if (handlers.shot) this.socket.on('shot:resolved', run(handlers.shot));
     if (handlers.ended) this.socket.on('match:ended', run(handlers.ended));

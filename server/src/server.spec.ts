@@ -380,6 +380,10 @@ describe('multiplayer socket server', () => {
     expect(startedResponse.data.status).toBe('active');
     const started = await startedPromise;
     expect(started.formulaPlayers[0].currentProblem.answer).toBeUndefined();
+    let legacyFormulaStateEmitted = false;
+    right.once('formula:state', () => {
+      legacyFormulaStateEmitted = true;
+    });
 
     const persisted = await harness.repository.findByCode(created.data.roomCode);
     const leftAnswer = persisted!.formulaPlayers.find((player) => player.userId === 'left')!
@@ -454,6 +458,8 @@ describe('multiplayer socket server', () => {
     expect(leftPlayer?.score).toBeGreaterThan(100);
     expect(leftPlayer?.totalCorrect).toBe(1);
     expect(answered.data.formulaPlayers[0].currentProblem.answer).toBeUndefined();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(legacyFormulaStateEmitted).toBe(false);
   });
 
   it('ends a formula frenzy room when a player timer expires', async () => {
@@ -496,9 +502,13 @@ describe('multiplayer socket server', () => {
       version: started.data.version + 1,
     }));
 
-    const ended = await once<{ reason: string; winnerUserId: string }>(right, 'match:ended');
+    const ended = once<{ reason: string; winnerUserId: string }>(right, 'match:ended');
+    await emit(left, 'formula:hint', {
+      commandId: randomUUID(),
+      expectedVersion: started.data.version + 1,
+    });
 
-    expect(ended).toMatchObject({ reason: 'timeout', winnerUserId: 'right' });
+    await expect(ended).resolves.toMatchObject({ reason: 'timeout', winnerUserId: 'right' });
     const endedState = await harness.repository.findByCode(created.data.roomCode);
     const rejectedRestart = await emit<{ ok: false; code: string }>(right, 'formula:start', {
       commandId: randomUUID(),

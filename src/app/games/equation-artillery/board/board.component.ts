@@ -1,5 +1,6 @@
 import {
   AfterViewInit,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   OnDestroy,
@@ -22,6 +23,7 @@ import { canvasToWorld } from '../game/coordinates';
   selector: 'app-board',
   templateUrl: './board.component.html',
   styleUrl: './board.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BoardComponent implements AfterViewInit, OnDestroy {
   readonly player = input.required<Player>();
@@ -31,6 +33,7 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
   readonly bullet = input<Bullet | null>(null);
   readonly previewTrail = input<readonly Point[]>([]);
   readonly trail = input<readonly Point[]>([]);
+  readonly visibleTrailPointCount = input<number | null>(null);
   readonly movementEnabled = input(false);
   readonly pointSelectionEnabled = input(false);
   readonly boardPoint = output<Point>();
@@ -39,6 +42,10 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
 
   private readonly renderer = inject(BoardRenderer);
   private resizeObserver: ResizeObserver | null = null;
+  private frameId: number | null = null;
+  private lastCanvasWidth = 0;
+  private lastCanvasHeight = 0;
+  private lastRatio = 0;
 
   constructor() {
     effect(() => {
@@ -49,18 +56,20 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
       this.bullet();
       this.previewTrail();
       this.trail();
-      queueMicrotask(() => this.draw());
+      this.visibleTrailPointCount();
+      this.requestDraw();
     });
   }
 
   ngAfterViewInit(): void {
-    this.resizeObserver = new ResizeObserver(() => this.draw());
+    this.resizeObserver = new ResizeObserver(() => this.requestDraw());
     this.resizeObserver.observe(this.canvasRef.nativeElement);
-    this.draw();
+    this.requestDraw();
   }
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
+    if (this.frameId !== null) cancelAnimationFrame(this.frameId);
   }
 
   handlePointer(event: PointerEvent): void {
@@ -82,6 +91,14 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
     if (this.movementEnabled()) this.move.emit(point);
   }
 
+  private requestDraw(): void {
+    if (this.frameId !== null) return;
+    this.frameId = requestAnimationFrame(() => {
+      this.frameId = null;
+      this.draw();
+    });
+  }
+
   private draw(): void {
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
@@ -89,8 +106,21 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
     const height = canvas.clientHeight;
     if (!width || !height) return;
     const ratio = window.devicePixelRatio || 1;
-    canvas.width = Math.round(width * ratio);
-    canvas.height = Math.round(height * ratio);
+    const canvasWidth = Math.round(width * ratio);
+    const canvasHeight = Math.round(height * ratio);
+    if (
+      canvas.width !== canvasWidth ||
+      canvas.height !== canvasHeight ||
+      this.lastCanvasWidth !== width ||
+      this.lastCanvasHeight !== height ||
+      this.lastRatio !== ratio
+    ) {
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      this.lastCanvasWidth = width;
+      this.lastCanvasHeight = height;
+      this.lastRatio = ratio;
+    }
     const context = canvas.getContext('2d');
     if (!context) return;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -102,6 +132,7 @@ export class BoardComponent implements AfterViewInit, OnDestroy {
       bullet: this.bullet(),
       previewTrail: this.previewTrail(),
       trail: this.trail(),
+      visibleTrailPointCount: this.visibleTrailPointCount(),
     });
   }
 }

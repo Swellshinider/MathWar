@@ -51,6 +51,15 @@ describe('MultiplayerSocketService', () => {
     expect(socket.disconnect).not.toHaveBeenCalled();
   });
 
+  it('uses match:state as the only normal match state stream', () => {
+    const service = TestBed.inject(MultiplayerSocketService);
+
+    service.connect('token', { state: vi.fn(), error: vi.fn() });
+
+    expect(socket.on).toHaveBeenCalledWith('match:state', expect.any(Function));
+    expect(socket.on).not.toHaveBeenCalledWith('formula:state', expect.any(Function));
+  });
+
   it('clears invalid sessions when the backend rejects the access token', () => {
     const service = TestBed.inject(MultiplayerSocketService);
     const error = vi.fn();

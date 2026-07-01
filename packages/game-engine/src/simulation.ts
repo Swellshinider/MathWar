@@ -8,6 +8,7 @@ import {
   Point,
   ShotResolvedEvent,
   Wall,
+  WallPiece,
   WorldBounds,
 } from './types.js';
 
@@ -445,9 +446,11 @@ export function resolveShot(
       winnerUserId = opponentStillAlive ? null : shooterUserId;
       break;
     }
-    const hitPiece = walls
-      .flatMap((wall) => wall.pieces)
-      .find((piece) => pointHitsPiece(point, piece.center, piece.size));
+    let hitPiece: WallPiece | undefined;
+    for (const wall of walls) {
+      hitPiece = wall.pieces.find((piece) => pointHitsPiece(point, piece.center, piece.size));
+      if (hitPiece) break;
+    }
     if (hitPiece) {
       impact = 'wall';
       walls = walls

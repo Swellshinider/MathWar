@@ -8,6 +8,7 @@ const VIEWBOX_HEIGHT = 100;
 const PADDING = 8;
 const CONSTANT_TOLERANCE = 1e-9;
 const DISCONTINUITY_THRESHOLD = VIEWBOX_HEIGHT * 0.6;
+const PREVIEW_CACHE_LIMIT = 64;
 
 interface PreviewPoint {
   readonly x: number;
@@ -19,16 +20,36 @@ export interface FunctionPreview {
   readonly available: boolean;
 }
 
+const previewCache = new Map<string, FunctionPreview>();
+
+function cachePreview(equation: string, preview: FunctionPreview): FunctionPreview {
+  previewCache.delete(equation);
+  previewCache.set(equation, preview);
+  if (previewCache.size > PREVIEW_CACHE_LIMIT) {
+    const oldest = previewCache.keys().next().value;
+    if (oldest) previewCache.delete(oldest);
+  }
+  return preview;
+}
+
 function formatCoordinate(value: number): string {
   return String(Number(value.toFixed(2)));
 }
 
 export function buildFunctionPreview(equation: string): FunctionPreview {
+  const cached = previewCache.get(equation);
+  if (cached) {
+    previewCache.delete(equation);
+    previewCache.set(equation, cached);
+    return cached;
+  }
   let expression;
   try {
     expression = compileExpression(equation);
   } catch (error) {
-    if (error instanceof ExpressionError) return { path: null, available: false };
+    if (error instanceof ExpressionError) {
+      return cachePreview(equation, { path: null, available: false });
+    }
     throw error;
   }
 
@@ -44,7 +65,9 @@ export function buildFunctionPreview(equation: string): FunctionPreview {
   }
 
   const validSamples = samples.filter((sample): sample is PreviewPoint => sample !== null);
-  if (validSamples.length < 2) return { path: null, available: false };
+  if (validSamples.length < 2) {
+    return cachePreview(equation, { path: null, available: false });
+  }
 
   const values = validSamples.map((sample) => sample.y);
   const minY = Math.min(...values);
@@ -75,8 +98,8 @@ export function buildFunctionPreview(equation: string): FunctionPreview {
     previous = point;
   });
 
-  return {
+  return cachePreview(equation, {
     path: commands.join(' '),
     available: commands.some((command) => command.startsWith('L')),
-  };
+  });
 }

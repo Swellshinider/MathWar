@@ -224,14 +224,20 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const idleCleanupMs = options.idleCleanupMs ?? 10 * 60_000;
   const socketsByUser = new Map<string, Set<string>>();
   const activeFormulaMatchIds = new Set<string>();
+  const activeMatchRoomIds = new Set<string>();
+  const formulaDeadlineTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  function activeMatchRoomCount(): number {
-    return [...io.sockets.adapter.rooms.keys()].filter((room) => room.startsWith('match:')).length;
+  function trackActiveRoom(matchId: string): void {
+    activeMatchRoomIds.add(matchId);
+  }
+
+  function untrackActiveRoom(matchId: string): void {
+    activeMatchRoomIds.delete(matchId);
   }
 
   function updateActiveGauges(): void {
     metrics.setActiveSockets(io.engine.clientsCount);
-    metrics.setActiveMatches(activeMatchRoomCount());
+    metrics.setActiveMatches(activeMatchRoomIds.size);
   }
 
   function observedAck<T>(
@@ -276,9 +282,6 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   async function emitState(state: MultiplayerMatchState): Promise<void> {
     const emittedState = publicState(state);
     io.to(roomName(state.id)).emit('match:state', emittedState);
-    if (stateGameId(state) === 'formula-frenzy') {
-      io.to(roomName(state.id)).emit('formula:state', emittedState);
-    }
     if (state.status === 'ended' && state.endReason) {
       const event: MatchEndedEvent = {
         matchId: state.id,
@@ -291,11 +294,66 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   }
 
   function trackFormulaMatch(state: MultiplayerMatchState): void {
+    clearFormulaDeadlineTimer(state.id);
     if (stateGameId(state) === 'formula-frenzy' && state.status === 'active') {
       activeFormulaMatchIds.add(state.id);
+      scheduleFormulaDeadline(state as FormulaFrenzyMatchState);
       return;
     }
     activeFormulaMatchIds.delete(state.id);
+  }
+
+  function clearFormulaDeadlineTimer(matchId: string): void {
+    const timer = formulaDeadlineTimers.get(matchId);
+    if (!timer) return;
+    clearTimeout(timer);
+    formulaDeadlineTimers.delete(matchId);
+  }
+
+  function nextFormulaDeadlineAt(state: FormulaFrenzyMatchState): number | null {
+    let deadlineAt: number | null = null;
+    for (const player of state.formulaPlayers) {
+      const startedAt = new Date(player.currentProblem.startedAt).getTime();
+      const candidate = startedAt + player.currentProblem.deadlineMs;
+      if (!Number.isFinite(candidate)) continue;
+      deadlineAt = deadlineAt === null ? candidate : Math.min(deadlineAt, candidate);
+    }
+    return deadlineAt;
+  }
+
+  function scheduleFormulaDeadline(state: FormulaFrenzyMatchState): void {
+    const deadlineAt = nextFormulaDeadlineAt(state);
+    if (deadlineAt === null) return;
+    const timer = setTimeout(
+      () => void expireFormulaDeadline(state.id),
+      Math.max(0, deadlineAt - Date.now()),
+    );
+    timer.unref();
+    formulaDeadlineTimers.set(state.id, timer);
+  }
+
+  async function expireFormulaDeadline(matchId: string): Promise<void> {
+    formulaDeadlineTimers.delete(matchId);
+    const now = new Date();
+    const match = await repository.findById(matchId);
+    if (!match || stateGameId(match) !== 'formula-frenzy' || match.status !== 'active') {
+      activeFormulaMatchIds.delete(matchId);
+      return;
+    }
+    const expiredUserId = expiredFormulaFrenzyPlayer(match as FormulaFrenzyMatchState, now);
+    if (!expiredUserId) {
+      trackFormulaMatch(match);
+      return;
+    }
+    const result = await repository.update(match.id, match.version, randomUUID(), (state) =>
+      stateGameId(state) === 'formula-frenzy'
+        ? expireFormulaFrenzyPlayer(state as FormulaFrenzyMatchState, expiredUserId, now)
+        : state,
+    );
+    if (result.ok) {
+      trackFormulaMatch(result.state);
+      await emitState(result.state);
+    }
   }
 
   function isRoomEmpty(matchId: string): boolean {
@@ -307,7 +365,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   }
 
   async function markRoomEmptyIfNeeded(matchId: string, emptySince: Date): Promise<void> {
-    if (isRoomEmpty(matchId)) await repository.markRoomEmpty(matchId, emptySince);
+    if (!isRoomEmpty(matchId)) return;
+    untrackActiveRoom(matchId);
+    await repository.markRoomEmpty(matchId, emptySince);
   }
 
   async function deleteEndedMatchIfRoomEmpty(
@@ -318,6 +378,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     const state = knownState ?? (await repository.findById(matchId));
     if (!state || state.status !== 'ended') return false;
     activeFormulaMatchIds.delete(matchId);
+    clearFormulaDeadlineTimer(matchId);
+    untrackActiveRoom(matchId);
     const deleted = await repository.delete(matchId);
     metrics.recordCleanupDeleted('empty', deleted ? 1 : 0);
     updateActiveGauges();
@@ -339,6 +401,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     metrics.recordResumeCheck('hit');
     socket.data.matchId = match.id;
     await socket.join(roomName(match.id));
+    trackActiveRoom(match.id);
     await clearRoomEmpty(match.id);
     updateActiveGauges();
     const player = match.players.find((candidate) => candidate.userId === socket.data.user.id);
@@ -418,6 +481,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         if (await repository.create(state, command.commandId)) {
           socket.data.matchId = state.id;
           await socket.join(roomName(state.id));
+          trackActiveRoom(state.id);
           await clearRoomEmpty(state.id);
           updateActiveGauges();
           socket.emit('room:state', publicState(state));
@@ -498,6 +562,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         });
       socket.data.matchId = result.state.id;
       await socket.join(roomName(result.state.id));
+      trackActiveRoom(result.state.id);
       await clearRoomEmpty(result.state.id);
       updateActiveGauges();
       io.to(roomName(result.state.id)).emit('match:started', publicState(result.state));
@@ -765,6 +830,34 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             error: 'The match is not active.',
           });
         const hintStart = nowSeconds();
+        const now = new Date();
+        const expiredUserId = expiredFormulaFrenzyPlayer(match as FormulaFrenzyMatchState, now);
+        if (expiredUserId) {
+          const expired = await repository.update(
+            match.id,
+            command.expectedVersion,
+            command.commandId,
+            (state) =>
+              stateGameId(state) === 'formula-frenzy'
+                ? expireFormulaFrenzyPlayer(state as FormulaFrenzyMatchState, expiredUserId, now)
+                : state,
+          );
+          if (expired.ok) {
+            trackFormulaMatch(expired.state);
+            await emitState(expired.state);
+            return acknowledge({
+              ok: false,
+              code: 'NOT_ACTIVE',
+              error: 'The match timer expired.',
+              data: publicState(expired.state as FormulaFrenzyMatchState),
+            });
+          }
+          return acknowledge({
+            ok: false,
+            code: expired.reason.toUpperCase(),
+            error: `Hint rejected: ${expired.reason}.`,
+          });
+        }
         const requested = requestFormulaFrenzyHint(
           match as FormulaFrenzyMatchState,
           socket.data.user.id,
@@ -793,6 +886,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             code: next.reason.toUpperCase(),
             error: `Hint rejected: ${next.reason}.`,
           });
+        trackFormulaMatch(next.state);
         await emitState(next.state);
         acknowledge({ ok: true, data: publicState(next.state as FormulaFrenzyMatchState) });
       },
@@ -834,6 +928,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       if (match.status === 'ended') {
         socket.data.matchId = undefined;
         await socket.leave(roomName(matchId));
+        if (isRoomEmpty(matchId)) untrackActiveRoom(matchId);
         await deleteEndedMatchIfRoomEmpty(matchId, match);
         return acknowledge({ ok: true, data: publicState(match) });
       }
@@ -866,6 +961,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       trackFormulaMatch(result.state);
       await emitState(result.state);
       await socket.leave(roomName(matchId));
+      if (isRoomEmpty(matchId)) untrackActiveRoom(matchId);
       if (!(await deleteEndedMatchIfRoomEmpty(matchId, result.state))) {
         await markRoomEmptyIfNeeded(matchId, new Date());
         updateActiveGauges();
@@ -972,24 +1068,6 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         await emitState(result.state);
       }
     }
-    for (const matchId of [...activeFormulaMatchIds]) {
-      const match = await repository.findById(matchId);
-      if (!match || stateGameId(match) !== 'formula-frenzy' || match.status === 'ended') {
-        activeFormulaMatchIds.delete(matchId);
-        continue;
-      }
-      const expiredUserId = expiredFormulaFrenzyPlayer(match as FormulaFrenzyMatchState, now);
-      if (!expiredUserId) continue;
-      const result = await repository.update(match.id, match.version, randomUUID(), (state) =>
-        stateGameId(state) === 'formula-frenzy'
-          ? expireFormulaFrenzyPlayer(state as FormulaFrenzyMatchState, expiredUserId, now)
-          : state,
-      );
-      if (result.ok) {
-        trackFormulaMatch(result.state);
-        await emitState(result.state);
-      }
-    }
     const deletedFinished = await repository.deleteFinishedBefore(
       new Date(now.getTime() - 24 * 60 * 60 * 1000),
     );
@@ -1011,6 +1089,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     },
     async close(): Promise<void> {
       clearInterval(sweep);
+      for (const timer of formulaDeadlineTimers.values()) clearTimeout(timer);
+      formulaDeadlineTimers.clear();
       await fastify.close();
       await repository.close();
       metrics.shutdown();
