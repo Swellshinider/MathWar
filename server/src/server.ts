@@ -223,6 +223,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const reconnectWindowMs = options.reconnectWindowMs ?? 60_000;
   const idleCleanupMs = options.idleCleanupMs ?? 10 * 60_000;
   const socketsByUser = new Map<string, Set<string>>();
+  const activeFormulaMatchIds = new Set<string>();
 
   function activeMatchRoomCount(): number {
     return [...io.sockets.adapter.rooms.keys()].filter((room) => room.startsWith('match:')).length;
@@ -289,6 +290,14 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     }
   }
 
+  function trackFormulaMatch(state: MultiplayerMatchState): void {
+    if (stateGameId(state) === 'formula-frenzy' && state.status === 'active') {
+      activeFormulaMatchIds.add(state.id);
+      return;
+    }
+    activeFormulaMatchIds.delete(state.id);
+  }
+
   function isRoomEmpty(matchId: string): boolean {
     return !io.sockets.adapter.rooms.get(roomName(matchId))?.size;
   }
@@ -299,6 +308,20 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
 
   async function markRoomEmptyIfNeeded(matchId: string, emptySince: Date): Promise<void> {
     if (isRoomEmpty(matchId)) await repository.markRoomEmpty(matchId, emptySince);
+  }
+
+  async function deleteEndedMatchIfRoomEmpty(
+    matchId: string,
+    knownState?: MultiplayerMatchState,
+  ): Promise<boolean> {
+    if (!isRoomEmpty(matchId)) return false;
+    const state = knownState ?? (await repository.findById(matchId));
+    if (!state || state.status !== 'ended') return false;
+    activeFormulaMatchIds.delete(matchId);
+    const deleted = await repository.delete(matchId);
+    metrics.recordCleanupDeleted('empty', deleted ? 1 : 0);
+    updateActiveGauges();
+    return deleted;
   }
 
   async function reconnect(socket: AuthenticatedSocket): Promise<void> {
@@ -337,6 +360,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           matchStatus: result.state.status,
           durationMs: (nowSeconds() - start) * 1000,
         });
+        trackFormulaMatch(result.state);
         socket.emit('room:state', publicState(result.state));
         await emitState(result.state);
         return;
@@ -619,6 +643,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             code: result.reason.toUpperCase(),
             error: `Start rejected: ${result.reason}.`,
           });
+        trackFormulaMatch(result.state);
         io.to(roomName(result.state.id)).emit('match:started', publicState(result.state));
         await emitState(result.state);
         acknowledge({ ok: true, data: publicState(result.state as FormulaFrenzyMatchState) });
@@ -684,6 +709,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
               code: missed.reason.toUpperCase(),
               error: `Answer rejected: ${missed.reason}.`,
             });
+          trackFormulaMatch(missed.state);
           await emitState(missed.state);
           return acknowledge({
             ok: false,
@@ -705,6 +731,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             code: next.reason.toUpperCase(),
             error: `Answer rejected: ${next.reason}.`,
           });
+        trackFormulaMatch(next.state);
         await emitState(next.state);
         acknowledge({ ok: true, data: publicState(next.state as FormulaFrenzyMatchState) });
       },
@@ -804,6 +831,12 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         return acknowledge({ ok: false, code: 'NOT_IN_MATCH', error: 'No active match.' });
       const match = await repository.findById(matchId);
       if (!match) return acknowledge({ ok: false, code: 'MISSING', error: 'Match not found.' });
+      if (match.status === 'ended') {
+        socket.data.matchId = undefined;
+        await socket.leave(roomName(matchId));
+        await deleteEndedMatchIfRoomEmpty(matchId, match);
+        return acknowledge({ ok: true, data: publicState(match) });
+      }
       const result = await repository.update(
         matchId,
         command.expectedVersion,
@@ -830,10 +863,13 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           error: `Leave rejected: ${result.reason}.`,
         });
       socket.data.matchId = undefined;
-      await socket.leave(roomName(matchId));
-      await markRoomEmptyIfNeeded(matchId, new Date());
-      updateActiveGauges();
+      trackFormulaMatch(result.state);
       await emitState(result.state);
+      await socket.leave(roomName(matchId));
+      if (!(await deleteEndedMatchIfRoomEmpty(matchId, result.state))) {
+        await markRoomEmptyIfNeeded(matchId, new Date());
+        updateActiveGauges();
+      }
       acknowledge({ ok: true, data: publicState(result.state) });
     });
 
@@ -856,7 +892,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       const now = new Date();
       const match = await repository.findActiveByUser(socket.data.user.id);
       if (!match) {
-        if (socket.data.matchId) await markRoomEmptyIfNeeded(socket.data.matchId, now);
+        if (socket.data.matchId && !(await deleteEndedMatchIfRoomEmpty(socket.data.matchId))) {
+          await markRoomEmptyIfNeeded(socket.data.matchId, now);
+        }
         updateActiveGauges();
         metrics.recordSocketCommand('disconnect', 'accepted', 'NO_MATCH', nowSeconds() - start);
         return;
@@ -875,6 +913,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
               },
         );
         if (result.ok) {
+          trackFormulaMatch(result.state);
           await emitState(result.state);
           await markRoomEmptyIfNeeded(result.state.id, now);
         }
@@ -894,7 +933,10 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           ? state
           : { ...state, version: state.version + 1, updatedAt: now.toISOString() },
       );
-      if (result.ok) await emitState(result.state);
+      if (result.ok) {
+        trackFormulaMatch(result.state);
+        await emitState(result.state);
+      }
       await markRoomEmptyIfNeeded(match.id, now);
       updateActiveGauges();
       metrics.recordSocketCommand(
@@ -925,15 +967,17 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         }
         return { ...(state as MatchState), ...ended, turnUserId: null, turnCharacterId: null };
       });
-      if (result.ok) await emitState(result.state);
+      if (result.ok) {
+        trackFormulaMatch(result.state);
+        await emitState(result.state);
+      }
     }
-    const formulaMatches = await Promise.all(
-      [...io.sockets.adapter.rooms.keys()]
-        .filter((room) => room.startsWith('match:'))
-        .map((room) => repository.findById(room.slice('match:'.length))),
-    );
-    for (const match of formulaMatches) {
-      if (!match || stateGameId(match) !== 'formula-frenzy') continue;
+    for (const matchId of [...activeFormulaMatchIds]) {
+      const match = await repository.findById(matchId);
+      if (!match || stateGameId(match) !== 'formula-frenzy' || match.status === 'ended') {
+        activeFormulaMatchIds.delete(matchId);
+        continue;
+      }
       const expiredUserId = expiredFormulaFrenzyPlayer(match as FormulaFrenzyMatchState, now);
       if (!expiredUserId) continue;
       const result = await repository.update(match.id, match.version, randomUUID(), (state) =>
@@ -941,7 +985,10 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           ? expireFormulaFrenzyPlayer(state as FormulaFrenzyMatchState, expiredUserId, now)
           : state,
       );
-      if (result.ok) await emitState(result.state);
+      if (result.ok) {
+        trackFormulaMatch(result.state);
+        await emitState(result.state);
+      }
     }
     const deletedFinished = await repository.deleteFinishedBefore(
       new Date(now.getTime() - 24 * 60 * 60 * 1000),
