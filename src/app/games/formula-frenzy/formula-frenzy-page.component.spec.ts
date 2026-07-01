@@ -90,6 +90,43 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/right-answer.wav');
   });
 
+  it('reveals a hint with the H key and halves the current answer score', () => {
+    component.startRun();
+    const event = new KeyboardEvent('keydown', {
+      key: 'h',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    document.dispatchEvent(event);
+    fixture.detectChanges();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(component.hintsRemaining()).toBe(2);
+    expect(component.currentHint()).toEqual(expect.any(String));
+    expect((fixture.nativeElement as HTMLElement).querySelector('.problem-hint')?.textContent).toContain(
+      `hint: ${component.currentHint()}`,
+    );
+
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+
+    expect(component.score()).toBe(110);
+    expect(component.currentHint()).toBeNull();
+  });
+
+  it('renders the hint counter and HUD tooltips', () => {
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('.hint-token')?.textContent).toContain('3');
+    expect(root.querySelector('[role="tooltip"]#formula-score-tooltip')?.textContent).toContain(
+      'Correct answers score more',
+    );
+    expect(root.querySelector('[role="tooltip"]#formula-hint-tooltip')?.textContent).toContain(
+      'Press H',
+    );
+  });
+
   it('waits to start sprint mode until the player clicks start and focuses the answer', () => {
     const root = fixture.nativeElement as HTMLElement;
     vi.advanceTimersByTime(component.problem().deadlineMs);
@@ -190,6 +227,19 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.hearts()).toBe(3);
     expect(component.streak()).toBe(5);
     expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/heart-up.wav');
+  });
+
+  it('recovers one hint on a ten-answer streak up to three hints', () => {
+    component.startRun();
+    component.requestHint();
+
+    for (let index = 0; index < 10; index += 1) {
+      component.answerControl.setValue(String(component.problem().answer));
+      component.submitAnswer();
+    }
+
+    expect(component.streak()).toBe(10);
+    expect(component.hintsRemaining()).toBe(3);
   });
 
   it('prevents Backspace navigation after the sprint result appears', () => {

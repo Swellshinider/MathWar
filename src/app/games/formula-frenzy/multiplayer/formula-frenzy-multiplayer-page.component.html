@@ -27,41 +27,119 @@
         </header>
         <div class="hud">
           <div class="hud-score">
-            <span>Score</span>
+            <span class="info">
+              <button
+                type="button"
+                class="info-button"
+                aria-label="About score"
+                aria-describedby="multiplayer-score-tooltip"
+              >
+                Score
+              </button>
+              <span id="multiplayer-score-tooltip" class="info-tooltip" role="tooltip">
+                Correct answers score more when solved quickly, at higher levels, and with a
+                streak. A hinted answer earns half points.
+              </span>
+            </span>
             <strong [class.score-pop]="localScorePulsed()">{{ me()?.score ?? 0 }}</strong>
             <div class="score-meta">
-              <span>Streak {{ me()?.streak ?? 0 }}</span>
+              <span class="info">
+                <button
+                  type="button"
+                  class="info-button"
+                  aria-label="About streak"
+                  aria-describedby="multiplayer-streak-tooltip"
+                >
+                  Streak {{ me()?.streak ?? 0 }}
+                </button>
+                <span id="multiplayer-streak-tooltip" class="info-tooltip" role="tooltip">
+                  A streak is your run of correct answers. It raises your score multiplier, and
+                  every fifth answer restores one heart.
+                </span>
+              </span>
               <span
                 class="multiplier"
                 [class.multiplier--boosted]="(me()?.streak ?? 0) > 1"
                 [class.multiplier--hot]="(me()?.streak ?? 0) >= 10"
                 [class.multiplier-pop]="localMultiplierPulsed()"
-                >{{ multiplier() }}x</span
               >
+                <span class="info">
+                  <button
+                    type="button"
+                    class="info-button info-button--inline"
+                    aria-label="About multiplier"
+                    aria-describedby="multiplayer-multiplier-tooltip"
+                  >
+                    {{ multiplier() }}x
+                  </button>
+                  <span id="multiplayer-multiplier-tooltip" class="info-tooltip" role="tooltip">
+                    The multiplier increases with your streak and applies to each correct answer.
+                  </span>
+                </span>
+              </span>
             </div>
           </div>
           <div class="hud-level">
             <span>Level {{ me()?.level ?? 1 }}</span>
             <strong>{{ levelName(me()?.level ?? 1) }}</strong>
-            <div class="xp-bar" aria-label="Your XP progress">
+            <div
+              class="xp-bar info"
+              aria-label="Your XP progress"
+              aria-describedby="multiplayer-xp-tooltip"
+              tabindex="0"
+            >
               <span class="xp-bar__fill" [style.width.%]="xpProgress()"></span>
               <span class="xp-bar__text">{{ me()?.xp ?? 0 }} / {{ me()?.xpRequired ?? 0 }}</span>
+              <span id="multiplayer-xp-tooltip" class="info-tooltip" role="tooltip">
+                XP comes from correct answers. Filling the bar raises your level and unlocks harder
+                formulas.
+              </span>
             </div>
           </div>
-          <div class="hearts" aria-label="Your hearts">
-            @for (heart of heartSlots; track heart) {
-              <svg
-                lucideHeart
-                [class.heart--empty]="heart > playerHearts(me())"
-                aria-hidden="true"
-              ></svg>
-            }
+          <div class="hud-resources">
+            <button
+              type="button"
+              class="hint-token info"
+              [disabled]="!canRequestHint()"
+              aria-label="Request hint"
+              aria-describedby="multiplayer-hint-tooltip"
+              (click)="requestHint($event)"
+            >
+              <svg lucideLightbulb aria-hidden="true"></svg>
+              <span>{{ me()?.hintsRemaining ?? 0 }}</span>
+              <span id="multiplayer-hint-tooltip" class="info-tooltip" role="tooltip">
+                Press H or click the lightbulb to reveal a simpler expression. Each run starts with
+                three hints. Every 10-answer streak restores one hint, up to three, and a hinted
+                answer earns half score.
+              </span>
+            </button>
+            <div
+              class="hearts info"
+              aria-label="Your hearts"
+              aria-describedby="multiplayer-hearts-tooltip"
+              tabindex="0"
+            >
+              @for (heart of heartSlots; track heart) {
+                <svg
+                  lucideHeart
+                  [class.heart--empty]="heart > playerHearts(me())"
+                  aria-hidden="true"
+                ></svg>
+              }
+              <span id="multiplayer-hearts-tooltip" class="info-tooltip" role="tooltip">
+                Hearts are your health. Wrong answers spend one heart, and reaching zero ends your
+                run.
+              </span>
+            </div>
           </div>
         </div>
         <div class="run-meta" aria-label="Your run details">
           <span>Time {{ timeRemaining() }}</span>
         </div>
         <p class="problem-prompt">{{ me()?.currentProblem?.prompt ?? 'Waiting...' }}</p>
+        @if (me()?.currentHint) {
+          <p class="problem-hint">hint: {{ me()?.currentHint }}</p>
+        }
         @if (state()?.status === 'waiting' && isHost() && state()!.players.length === 2) {
           <button type="button" class="btn btn--primary start-button" (click)="startRun()">
             Start run

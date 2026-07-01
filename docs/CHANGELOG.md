@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-01
+
+- Added Formula Frenzy hints with keyboard access, streak-based hint recovery, visible hint counts,
+  score penalties, and HUD tooltips for score, streak, multiplier, XP, hearts, and hints.
+
 ### Fixed - 2026-07-01
 
 - Updated Angular build tooling and added targeted dependency overrides for vulnerable transitive

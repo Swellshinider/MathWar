@@ -12,12 +12,14 @@ import {
   expiredFormulaFrenzyPlayer,
   FireCommand,
   FormulaFrenzyAnswerCommand,
+  FormulaFrenzyHintCommand,
   FormulaFrenzyMatchState,
   FormulaFrenzyTypingCommand,
   GameId,
   MatchEndedEvent,
   MatchState,
   MultiplayerMatchState,
+  requestFormulaFrenzyHint,
   resolveFormulaFrenzyAnswer,
   resolveShot,
   RoomJoinCommand,
@@ -119,6 +121,9 @@ function requestedGameId(command: Pick<VersionedCommand, 'gameId'>): GameId {
 function isFormulaAnswerCommand(value: unknown): value is FormulaFrenzyAnswerCommand {
   if (!isVersionedCommand(value)) return false;
   return typeof (value as Partial<FormulaFrenzyAnswerCommand>).answer === 'number';
+}
+function isFormulaHintCommand(value: unknown): value is FormulaFrenzyHintCommand {
+  return isVersionedCommand(value);
 }
 function isFormulaTypingCommand(value: unknown): value is FormulaFrenzyTypingCommand {
   if (!value || typeof value !== 'object') return false;
@@ -699,6 +704,67 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             ok: false,
             code: next.reason.toUpperCase(),
             error: `Answer rejected: ${next.reason}.`,
+          });
+        await emitState(next.state);
+        acknowledge({ ok: true, data: publicState(next.state as FormulaFrenzyMatchState) });
+      },
+    );
+
+    socket.on(
+      'formula:hint',
+      async (command: FormulaFrenzyHintCommand, ack: Ack<FormulaFrenzyMatchState>) => {
+        const acknowledge = observedAck('formula:hint', nowSeconds(), ack, 'formula-frenzy');
+        if (!isFormulaHintCommand(command))
+          return acknowledge({
+            ok: false,
+            code: 'INVALID_COMMAND',
+            error: 'Invalid hint command.',
+          });
+        const matchId = socket.data.matchId;
+        if (!matchId)
+          return acknowledge({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
+        const match = await repository.findById(matchId);
+        if (!match) return acknowledge({ ok: false, code: 'MISSING', error: 'Match not found.' });
+        if (stateGameId(match) !== 'formula-frenzy')
+          return acknowledge({
+            ok: false,
+            code: 'WRONG_GAME',
+            error: 'This room is not Formula Frenzy.',
+          });
+        if (match.status !== 'active')
+          return acknowledge({
+            ok: false,
+            code: 'NOT_ACTIVE',
+            error: 'The match is not active.',
+          });
+        const hintStart = nowSeconds();
+        const requested = requestFormulaFrenzyHint(
+          match as FormulaFrenzyMatchState,
+          socket.data.user.id,
+        );
+        metrics.observeGameOperation(
+          'formula-frenzy',
+          'formula_hint',
+          requested.ok ? 'ok' : 'invalid',
+          nowSeconds() - hintStart,
+        );
+        if (!requested.ok)
+          return acknowledge({
+            ok: false,
+            code: 'HINT_UNAVAILABLE',
+            error: 'No hint is available right now.',
+          });
+        const next = await repository.update(
+          match.id,
+          command.expectedVersion,
+          command.commandId,
+          () => requested.state,
+        );
+        if (!next.ok)
+          return acknowledge({
+            ok: false,
+            code: next.reason.toUpperCase(),
+            error: `Hint rejected: ${next.reason}.`,
           });
         await emitState(next.state);
         acknowledge({ ok: true, data: publicState(next.state as FormulaFrenzyMatchState) });

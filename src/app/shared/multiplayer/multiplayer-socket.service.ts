@@ -3,6 +3,7 @@ import {
   CommandAck,
   FireCommand,
   FormulaFrenzyAnswerCommand,
+  FormulaFrenzyHintCommand,
   FormulaFrenzyMatchState,
   FormulaFrenzyTypingCommand,
   MatchEndedEvent,
@@ -89,6 +90,12 @@ export class MultiplayerSocketService {
 
   answerFormula(command: FormulaFrenzyAnswerCommand): Promise<CommandAck<FormulaFrenzyMatchState>> {
     return this.emit('formula:answer', command);
+  }
+
+  requestFormulaHint(
+    command: FormulaFrenzyHintCommand,
+  ): Promise<CommandAck<FormulaFrenzyMatchState>> {
+    return this.emit('formula:hint', command);
   }
 
   startFormula(command: VersionedCommand): Promise<CommandAck<FormulaFrenzyMatchState>> {
