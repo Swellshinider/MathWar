@@ -9,6 +9,7 @@ import {
 } from './types.js';
 
 export const FORMULA_MAX_HEARTS = 3;
+export const FORMULA_INITIAL_HINTS = 3;
 
 export const FORMULA_OPERATION_OPTIONS: readonly {
   readonly operation: FormulaOperation;
@@ -133,10 +134,12 @@ export function scoreFormulaAnswer(
   solveTimeMs: number,
   deadlineMs: number,
   levelNumber: number,
+  hintUsed = false,
 ): number {
   const remainingRatio = clamp((deadlineMs - solveTimeMs) / deadlineMs, 0, 1);
   const streakMultiplier = Math.min(3, 1 + Math.max(0, streak - 1) * 0.1);
-  return Math.round((100 + levelNumber * 10) * (1 + remainingRatio) * streakMultiplier);
+  const score = Math.round((100 + levelNumber * 10) * (1 + remainingRatio) * streakMultiplier);
+  return hintUsed ? Math.floor(score / 2) : score;
 }
 
 export function createFormulaFrenzyMatchState(
@@ -242,6 +245,7 @@ export function resolveFormulaFrenzyAnswer(
                   solveTimeMs,
                   candidate.currentProblem.deadlineMs,
                   candidate.currentProblem.level,
+                  candidate.currentHint !== null,
                 ),
               experience,
               level: progress.level,
@@ -253,10 +257,46 @@ export function resolveFormulaFrenzyAnswer(
                 streak % 5 === 0
                   ? Math.min(FORMULA_MAX_HEARTS, candidate.hearts + 1)
                   : candidate.hearts,
+              hintsRemaining:
+                streak % 10 === 0
+                  ? Math.min(FORMULA_INITIAL_HINTS, candidate.hintsRemaining + 1)
+                  : candidate.hintsRemaining,
               highestLevel: Math.max(candidate.highestLevel, progress.level),
               totalCorrect: candidate.totalCorrect + 1,
               totalSolveTimeMs: candidate.totalSolveTimeMs + solveTimeMs,
+              currentHint: null,
               currentProblem: nextProblemFor(candidate, state.seed, timestamp, experience),
+            }
+          : candidate,
+      ),
+    },
+  };
+}
+
+export function requestFormulaFrenzyHint(
+  state: FormulaFrenzyMatchState,
+  userId: string,
+  now = new Date(),
+): { readonly ok: boolean; readonly state: FormulaFrenzyMatchState } {
+  if (state.status !== 'active') return { ok: false, state };
+  const player = state.formulaPlayers.find((candidate) => candidate.userId === userId);
+  if (!player || player.hintsRemaining <= 0 || player.currentHint !== null) {
+    return { ok: false, state };
+  }
+  const hint = player.currentProblem.hint;
+  if (!hint) return { ok: false, state };
+  return {
+    ok: true,
+    state: {
+      ...state,
+      version: state.version + 1,
+      updatedAt: now.toISOString(),
+      formulaPlayers: state.formulaPlayers.map((candidate) =>
+        candidate.userId === userId
+          ? {
+              ...candidate,
+              hintsRemaining: candidate.hintsRemaining - 1,
+              currentHint: hint,
             }
           : candidate,
       ),
@@ -384,6 +424,8 @@ function createFormulaPlayerState(
     streak: 0,
     bestStreak: 0,
     hearts: FORMULA_MAX_HEARTS,
+    hintsRemaining: FORMULA_INITIAL_HINTS,
+    currentHint: null,
     highestLevel: 1,
     totalCorrect: 0,
     totalSolveTimeMs: 0,
@@ -417,7 +459,7 @@ function formulaLevel(levelNumber: number): FormulaLevelConfig {
 function problemForLevel(
   config: FormulaLevelConfig,
   random: () => number,
-): Pick<FormulaProblem, 'prompt' | 'answer'> {
+): Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'> {
   const operation =
     config.allowedOperations[Math.floor(random() * config.allowedOperations.length)];
   const first = problemForOperation(operation, random, config.level);
@@ -436,6 +478,10 @@ function problemForLevel(
       secondOperation === 'addition'
         ? first.answer! + second.answer!
         : first.answer! - second.answer!,
+    hint:
+      secondOperation === 'addition'
+        ? `${hintForProblem(first)} + ${hintForProblem(second)}`
+        : `${hintForProblem(first)} - ${groupCompoundPrompt(hintForProblem(second))}`,
   };
 }
 
@@ -447,37 +493,104 @@ function problemForOperation(
   operation: FormulaOperation,
   random: () => number,
   levelNumber: number,
-): Pick<FormulaProblem, 'prompt' | 'answer'> {
+): Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'> {
   const max = Math.min(20 + levelNumber * 2, 80);
   if (operation === 'subtraction') {
     const left = randomInt(random, 2, max);
     const right = randomInt(random, 1, Math.min(left, max));
-    return { prompt: `${left} - ${right}`, answer: left - right };
+    const answer = left - right;
+    return { prompt: `${left} - ${right}`, answer, hint: hintForAnswer(answer) };
   }
   if (operation === 'multiplication') {
     const left = randomInt(random, 2, Math.min(12 + Math.floor(levelNumber / 2), 24));
     const right = randomInt(random, 2, Math.min(12 + Math.floor(levelNumber / 3), 20));
-    return { prompt: `${left} * ${right}`, answer: left * right };
+    return {
+      prompt: `${left} * ${right}`,
+      answer: left * right,
+      hint: hintForMultiplication(left, right),
+    };
   }
   if (operation === 'division') {
     const divisor = randomInt(random, 2, Math.min(12 + Math.floor(levelNumber / 3), 20));
     const answer = randomInt(random, 1, Math.min(12 + Math.floor(levelNumber / 2), 24));
-    return { prompt: `${answer * divisor} / ${divisor}`, answer };
+    return {
+      prompt: `${answer * divisor} / ${divisor}`,
+      answer,
+      hint: `${divisor} * ? = ${answer * divisor}`,
+    };
   }
   if (operation === 'power') {
     const exponent = levelNumber >= 18 && random() < 0.35 ? 3 : 2;
     const base = randomInt(random, 2, exponent === 3 ? 6 : 12);
-    return { prompt: `${base}${exponent === 3 ? '³' : '²'}`, answer: base ** exponent };
+    const prompt = `${base}${exponent === 3 ? '³' : '²'}`;
+    const hint = exponent === 3 ? `${base} * ${base} * ${base}` : `${base} * ${base}`;
+    return { prompt, answer: base ** exponent, hint };
   }
   if (operation === 'root') {
     const cube = levelNumber >= 20 && random() < 0.35;
     const answer = randomInt(random, 2, cube ? 6 : 12);
-    return cube ? { prompt: `∛${answer ** 3}`, answer } : { prompt: `√${answer ** 2}`, answer };
+    return cube
+      ? { prompt: `∛${answer ** 3}`, answer, hint: `${answer} * ${answer} * ${answer}` }
+      : { prompt: `√${answer ** 2}`, answer, hint: `${answer} * ${answer}` };
   }
 
   const left = randomInt(random, 1, max);
   const right = randomInt(random, 1, max);
-  return { prompt: `${left} + ${right}`, answer: left + right };
+  const answer = left + right;
+  return { prompt: `${left} + ${right}`, answer, hint: hintForAnswer(answer) };
+}
+
+function hintForProblem(problem: Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'>): string {
+  return problem.hint ?? hintForAnswer(problem.answer ?? 0);
+}
+
+function hintForMultiplication(left: number, right: number): string {
+  const nearRight = right - 10;
+  if (nearRight !== 0 && Math.abs(nearRight) <= 4) {
+    return nearRight > 0
+      ? `${left * 10} + ${left * nearRight}`
+      : `${left * 10} - ${left * Math.abs(nearRight)}`;
+  }
+
+  const nearLeft = left - 10;
+  if (nearLeft !== 0 && Math.abs(nearLeft) <= 4) {
+    return nearLeft > 0
+      ? `${right * 10} + ${right * nearLeft}`
+      : `${right * 10} - ${right * Math.abs(nearLeft)}`;
+  }
+
+  if (right >= 10) {
+    const tens = Math.floor(right / 10) * 10;
+    const ones = right - tens;
+    if (ones > 0) return `${left * tens} + ${left * ones}`;
+  }
+
+  if (left >= 10) {
+    const tens = Math.floor(left / 10) * 10;
+    const ones = left - tens;
+    if (ones > 0) return `${right * tens} + ${right * ones}`;
+  }
+
+  if (right % 2 === 0) return `${left * (right / 2)} * 2`;
+  if (left % 2 === 0) return `${right * (left / 2)} * 2`;
+  return hintForAnswer(left * right);
+}
+
+function hintForAnswer(answer: number): string {
+  if (answer === 0) return '0';
+  const sign = answer < 0 ? '-' : '';
+  const absolute = Math.abs(answer);
+  if (absolute % 2 === 0 && absolute > 2) return `${sign}${absolute / 2} * 2`;
+  const parts: number[] = [];
+  let place = 1;
+  let remaining = absolute;
+  while (remaining > 0) {
+    const digit = remaining % 10;
+    if (digit > 0) parts.unshift(digit * place);
+    remaining = Math.floor(remaining / 10);
+    place *= 10;
+  }
+  return `${sign}${parts.join(' + ')}`;
 }
 
 function randomInt(random: () => number, min: number, max: number): number {

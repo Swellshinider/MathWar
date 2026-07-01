@@ -66,6 +66,8 @@ function activeState(overrides: Partial<FormulaFrenzyMatchState> = {}): FormulaF
         streak: 0,
         bestStreak: 0,
         hearts: 3,
+        hintsRemaining: 3,
+        currentHint: null,
         highestLevel: 1,
         totalCorrect: 0,
         totalSolveTimeMs: 0,
@@ -89,6 +91,8 @@ function activeState(overrides: Partial<FormulaFrenzyMatchState> = {}): FormulaF
         streak: 0,
         bestStreak: 0,
         hearts: 3,
+        hintsRemaining: 3,
+        currentHint: null,
         highestLevel: 1,
         totalCorrect: 0,
         totalSolveTimeMs: 0,
@@ -127,6 +131,7 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
     join: vi.fn(),
     leave: vi.fn(),
     answerFormula: vi.fn(),
+    requestFormulaHint: vi.fn(),
     sendFormulaTyping: vi.fn(),
     startFormula: vi.fn(),
   };
@@ -253,6 +258,31 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
       expectedVersion: 2,
       answer: 4,
     });
+  });
+
+  it('requests a hint and renders the revealed local hint', async () => {
+    const hinted = activeState({
+      version: 3,
+      formulaPlayers: [
+        { ...activeState().formulaPlayers[0], hintsRemaining: 2, currentHint: '4 + 5' },
+        activeState().formulaPlayers[1],
+      ],
+    });
+    socket.requestFormulaHint.mockResolvedValue({ ok: true, data: hinted });
+    handlers.state(activeState());
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    root.querySelector<HTMLButtonElement>('.hint-token')?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(socket.requestFormulaHint).toHaveBeenCalledWith({
+      commandId: expect.any(String),
+      expectedVersion: 2,
+    });
+    expect(root.querySelector('.hint-token')?.textContent).toContain('2');
+    expect(root.querySelector('.problem-hint')?.textContent).toContain('hint: 4 + 5');
   });
 
   it('prevents Backspace navigation after the multiplayer result appears', () => {

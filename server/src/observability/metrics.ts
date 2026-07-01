@@ -14,6 +14,7 @@ export type SocketCommand =
   | 'match:fire'
   | 'formula:start'
   | 'formula:answer'
+  | 'formula:hint'
   | 'formula:typing'
   | 'match:leave'
   | 'disconnect';
@@ -37,7 +38,8 @@ export type GameOperation =
   | 'expression_compile'
   | 'resolve_shot'
   | 'formula_start'
-  | 'formula_answer';
+  | 'formula_answer'
+  | 'formula_hint';
 
 export interface MathWarMetrics {
   readonly registry: Registry;

@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { LucideHeart } from '@lucide/angular';
+import { LucideHeart, LucideLightbulb } from '@lucide/angular';
 import { MultiplayerMatchState } from '@math-war/game-engine';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { preventBackspaceNavigation } from '../../shared/dom/prevent-backspace-navigation';
@@ -34,7 +34,13 @@ type FormulaFrenzyMode = 'progression' | 'free-practice';
 
 @Component({
   selector: 'app-formula-frenzy-page',
-  imports: [GameFrameComponent, MultiplayerLobbyComponent, ReactiveFormsModule, LucideHeart],
+  imports: [
+    GameFrameComponent,
+    MultiplayerLobbyComponent,
+    ReactiveFormsModule,
+    LucideHeart,
+    LucideLightbulb,
+  ],
   templateUrl: './formula-frenzy-page.component.html',
   styleUrl: './formula-frenzy-page.component.scss',
 })
@@ -49,6 +55,16 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   readonly gameMode = signal<FormulaFrenzyMode>('progression');
   readonly runStarted = signal(false);
   readonly heartSlots = [1, 2, 3] as const;
+  readonly hintsRemaining = signal(3);
+  readonly currentHint = signal<string | null>(null);
+  readonly canRequestHint = computed(
+    () =>
+      this.gameMode() === 'progression' &&
+      this.runStarted() &&
+      !this.gameOver() &&
+      this.hintsRemaining() > 0 &&
+      this.currentHint() === null,
+  );
   readonly operationOptions = FORMULA_OPERATION_OPTIONS;
   readonly practiceOperations = signal<readonly FormulaOperation[]>(
     FORMULA_OPERATION_OPTIONS.map((option) => option.operation),
@@ -111,6 +127,10 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
 
   @HostListener('document:keydown', ['$event'])
   preventBrowserBackspace(event: KeyboardEvent): void {
+    if (event.key.toLowerCase() === 'h' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (this.requestHint()) event.preventDefault();
+      return;
+    }
     preventBackspaceNavigation(event);
   }
 
@@ -161,6 +181,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
           solveTimeMs,
           this.problem().deadlineMs,
           this.problem().level,
+          this.currentHint() !== null,
         ),
     );
     this.pulseScore();
@@ -173,10 +194,12 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.bestStreak.update((best) => Math.max(best, nextStreak));
     const previousHearts = this.hearts();
     if (nextStreak % 5 === 0) this.hearts.update((hearts) => Math.min(3, hearts + 1));
+    if (nextStreak % 10 === 0) this.hintsRemaining.update((hints) => Math.min(3, hints + 1));
     this.highestLevel.update((highest) => Math.max(highest, progress.level));
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
+    this.currentHint.set(null);
     this.problem.set(this.nextProblem());
     if (this.gameMode() === 'progression') this.startProblemTimer();
     this.playSound('right-answer.wav');
@@ -198,6 +221,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.multiplierPulsed.set(false);
     this.bestStreak.set(0);
     this.hearts.set(3);
+    this.hintsRemaining.set(3);
+    this.currentHint.set(null);
     this.highestLevel.set(1);
     this.totalCorrect.set(0);
     this.totalSolveTimeMs.set(0);
@@ -275,6 +300,15 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   clearKeypad(): void {
     if (this.answerControl.disabled) return;
     this.answerControl.setValue('');
+  }
+
+  requestHint(): boolean {
+    if (!this.canRequestHint()) return false;
+    const hint = this.problem().hint;
+    if (!hint) return false;
+    this.hintsRemaining.update((remaining) => remaining - 1);
+    this.currentHint.set(hint);
+    return true;
   }
 
   private lose(): void {

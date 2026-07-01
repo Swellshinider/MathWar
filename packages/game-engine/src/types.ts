@@ -103,6 +103,7 @@ export interface FormulaLevelConfig {
 export interface FormulaProblem {
   readonly prompt: string;
   readonly answer?: number;
+  readonly hint?: string;
   readonly level: number;
   readonly levelName: string;
   readonly deadlineMs: number;
@@ -120,6 +121,8 @@ export interface FormulaFrenzyPlayerState {
   readonly streak: number;
   readonly bestStreak: number;
   readonly hearts: number;
+  readonly hintsRemaining: number;
+  readonly currentHint: string | null;
   readonly highestLevel: number;
   readonly totalCorrect: number;
   readonly totalSolveTimeMs: number;
@@ -165,6 +168,8 @@ export interface RoomJoinCommand extends VersionedCommand {
 export interface FormulaFrenzyAnswerCommand extends VersionedCommand {
   readonly answer: number;
 }
+
+export type FormulaFrenzyHintCommand = VersionedCommand;
 
 export interface FormulaFrenzyTypingCommand {
   readonly input: string;

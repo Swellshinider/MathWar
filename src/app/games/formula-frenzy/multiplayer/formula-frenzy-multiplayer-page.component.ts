@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { LucideHeart } from '@lucide/angular';
+import { LucideHeart, LucideLightbulb } from '@lucide/angular';
 import {
   FORMULA_LEVELS,
   FormulaFrenzyMatchState,
@@ -31,7 +31,13 @@ import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-formula-frenzy-multiplayer-page',
-  imports: [GameFrameComponent, MultiplayerLobbyComponent, ReactiveFormsModule, LucideHeart],
+  imports: [
+    GameFrameComponent,
+    MultiplayerLobbyComponent,
+    ReactiveFormsModule,
+    LucideHeart,
+    LucideLightbulb,
+  ],
   templateUrl: './formula-frenzy-multiplayer-page.component.html',
   styleUrl: './formula-frenzy-multiplayer-page.component.scss',
 })
@@ -102,6 +108,16 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
   readonly resultTitle = computed(() =>
     this.state()?.winnerUserId === this.userId() ? 'You won' : 'Game over',
   );
+  readonly canRequestHint = computed(() => {
+    const state = this.state();
+    const me = this.me();
+    return (
+      state?.status === 'active' &&
+      !!me &&
+      me.hintsRemaining > 0 &&
+      me.currentHint === null
+    );
+  });
 
   constructor() {
     const inviteRoomCode = this.route.snapshot.queryParamMap.get('room');
@@ -150,6 +166,10 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
 
   @HostListener('document:keydown', ['$event'])
   preventBrowserBackspace(event: KeyboardEvent): void {
+    if (event.key.toLowerCase() === 'h' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      void this.requestHint(event);
+      return;
+    }
     preventBackspaceNavigation(event);
   }
 
@@ -199,6 +219,22 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
     this.closeResultDialog();
     this.receiveState(response.data);
     this.answerInput?.nativeElement.focus();
+  }
+
+  async requestHint(event?: Event): Promise<void> {
+    if (!this.canRequestHint()) return;
+    event?.preventDefault();
+    const state = this.state();
+    if (!state) return;
+    const response = await this.socket.requestFormulaHint({
+      commandId: crypto.randomUUID(),
+      expectedVersion: state.version,
+    });
+    if (!response.ok || !response.data) {
+      this.error.set(response.error ?? 'No hint is available right now.');
+      return;
+    }
+    this.receiveState(response.data);
   }
 
   sendTyping(): void {

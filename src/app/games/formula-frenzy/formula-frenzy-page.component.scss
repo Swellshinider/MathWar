@@ -110,7 +110,6 @@
   gap: var(--space-1);
   margin-top: var(--space-2);
   color: var(--text-muted);
-  overflow: hidden;
 }
 
 .multiplier {
@@ -119,14 +118,6 @@
   font-size: var(--fs-md);
   font-weight: var(--weight-black);
   transition: transform var(--duration-fast) var(--ease-spring);
-}
-
-.multiplier--boosted {
-  color: var(--success);
-}
-
-.multiplier--hot {
-  color: var(--accent-hover);
 }
 
 .multiplier-pop {
@@ -147,14 +138,8 @@
   stroke-width: 2.5;
 }
 
-.heart--empty {
-  color: var(--border-3);
-  fill: transparent;
-}
-
 .xp-bar {
   position: relative;
-  overflow: hidden;
   width: min(100%, 18rem);
   height: 1.25rem;
   border: 1px solid var(--border-2);
@@ -235,22 +220,12 @@ input {
   font: inherit;
 }
 
-.answer-input--invalid {
-  border-color: var(--danger);
-  background: var(--error-soft);
-  box-shadow: 0 0 0 3px rgb(244 91 105 / 0.18);
-}
-
 .answer-input--shake-a {
   animation: answer-shake-a 180ms ease-in-out;
 }
 
 .answer-input--shake-b {
   animation: answer-shake-a 180ms ease-in-out reverse;
-}
-
-.answer-keypad {
-  display: none;
 }
 
 .game-over {
@@ -313,28 +288,5 @@ input {
   .hud-mode {
     grid-column: 1 / -1;
     grid-row: 2;
-  }
-}
-
-@media (max-width: 48rem) {
-  .answer-keypad {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-2);
-  }
-
-  .answer-keypad button {
-    min-height: 3rem;
-    border: 1px solid var(--border-2);
-    border-radius: var(--radius-sm);
-    background: var(--surface-2);
-    color: var(--text-strong);
-    font: inherit;
-    font-weight: var(--weight-bold);
-  }
-
-  .answer-keypad .answer-keypad__send {
-    background: var(--accent);
-    color: var(--text-strong);
   }
 }

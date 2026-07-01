@@ -1,9 +1,11 @@
 import {
   FORMULA_LEVELS,
+  FORMULA_INITIAL_HINTS,
   createFormulaFrenzyMatchState,
   createFormulaProblemForLevel,
   expireFormulaFrenzyPlayer,
   formulaProgress,
+  requestFormulaFrenzyHint,
   resolveFormulaFrenzyAnswer,
   scoreFormulaAnswer,
   startFormulaFrenzyMatch,
@@ -57,6 +59,25 @@ describe('formula frenzy multiplayer simulation', () => {
     expect(formulaProgress(2)).toEqual({ level: 2, xp: 0, xpRequired: 3, percent: 0 });
     expect(scoreFormulaAnswer(1, 5000, 10000, 1)).toBe(165);
     expect(scoreFormulaAnswer(5, 1000, 10000, 10)).toBe(532);
+    expect(scoreFormulaAnswer(1, 5000, 10000, 1, true)).toBe(82);
+  });
+
+  it('creates deterministic problem hints', () => {
+    const addition = createFormulaProblemForLevel(1, () => 0);
+    const root = createFormulaProblemForLevel(12, () => 0);
+
+    expect(addition.hint).toEqual(expect.any(String));
+    expect(root.hint).toBe('2 * 2');
+  });
+
+  it('simplifies multiplication hints instead of restating the factors', () => {
+    const randomValues = [0, 0.385, 0.584];
+    const problem = createFormulaProblemForLevel(4, () => randomValues.shift() ?? 0);
+
+    expect(problem.prompt).toBe('7 * 9');
+    expect(problem.answer).toBe(63);
+    expect(problem.hint).toBe('70 - 7');
+    expect(problem.hint).not.toContain('groups of');
   });
 
   it('creates deterministic active player problem streams', () => {
@@ -81,6 +102,10 @@ describe('formula frenzy multiplayer simulation', () => {
     ]);
     expect(state.formulaPlayers.map((player) => player.score)).toEqual([0, 0]);
     expect(state.formulaPlayers.map((player) => player.level)).toEqual([1, 1]);
+    expect(state.formulaPlayers.map((player) => player.hintsRemaining)).toEqual([
+      FORMULA_INITIAL_HINTS,
+      FORMULA_INITIAL_HINTS,
+    ]);
     expect(
       state.formulaPlayers.every((player) => player.currentProblem.startedAt === now.toISOString()),
     ).toBe(true);
@@ -133,6 +158,68 @@ describe('formula frenzy multiplayer simulation', () => {
       result.state.formulaPlayers.find((player) => player.userId === 'left')?.currentProblem.prompt,
     ).not.toBe(state.formulaPlayers[0].currentProblem.prompt);
     expect(result.state.formulaPlayers.find((player) => player.userId === 'right')?.score).toBe(0);
+  });
+
+  it('reveals one hint per problem and halves hinted answer score', () => {
+    const now = new Date('2026-06-28T12:00:00.000Z');
+    const state = startFormulaFrenzyMatch(
+      createFormulaFrenzyMatchState(
+        'match-1',
+        'FORM-FREN',
+        'seed',
+        { userId: 'left', displayName: 'Left' },
+        { userId: 'right', displayName: 'Right' },
+        now,
+      ),
+      now,
+    );
+
+    const hinted = requestFormulaFrenzyHint(state, 'left', now);
+    const duplicate = requestFormulaFrenzyHint(hinted.state, 'left', now);
+    const answered = resolveFormulaFrenzyAnswer(
+      hinted.state,
+      'left',
+      hinted.state.formulaPlayers[0].currentProblem.answer!,
+      new Date('2026-06-28T12:00:02.000Z'),
+    );
+
+    expect(hinted.ok).toBe(true);
+    expect(duplicate.ok).toBe(false);
+    expect(hinted.state.formulaPlayers[0]).toMatchObject({
+      hintsRemaining: FORMULA_INITIAL_HINTS - 1,
+      currentHint: expect.any(String),
+    });
+    expect(answered.state.formulaPlayers[0]).toMatchObject({
+      score: 99,
+      currentHint: null,
+      totalCorrect: 1,
+    });
+  });
+
+  it('restores one hint on every ten-answer streak up to the maximum', () => {
+    let state = startFormulaFrenzyMatch(
+      createFormulaFrenzyMatchState(
+        'match-1',
+        'FORM-FREN',
+        'seed',
+        { userId: 'left', displayName: 'Left' },
+        { userId: 'right', displayName: 'Right' },
+      ),
+    );
+    state = requestFormulaFrenzyHint(state, 'left').state;
+
+    for (let index = 0; index < 10; index += 1) {
+      state = resolveFormulaFrenzyAnswer(
+        state,
+        'left',
+        state.formulaPlayers[0].currentProblem.answer!,
+      ).state;
+    }
+
+    expect(state.formulaPlayers[0]).toMatchObject({
+      hintsRemaining: FORMULA_INITIAL_HINTS,
+      streak: 10,
+    });
   });
 
   it('recovers a heart on every five-answer streak', () => {

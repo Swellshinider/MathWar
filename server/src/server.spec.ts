@@ -413,6 +413,27 @@ describe('multiplayer socket server', () => {
     expect(missedLeft).toMatchObject({ hearts: 2, streak: 0 });
     expect(missedLeft?.currentProblem.answer).toBeUndefined();
 
+    const hinted = await emit<{
+      ok: true;
+      data: {
+        version: number;
+        formulaPlayers: {
+          userId: string;
+          hintsRemaining: number;
+          currentHint: string | null;
+          currentProblem: { answer?: number; hint?: string };
+        }[];
+      };
+    }>(left, 'formula:hint', {
+      commandId: randomUUID(),
+      expectedVersion: missed.data.version,
+    });
+    const hintedLeft = hinted.data.formulaPlayers.find((player) => player.userId === 'left');
+    expect(hintedLeft?.hintsRemaining).toBe(2);
+    expect(hintedLeft?.currentHint).toEqual(expect.any(String));
+    expect(hintedLeft?.currentProblem.answer).toBeUndefined();
+    expect(hintedLeft?.currentProblem.hint).toBeUndefined();
+
     const answered = await emit<{
       ok: true;
       data: {
@@ -425,7 +446,7 @@ describe('multiplayer socket server', () => {
       };
     }>(left, 'formula:answer', {
       commandId: randomUUID(),
-      expectedVersion: missed.data.version,
+      expectedVersion: hinted.data.version,
       answer: leftAnswer,
     });
     expect(answered.ok).toBe(true);
