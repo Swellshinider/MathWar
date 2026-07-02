@@ -1,10 +1,6 @@
 CREATE TABLE IF NOT EXISTS accounts (
   id uuid PRIMARY KEY,
-  email_lookup_hash text NOT NULL UNIQUE,
-  email_ciphertext text NOT NULL,
-  email_iv text NOT NULL,
-  email_tag text NOT NULL,
-  email_salt text NOT NULL,
+  username text NOT NULL UNIQUE CHECK (username = lower(username) AND username ~ '^[a-z0-9_-]{3,20}$'),
   password_hash text NOT NULL,
   display_name text NOT NULL,
   avatar_bytes bytea,

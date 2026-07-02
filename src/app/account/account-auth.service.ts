@@ -3,8 +3,8 @@ import { MULTIPLAYER_CONFIG } from '../shared/multiplayer/multiplayer-config';
 
 export interface AccountUser {
   readonly id: string;
+  readonly username: string;
   readonly displayName: string;
-  readonly email: string | null;
   readonly avatarUrl: string | null;
 }
 
@@ -12,6 +12,11 @@ interface AccountSession {
   readonly accessToken: string;
   readonly expiresAt: string;
   readonly user: AccountUser;
+}
+
+interface UsernameAvailability {
+  readonly username: string;
+  readonly available: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -36,12 +41,30 @@ export class AccountAuthService {
     return url ? new URL(url, this.config.serverUrl).toString() : null;
   }
 
-  async register(email: string, password: string, displayName: string): Promise<boolean> {
-    return this.authenticate('/api/account/register', { email, password, displayName });
+  async register(username: string, password: string, displayName: string): Promise<boolean> {
+    return this.authenticate('/api/account/register', { username, password, displayName });
   }
 
-  async login(email: string, password: string): Promise<boolean> {
-    return this.authenticate('/api/account/login', { email, password });
+  async login(username: string, password: string): Promise<boolean> {
+    return this.authenticate('/api/account/login', { username, password });
+  }
+
+  async checkUsernameAvailability(username: string): Promise<UsernameAvailability | null> {
+    try {
+      const url = new URL('/api/account/username-availability', this.config.serverUrl);
+      url.searchParams.set('username', username);
+      const response = await fetch(url);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        this.error.set(readMessage(payload, 'Could not check username availability.'));
+        return null;
+      }
+      this.error.set(null);
+      return payload as UsernameAvailability;
+    } catch {
+      this.error.set('Could not reach the account server.');
+      return null;
+    }
   }
 
   async refresh(): Promise<boolean> {

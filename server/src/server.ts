@@ -35,19 +35,17 @@ import {
   ACCOUNT_REFRESH_COOKIE,
   createAccountTokenVerifier,
   createRefreshToken,
-  decryptEmail,
-  emailLookupHash,
-  encryptEmail,
   hashPassword,
   hashRefreshToken,
   issueAccountAccessToken,
   parseAvatarDataUrl,
   validateAccountDisplayName,
-  validateEmail,
   validatePassword,
+  validateUsername,
   verifyPasswordHash,
 } from './account-auth.js';
 import { AccountRecord, AccountRepository } from './account-repository.js';
+import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { canJoinWaitingRoom, canStartFormulaMatch, isMatchPlayer } from './authorization.js';
 import { TokenVerifier } from './auth.js';
 import { logCommand } from './observability/logging.js';
@@ -73,6 +71,8 @@ const GUEST_AUTH_RATE_LIMIT_MAX = 10;
 const GUEST_AUTH_RATE_LIMIT_WINDOW = '1 minute';
 const ACCOUNT_AUTH_RATE_LIMIT_MAX = 10;
 const ACCOUNT_AUTH_RATE_LIMIT_WINDOW = '1 minute';
+const ACCOUNT_USERNAME_CHECK_RATE_LIMIT_MAX = 60;
+const ACCOUNT_USERNAME_CHECK_RATE_LIMIT_WINDOW = '1 minute';
 const SOCKET_CONNECT_LIMIT = 100;
 const SOCKET_CONNECT_WINDOW_MS = 60_000;
 const SOCKET_JOIN_CREATE_LIMIT = 20;
@@ -87,7 +87,7 @@ export interface MultiplayerServerOptions {
     readonly repository: AccountRepository;
     readonly accessTokenSecret: string;
     readonly refreshTokenSecret: string;
-    readonly emailLookupSecret: string;
+    readonly usernameAvailabilityCache?: UsernameAvailabilityCache;
     readonly refreshCookieSecure?: boolean;
   };
   readonly allowedOrigin: string;
@@ -183,6 +183,14 @@ function timingSafeStringEqual(left: string, right: string): boolean {
   if (leftBuffer.length !== rightBuffer.length) return false;
   return timingSafeEqual(leftBuffer, rightBuffer);
 }
+function isUniqueConstraintViolation(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  );
+}
 function isMetricsRequestAuthorized(authorization: string | undefined): boolean {
   const token = process.env['METRICS_TOKEN'];
   const requiresToken = process.env['NODE_ENV'] === 'production' || !!token;
@@ -194,11 +202,11 @@ function accountAvatarUrl(account: AccountRecord): string | null {
   if (!account.avatarMimeType || !account.avatarUpdatedAt) return null;
   return `/api/account/avatar/${account.id}?v=${encodeURIComponent(account.avatarUpdatedAt)}`;
 }
-function publicAccount(account: AccountRecord, email: string | null): AccountPublicUser {
+function publicAccount(account: AccountRecord): AccountPublicUser {
   return {
     id: account.id,
+    username: account.username,
     displayName: account.displayName,
-    email,
     avatarUrl: accountAvatarUrl(account),
   };
 }
@@ -260,6 +268,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const repository = new InstrumentedMatchRepository(options.repository, metrics);
   const accountOptions = options.accounts;
   const accountRepository = accountOptions?.repository;
+  const usernameAvailabilityCache = accountOptions?.usernameAvailabilityCache;
   const accountTokenVerifier = accountOptions
     ? createAccountTokenVerifier(accountOptions.accessTokenSecret)
     : null;
@@ -319,6 +328,23 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     });
   }
 
+  async function isUsernameCachedTaken(username: string): Promise<boolean> {
+    try {
+      return (await usernameAvailabilityCache?.isUsernameTaken(username)) ?? false;
+    } catch (error) {
+      fastify.log.warn({ error }, 'Username availability cache read failed');
+      return false;
+    }
+  }
+
+  async function cacheUsernameTaken(username: string): Promise<void> {
+    try {
+      await usernameAvailabilityCache?.storeUsernameTaken(username);
+    } catch (error) {
+      fastify.log.warn({ error }, 'Username availability cache write failed');
+    }
+  }
+
   async function requireAccount(request: { headers: { authorization?: string } }) {
     if (!accountRepository || !accountTokenVerifier)
       throw new Error('Account system is not configured.');
@@ -331,7 +357,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     return account;
   }
 
-  async function createAccountSession(account: AccountRecord, email: string | null) {
+  async function createAccountSession(account: AccountRecord) {
     if (!accountOptions || !accountRepository) throw new Error('Account system is not configured.');
     const access = await issueAccountAccessToken(accountOptions.accessTokenSecret, account);
     const refresh = createRefreshToken(accountOptions.refreshTokenSecret);
@@ -344,15 +370,47 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       session: {
         accessToken: access.token,
         expiresAt: access.expiresAt.toISOString(),
-        user: publicAccount(account, email),
+        user: publicAccount(account),
       },
       refresh,
     };
   }
 
   if (accountRepository && accountOptions) {
+    fastify.get<{ Querystring: { username?: unknown } }>(
+      '/api/account/username-availability',
+      {
+        config: {
+          rateLimit: {
+            max: ACCOUNT_USERNAME_CHECK_RATE_LIMIT_MAX,
+            timeWindow: ACCOUNT_USERNAME_CHECK_RATE_LIMIT_WINDOW,
+          },
+        },
+      },
+      async (request, reply) => {
+        try {
+          if (typeof request.query.username !== 'string') {
+            return reply.code(400).send({ message: 'Username is required.' });
+          }
+          const username = validateUsername(request.query.username);
+          reply.header('cache-control', 'no-store');
+          if (await isUsernameCachedTaken(username)) {
+            return { username, available: false };
+          }
+          const existing = await accountRepository.findAccountByUsername(username);
+          if (existing) await cacheUsernameTaken(username);
+          return { username, available: !existing };
+        } catch (error) {
+          return reply.code(400).send({
+            message:
+              error instanceof Error ? error.message : 'Could not check username availability.',
+          });
+        }
+      },
+    );
+
     fastify.post<{
-      Body?: { email?: unknown; password?: unknown; displayName?: unknown };
+      Body?: { username?: unknown; password?: unknown; displayName?: unknown };
     }>(
       '/api/account/register',
       {
@@ -364,32 +422,33 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         },
       },
       async (request, reply) => {
+        let username: string | null = null;
         try {
           if (
-            typeof request.body?.email !== 'string' ||
+            typeof request.body?.username !== 'string' ||
             typeof request.body.password !== 'string' ||
             typeof request.body.displayName !== 'string'
           ) {
             return reply
               .code(400)
-              .send({ message: 'Email, password, and display name are required.' });
+              .send({ message: 'Username, password, and display name are required.' });
           }
-          const email = validateEmail(request.body.email);
+          username = validateUsername(request.body.username);
           const password = validatePassword(request.body.password);
           const displayName = validateAccountDisplayName(request.body.displayName);
-          const lookupHash = emailLookupHash(email, accountOptions.emailLookupSecret);
-          const existing = await accountRepository.findAccountByEmailLookupHash(lookupHash);
-          if (existing)
+          const existing = await accountRepository.findAccountByUsername(username);
+          if (existing) {
+            await cacheUsernameTaken(username);
             return reply
               .code(409)
-              .send({ message: 'An account already exists for this email address.' });
+              .send({ message: 'An account already exists for this username.' });
+          }
           const account = await accountRepository.createAccount({
-            emailLookupHash: lookupHash,
-            encryptedEmail: await encryptEmail(email, password),
+            username,
             passwordHash: await hashPassword(password),
             displayName,
           });
-          const { session, refresh } = await createAccountSession(account, email);
+          const { session, refresh } = await createAccountSession(account);
           reply.setCookie(
             ACCOUNT_REFRESH_COOKIE,
             refresh.token,
@@ -397,6 +456,12 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           );
           return session;
         } catch (error) {
+          if (isUniqueConstraintViolation(error)) {
+            if (username) await cacheUsernameTaken(username);
+            return reply
+              .code(409)
+              .send({ message: 'An account already exists for this username.' });
+          }
           return reply.code(400).send({
             message: error instanceof Error ? error.message : 'Could not create the account.',
           });
@@ -404,7 +469,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       },
     );
 
-    fastify.post<{ Body?: { email?: unknown; password?: unknown } }>(
+    fastify.post<{ Body?: { username?: unknown; password?: unknown } }>(
       '/api/account/login',
       {
         config: {
@@ -417,21 +482,18 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       async (request, reply) => {
         try {
           if (
-            typeof request.body?.email !== 'string' ||
+            typeof request.body?.username !== 'string' ||
             typeof request.body.password !== 'string'
           ) {
-            return reply.code(400).send({ message: 'Email and password are required.' });
+            return reply.code(400).send({ message: 'Username and password are required.' });
           }
-          const email = validateEmail(request.body.email);
+          const username = validateUsername(request.body.username);
           const password = validatePassword(request.body.password);
-          const account = await accountRepository.findAccountByEmailLookupHash(
-            emailLookupHash(email, accountOptions.emailLookupSecret),
-          );
+          const account = await accountRepository.findAccountByUsername(username);
           if (!account || !(await verifyPasswordHash(account.passwordHash, password))) {
-            return reply.code(401).send({ message: 'Email or password is incorrect.' });
+            return reply.code(401).send({ message: 'Username or password is incorrect.' });
           }
-          const decryptedEmail = await decryptEmail(account.encryptedEmail, password);
-          const { session, refresh } = await createAccountSession(account, decryptedEmail);
+          const { session, refresh } = await createAccountSession(account);
           reply.setCookie(
             ACCOUNT_REFRESH_COOKIE,
             refresh.token,
@@ -486,7 +548,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       return {
         accessToken: access.token,
         expiresAt: access.expiresAt.toISOString(),
-        user: publicAccount(account, null),
+        user: publicAccount(account),
       };
     });
 
@@ -505,7 +567,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     fastify.get('/api/account/me', async (request, reply) => {
       try {
         const account = await requireAccount(request);
-        return publicAccount(account, null);
+        return publicAccount(account);
       } catch {
         return reply.code(401).send({ message: 'Account authentication is required.' });
       }
@@ -531,7 +593,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             validateAccountDisplayName(request.body.displayName),
           );
           if (!updated) return reply.code(404).send({ message: 'Account not found.' });
-          return publicAccount(updated, null);
+          return publicAccount(updated);
         } catch (error) {
           return reply.code(400).send({
             message: error instanceof Error ? error.message : 'Could not update the profile.',
@@ -563,15 +625,13 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         if (!(await verifyPasswordHash(account.passwordHash, currentPassword))) {
           return reply.code(401).send({ message: 'Current password is incorrect.' });
         }
-        const email = await decryptEmail(account.encryptedEmail, currentPassword);
-        const updated = await accountRepository.updatePasswordAndEmail(
+        const updated = await accountRepository.updatePassword(
           account.id,
           await hashPassword(newPassword),
-          await encryptEmail(email, newPassword),
         );
         await accountRepository.revokeAccountRefreshTokens(account.id);
         reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
-        return publicAccount(updated ?? account, null);
+        return publicAccount(updated ?? account);
       } catch (error) {
         return reply.code(400).send({
           message: error instanceof Error ? error.message : 'Could not update the password.',
@@ -597,7 +657,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           const avatar = parseAvatarDataUrl(request.body.dataUrl);
           const updated = await accountRepository.setAvatar(account.id, avatar);
           if (!updated) return reply.code(404).send({ message: 'Account not found.' });
-          return publicAccount(updated, null);
+          return publicAccount(updated);
         } catch (error) {
           return reply.code(400).send({
             message: error instanceof Error ? error.message : 'Could not update the avatar.',
@@ -1547,6 +1607,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
 
   await repository.initialize();
   await accountRepository?.initialize();
+  await usernameAvailabilityCache?.initialize();
   const sweep = setInterval(async () => {
     const sweepStart = nowSeconds();
     const now = new Date();
@@ -1595,6 +1656,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       formulaDeadlineTimers.clear();
       await fastify.close();
       await socketAdapterHandle?.close();
+      await usernameAvailabilityCache?.close();
       await accountRepository?.close();
       await repository.close();
       metrics.shutdown();

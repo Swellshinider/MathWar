@@ -8,6 +8,7 @@ import { io as createClient, Socket } from 'socket.io-client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAccountTokenVerifier } from './account-auth.js';
 import { InMemoryAccountRepository } from './account-repository.js';
+import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
 import { InMemoryMatchRepository } from './repository.js';
 import { createMultiplayerServer } from './server.js';
@@ -20,6 +21,22 @@ interface Harness {
 }
 
 const harnesses: Harness[] = [];
+
+class InMemoryUsernameAvailabilityCache implements UsernameAvailabilityCache {
+  readonly takenUsernames = new Set<string>();
+
+  async initialize(): Promise<void> {}
+
+  async isUsernameTaken(username: string): Promise<boolean> {
+    return this.takenUsernames.has(username);
+  }
+
+  async storeUsernameTaken(username: string): Promise<void> {
+    this.takenUsernames.add(username);
+  }
+
+  async close(): Promise<void> {}
+}
 
 async function createHarness(
   reconnectWindowMs = 60_000,
@@ -142,6 +159,7 @@ describe('multiplayer socket server', () => {
   it('creates account sessions, rotates refresh tokens, and accepts account socket tokens', async () => {
     const repository = new InMemoryMatchRepository();
     const accountRepository = new InMemoryAccountRepository();
+    const usernameAvailabilityCache = new InMemoryUsernameAvailabilityCache();
     const accountAccessSecret = 'account-access-secret-with-enough-length';
     const verifyGuestToken = createGuestTokenVerifier('test-secret');
     const verifyAccountToken = createAccountTokenVerifier(accountAccessSecret);
@@ -159,7 +177,7 @@ describe('multiplayer socket server', () => {
         repository: accountRepository,
         accessTokenSecret: accountAccessSecret,
         refreshTokenSecret: 'account-refresh-secret-with-enough-length',
-        emailLookupSecret: 'email-lookup-secret-with-enough-length',
+        usernameAvailabilityCache,
         refreshCookieSecure: false,
       },
       allowedOrigin: '*',
@@ -175,7 +193,7 @@ describe('multiplayer socket server', () => {
       method: 'POST',
       url: '/api/account/register',
       payload: {
-        email: 'Player@example.com',
+        username: 'Player_One',
         password: 'password123',
         displayName: 'Player One',
       },
@@ -186,8 +204,8 @@ describe('multiplayer socket server', () => {
       accessToken: expect.any(String),
       user: {
         id: expect.any(String),
+        username: 'player_one',
         displayName: 'Player One',
-        email: 'player@example.com',
       },
     });
     expect(created.headers['set-cookie']).toContain('math-war-refresh-token=');
@@ -196,12 +214,48 @@ describe('multiplayer socket server', () => {
       method: 'POST',
       url: '/api/account/register',
       payload: {
-        email: 'player@example.com',
+        username: 'player_one',
         password: 'password123',
         displayName: 'Other',
       },
     });
     expect(duplicate.statusCode).toBe(409);
+
+    const available = await server.fastify.inject({
+      method: 'GET',
+      url: '/api/account/username-availability?username=new_player',
+    });
+    expect(available.statusCode).toBe(200);
+    expect(available.headers['cache-control']).toBe('no-store');
+    expect(available.json()).toEqual({ username: 'new_player', available: true });
+
+    const unavailable = await server.fastify.inject({
+      method: 'GET',
+      url: '/api/account/username-availability?username=PLAYER_ONE',
+    });
+    expect(unavailable.statusCode).toBe(200);
+    expect(unavailable.json()).toEqual({ username: 'player_one', available: false });
+    expect(usernameAvailabilityCache.takenUsernames.has('player_one')).toBe(true);
+
+    const cachedLookup = vi.spyOn(accountRepository, 'findAccountByUsername');
+    const cachedUnavailable = await server.fastify.inject({
+      method: 'GET',
+      url: '/api/account/username-availability?username=PLAYER_ONE',
+    });
+    expect(cachedUnavailable.statusCode).toBe(200);
+    expect(cachedUnavailable.json()).toEqual({ username: 'player_one', available: false });
+    expect(cachedLookup).not.toHaveBeenCalled();
+
+    const loggedIn = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/login',
+      payload: {
+        username: 'PLAYER_ONE',
+        password: 'password123',
+      },
+    });
+    expect(loggedIn.statusCode).toBe(200);
+    expect(loggedIn.json().user.username).toBe('player_one');
 
     const refreshCookie = String(created.headers['set-cookie']).split(';')[0];
     const refreshed = await server.fastify.inject({
@@ -213,8 +267,8 @@ describe('multiplayer socket server', () => {
     expect(refreshed.json()).toMatchObject({
       accessToken: expect.any(String),
       user: {
+        username: 'player_one',
         displayName: 'Player One',
-        email: null,
       },
     });
 

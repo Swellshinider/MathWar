@@ -1,18 +1,8 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHmac,
-  randomBytes,
-  randomUUID,
-  scrypt as scryptCallback,
-} from 'node:crypto';
-import { promisify } from 'node:util';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { jwtVerify, SignJWT } from 'jose';
 import { hash, verify } from 'argon2';
 import { AuthenticatedUser } from '@math-war/game-engine';
 import { normalizeDisplayName } from './auth.js';
-
-const scrypt = promisify(scryptCallback);
 
 export const ACCOUNT_ACCESS_TOKEN_ISSUER = 'math-war';
 export const ACCOUNT_ACCESS_TOKEN_AUDIENCE = 'math-war-account';
@@ -20,22 +10,14 @@ export const ACCOUNT_REFRESH_COOKIE = 'math-war-refresh-token';
 
 const ACCESS_TOKEN_DURATION_SECONDS = 15 * 60;
 const REFRESH_TOKEN_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
-const EMAIL_CIPHER = 'aes-256-gcm';
-const EMAIL_KEY_LENGTH_BYTES = 32;
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 256;
-const MAX_EMAIL_LENGTH = 320;
+const MIN_USERNAME_LENGTH = 3;
+const MAX_USERNAME_LENGTH = 20;
 const MAX_AVATAR_BYTES = 256 * 1024;
 
-export interface EncryptedEmail {
-  readonly ciphertext: string;
-  readonly iv: string;
-  readonly tag: string;
-  readonly salt: string;
-}
-
 export interface AccountPublicUser extends AuthenticatedUser {
-  readonly email: string | null;
+  readonly username: string;
   readonly avatarUrl: string | null;
 }
 
@@ -51,16 +33,22 @@ export interface RefreshToken {
   readonly expiresAt: Date;
 }
 
-export function normalizeEmail(value: string): string {
+export function normalizeUsername(value: string): string {
   return value.trim().toLowerCase();
 }
 
-export function validateEmail(value: string): string {
-  const email = normalizeEmail(value);
-  if (!email || email.length > MAX_EMAIL_LENGTH || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error('A valid email address is required.');
+export function validateUsername(value: string): string {
+  const username = normalizeUsername(value);
+  if (
+    username.length < MIN_USERNAME_LENGTH ||
+    username.length > MAX_USERNAME_LENGTH ||
+    !/^[a-z0-9_-]+$/.test(username)
+  ) {
+    throw new Error(
+      'Username must be 3 to 20 lowercase letters, numbers, underscores, or hyphens.',
+    );
   }
-  return email;
+  return username;
 }
 
 export function validatePassword(value: string): string {
@@ -79,43 +67,12 @@ export function validateAccountDisplayName(value: string): string {
   return displayName;
 }
 
-export function emailLookupHash(email: string, secret: string): string {
-  return createHmac('sha256', secret).update(normalizeEmail(email)).digest('base64url');
-}
-
 export async function hashPassword(password: string): Promise<string> {
   return hash(validatePassword(password));
 }
 
 export function verifyPasswordHash(hashValue: string, password: string): Promise<boolean> {
   return verify(hashValue, password);
-}
-
-export async function encryptEmail(email: string, password: string): Promise<EncryptedEmail> {
-  const salt = randomBytes(16);
-  const iv = randomBytes(12);
-  const key = (await scrypt(password, salt, EMAIL_KEY_LENGTH_BYTES)) as Buffer;
-  const cipher = createCipheriv(EMAIL_CIPHER, key, iv);
-  const ciphertext = Buffer.concat([cipher.update(validateEmail(email), 'utf8'), cipher.final()]);
-  return {
-    ciphertext: ciphertext.toString('base64url'),
-    iv: iv.toString('base64url'),
-    tag: cipher.getAuthTag().toString('base64url'),
-    salt: salt.toString('base64url'),
-  };
-}
-
-export async function decryptEmail(encrypted: EncryptedEmail, password: string): Promise<string> {
-  const salt = Buffer.from(encrypted.salt, 'base64url');
-  const iv = Buffer.from(encrypted.iv, 'base64url');
-  const tag = Buffer.from(encrypted.tag, 'base64url');
-  const key = (await scrypt(password, salt, EMAIL_KEY_LENGTH_BYTES)) as Buffer;
-  const decipher = createDecipheriv(EMAIL_CIPHER, key, iv);
-  decipher.setAuthTag(tag);
-  return Buffer.concat([
-    decipher.update(Buffer.from(encrypted.ciphertext, 'base64url')),
-    decipher.final(),
-  ]).toString('utf8');
 }
 
 export function createRefreshToken(secret: string): RefreshToken {
@@ -175,14 +132,12 @@ export function parseAvatarDataUrl(value: string): { mimeType: string; bytes: Bu
 export function assertProductionAccountSecrets(
   accessSecret: string,
   refreshSecret: string,
-  emailLookupSecret: string,
   nodeEnv: string | undefined,
 ): void {
   if (nodeEnv !== 'production') return;
   for (const [name, value] of [
     ['ACCOUNT_ACCESS_TOKEN_SECRET', accessSecret],
     ['ACCOUNT_REFRESH_TOKEN_SECRET', refreshSecret],
-    ['ACCOUNT_EMAIL_LOOKUP_SECRET', emailLookupSecret],
   ] as const) {
     if (value.length < 32 || /^(.)\1+$/.test(value) || value.startsWith('replace-with-')) {
       throw new Error(`${name} must be a high-entropy value of at least 32 characters.`);

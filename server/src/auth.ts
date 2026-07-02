@@ -16,13 +16,14 @@ export interface GuestSession {
 
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const MIN_PRODUCTION_SECRET_LENGTH = 32;
+const MAX_DISPLAY_NAME_LENGTH = 15;
 
 function secretKey(secret: string): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
 export function normalizeDisplayName(value: string): string {
-  return value.trim().replace(/\s+/g, ' ').slice(0, 80);
+  return value.trim().replace(/\s+/g, ' ').slice(0, MAX_DISPLAY_NAME_LENGTH);
 }
 
 export function assertProductionSessionSecret(secret: string, nodeEnv: string | undefined): void {

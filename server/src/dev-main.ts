@@ -11,8 +11,6 @@ const accountAccessTokenSecret =
   process.env['ACCOUNT_ACCESS_TOKEN_SECRET'] ?? 'local-account-access-secret';
 const accountRefreshTokenSecret =
   process.env['ACCOUNT_REFRESH_TOKEN_SECRET'] ?? 'local-account-refresh-secret';
-const accountEmailLookupSecret =
-  process.env['ACCOUNT_EMAIL_LOOKUP_SECRET'] ?? 'local-account-email-lookup-secret';
 const port = Number(process.env['PORT'] ?? 3000);
 const host = process.env['HOST'] ?? '127.0.0.1';
 const redisAdapterOptions = redisAdapterOptionsFromEnv();
@@ -32,7 +30,6 @@ const server = await createMultiplayerServer({
     repository: new InMemoryAccountRepository(),
     accessTokenSecret: accountAccessTokenSecret,
     refreshTokenSecret: accountRefreshTokenSecret,
-    emailLookupSecret: accountEmailLookupSecret,
     refreshCookieSecure: false,
   },
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
