@@ -106,6 +106,7 @@ export interface MultiplayerServerOptions {
   readonly staticRoot?: string;
   readonly browserConfig?: {
     readonly serverUrl: string;
+    readonly siteUrl?: string;
   };
   readonly configureSocketAdapter?: (io: SocketServer) => Promise<SocketAdapterHandle | void>;
   readonly issueGuestSession?: (
@@ -260,6 +261,45 @@ function cspConnectSrc(allowedOrigin: string): string[] {
     sources.add(`${origin.protocol === 'https:' ? 'wss:' : 'ws:'}//${origin.host}`);
   } catch {}
   return [...sources];
+}
+function canonicalOrigin(origin: string): string {
+  return origin.replace(/\/+$/, '');
+}
+function xmlEscape(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+function seoPublicPaths(): readonly string[] {
+  return [
+    '/',
+    '/about',
+    '/games/equation-artillery',
+    '/games/formula-frenzy',
+    '/leaderboard/formula-frenzy',
+  ];
+}
+function createRobotsTxt(siteOrigin: string): string {
+  return [
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /api/',
+    'Disallow: /socket.io/',
+    `Sitemap: ${siteOrigin}/sitemap.xml`,
+    '',
+  ].join('\n');
+}
+function createSitemapXml(siteOrigin: string): string {
+  const urls = seoPublicPaths()
+    .map((path) => {
+      const loc = path === '/' ? siteOrigin : `${siteOrigin}${path}`;
+      return `  <url>\n    <loc>${xmlEscape(loc)}</loc>\n  </url>`;
+    })
+    .join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 function isVersionedCommand(value: unknown): value is VersionedCommand {
   if (!value || typeof value !== 'object') return false;
@@ -857,12 +897,27 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     if (!options.staticRoot || !options.browserConfig) {
       throw new Error('staticRoot and browserConfig must be configured together.');
     }
+    const siteOrigin = canonicalOrigin(
+      options.browserConfig.siteUrl ?? options.browserConfig.serverUrl,
+    );
     fastify.get('/config.js', async (_request, reply) => {
       const config = JSON.stringify(options.browserConfig).replaceAll('<', '\\u003c');
       return reply
         .header('cache-control', 'no-store')
         .type('application/javascript')
         .send(`window.MATH_WAR_CONFIG = ${config};\n`);
+    });
+    fastify.get('/robots.txt', async (_request, reply) => {
+      return reply
+        .header('cache-control', 'public, max-age=3600')
+        .type('text/plain')
+        .send(createRobotsTxt(siteOrigin));
+    });
+    fastify.get('/sitemap.xml', async (_request, reply) => {
+      return reply
+        .header('cache-control', 'public, max-age=3600')
+        .type('application/xml')
+        .send(createSitemapXml(siteOrigin));
     });
     await fastify.register(fastifyStatic, {
       root: options.staticRoot,

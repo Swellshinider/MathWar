@@ -73,6 +73,7 @@ const server = await createMultiplayerServer({
   staticRoot,
   browserConfig: {
     serverUrl: allowedOrigin,
+    siteUrl: allowedOrigin,
   },
 });
 await server.listen(Number(process.env['PORT'] ?? 3000), process.env['HOST'] ?? '0.0.0.0');
