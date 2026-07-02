@@ -16,6 +16,28 @@ export const routes: Routes = [
       import('./about/about-page.component').then((module) => module.AboutPageComponent),
   },
   {
+    path: 'account/login',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./account/login-page.component').then((module) => module.LoginPageComponent),
+  },
+  {
+    path: 'account/create',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./account/create-account-page.component').then(
+        (module) => module.CreateAccountPageComponent,
+      ),
+  },
+  {
+    path: 'account/settings',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./account/account-settings-page.component').then(
+        (module) => module.AccountSettingsPageComponent,
+      ),
+  },
+  {
     path: 'games/equation-artillery',
     pathMatch: 'full',
     loadComponent: () =>

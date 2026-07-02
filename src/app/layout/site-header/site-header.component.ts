@@ -2,17 +2,19 @@ import { PercentPipe } from '@angular/common';
 import { Component, ElementRef, HostListener, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { LucideVolume2 } from '@lucide/angular';
+import { LucideUser, LucideVolume2 } from '@lucide/angular';
+import { AccountAuthService } from '../../account/account-auth.service';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 
 @Component({
   selector: 'app-site-header',
-  imports: [FormsModule, LucideVolume2, PercentPipe, RouterLink],
+  imports: [FormsModule, LucideUser, LucideVolume2, PercentPipe, RouterLink],
   templateUrl: './site-header.component.html',
   styleUrl: './site-header.component.scss',
 })
 export class SiteHeaderComponent implements OnDestroy {
   private readonly element = inject(ElementRef<HTMLElement>);
+  readonly account = inject(AccountAuthService);
   private readonly audio = inject(AudioSettingsService);
   private closeSoundMenuTimer: ReturnType<typeof setTimeout> | null = null;
 

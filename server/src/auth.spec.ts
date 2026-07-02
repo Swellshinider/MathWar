@@ -1,6 +1,13 @@
 import { jwtVerify, SignJWT } from 'jose';
 import { describe, expect, it } from 'vitest';
 import {
+  decryptEmail,
+  emailLookupHash,
+  encryptEmail,
+  hashPassword,
+  verifyPasswordHash,
+} from './account-auth.js';
+import {
   assertProductionSessionSecret,
   createGuestTokenIssuer,
   createGuestTokenVerifier,
@@ -90,5 +97,26 @@ describe('guest auth tokens', () => {
       assertProductionSessionSecret('replace-with-a-long-random-secret', 'production'),
     ).toThrow('high-entropy');
     expect(() => assertProductionSessionSecret('short', 'development')).not.toThrow();
+  });
+});
+
+describe('account auth crypto', () => {
+  it('hashes passwords and verifies only the original password', async () => {
+    const passwordHash = await hashPassword('correct-password');
+
+    expect(passwordHash).not.toContain('correct-password');
+    await expect(verifyPasswordHash(passwordHash, 'correct-password')).resolves.toBe(true);
+    await expect(verifyPasswordHash(passwordHash, 'wrong-password')).resolves.toBe(false);
+  });
+
+  it('stores email lookup as a blind hash and encrypts the email with the password', async () => {
+    const lookup = emailLookupHash('Player@Example.com', 'server-secret');
+    const encrypted = await encryptEmail('player@example.com', 'correct-password');
+
+    expect(lookup).toBe(emailLookupHash('player@example.com', 'server-secret'));
+    expect(lookup).not.toContain('player@example.com');
+    expect(encrypted.ciphertext).not.toContain('player@example.com');
+    await expect(decryptEmail(encrypted, 'correct-password')).resolves.toBe('player@example.com');
+    await expect(decryptEmail(encrypted, 'wrong-password')).rejects.toThrow();
   });
 });

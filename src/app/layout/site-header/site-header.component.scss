@@ -71,6 +71,17 @@ a {
   height: 1rem;
 }
 
+.account-button svg,
+.account-button__avatar {
+  width: 1rem;
+  height: 1rem;
+}
+
+.account-button__avatar {
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
 .sound-menu__panel {
   position: absolute;
   top: 100%;

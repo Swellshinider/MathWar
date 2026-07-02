@@ -9,10 +9,12 @@ broadcasts and socket lookups work across server processes.
 
 ```text
 Browser <-> Fastify/Socket.IO <-> Redis
+Browser <-> Fastify <-> PostgreSQL
 ```
 
 The local Equation Artillery mode stays browser-only. The multiplayer mode is private-room based
-and uses guest sessions signed by the Fastify server.
+and uses guest sessions signed by the Fastify server. Registered accounts are optional and use
+PostgreSQL for durable profile and refresh-token data; guest matches remain available.
 
 ## Repository layout
 
@@ -29,6 +31,10 @@ Server environment variables:
 - `REDIS_KEY_PREFIX`: optional Redis key namespace, defaults to `mathwar`
 - `SESSION_SECRET`: symmetric signing secret for guest multiplayer tokens
 - `METRICS_TOKEN`: bearer token required to read `/metrics` in production
+- `DATABASE_URL`: PostgreSQL connection string for registered accounts
+- `ACCOUNT_ACCESS_TOKEN_SECRET`: signing secret for short-lived account access tokens
+- `ACCOUNT_REFRESH_TOKEN_SECRET`: HMAC secret for stored refresh-token hashes
+- `ACCOUNT_EMAIL_LOOKUP_SECRET`: HMAC secret for email lookup hashes
 - `CLIENT_ORIGIN`: public origin used for CORS and generated browser config
 - `HOST`, `PORT`, `NODE_ENV`: listener and runtime settings
 
@@ -50,6 +56,15 @@ Browser runtime configuration:
 Guest tokens are scoped to the MathWar multiplayer issuer and audience. Production startup rejects
 short or placeholder `SESSION_SECRET` values so guest identities cannot be forged with predictable
 signing keys.
+
+## Account flow
+
+Registered accounts use email and password login. Passwords are stored as Argon2id hashes. Email
+addresses are not stored as plain text: the server stores a keyed lookup hash for uniqueness and
+login, plus an AES-GCM encrypted email value derived from the user's password so the address can be
+shown only during password-present flows. Account access tokens are short-lived and kept in browser
+memory. Autologin uses an HttpOnly refresh-token cookie with server-side token rotation and reuse
+revocation.
 
 ## Multiplayer state
 

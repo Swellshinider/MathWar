@@ -34,6 +34,23 @@ describe('application routes', () => {
     expect(harness.routeNativeElement?.textContent).not.toContain('Inspiration');
   });
 
+  it('opens account pages at their direct routes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))),
+    );
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/account/login');
+    expect(harness.routeNativeElement?.textContent).toContain('Sign in');
+
+    await harness.navigateByUrl('/account/create');
+    expect(harness.routeNativeElement?.textContent).toContain('Create account');
+
+    await harness.navigateByUrl('/account/settings');
+    expect(harness.routeNativeElement?.textContent).toContain('Account');
+  });
+
   it('opens Equation Artillery at its direct route', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/games/equation-artillery');

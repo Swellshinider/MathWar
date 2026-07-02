@@ -1,4 +1,6 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { AccountAuthService } from '../../account/account-auth.service';
 import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 
@@ -19,6 +21,16 @@ function createMemoryStorage(): Storage {
   } as Storage;
 }
 
+function accountAuthProvider() {
+  return {
+    provide: AccountAuthService,
+    useValue: {
+      user: signal(null),
+      token: () => null,
+    },
+  };
+}
+
 describe('MultiplayerAuthService', () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
@@ -37,6 +49,7 @@ describe('MultiplayerAuthService', () => {
     TestBed.configureTestingModule({
       providers: [
         MultiplayerAuthService,
+        accountAuthProvider(),
         { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
       ],
     });
@@ -67,6 +80,7 @@ describe('MultiplayerAuthService', () => {
     TestBed.configureTestingModule({
       providers: [
         MultiplayerAuthService,
+        accountAuthProvider(),
         { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
       ],
     });
@@ -96,6 +110,7 @@ describe('MultiplayerAuthService', () => {
     TestBed.configureTestingModule({
       providers: [
         MultiplayerAuthService,
+        accountAuthProvider(),
         { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
       ],
     });
@@ -124,6 +139,7 @@ describe('MultiplayerAuthService', () => {
     TestBed.configureTestingModule({
       providers: [
         MultiplayerAuthService,
+        accountAuthProvider(),
         { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
       ],
     });
@@ -144,6 +160,7 @@ describe('MultiplayerAuthService', () => {
     TestBed.configureTestingModule({
       providers: [
         MultiplayerAuthService,
+        accountAuthProvider(),
         { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
       ],
     });
@@ -168,6 +185,7 @@ describe('MultiplayerAuthService', () => {
     TestBed.configureTestingModule({
       providers: [
         MultiplayerAuthService,
+        accountAuthProvider(),
         { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
       ],
     });
