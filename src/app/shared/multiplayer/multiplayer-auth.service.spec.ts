@@ -2,6 +2,9 @@ import { TestBed } from '@angular/core/testing';
 import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 import { MultiplayerAuthService } from './multiplayer-auth.service';
 
+const FUTURE_EXPIRES_AT = '2999-01-01T00:00:00.000Z';
+const PAST_EXPIRES_AT = '2000-01-01T00:00:00.000Z';
+
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();
   return {
@@ -53,6 +56,7 @@ describe('MultiplayerAuthService', () => {
           new Response(
             JSON.stringify({
               token: 'token',
+              expiresAt: FUTURE_EXPIRES_AT,
               user: { id: 'user-1', displayName: 'Player One' },
             }),
             { status: 200, headers: { 'content-type': 'application/json' } },
@@ -72,6 +76,7 @@ describe('MultiplayerAuthService', () => {
 
     expect(service.session()).toEqual({
       token: 'token',
+      expiresAt: FUTURE_EXPIRES_AT,
       user: { id: 'user-1', displayName: 'Player One' },
     });
     expect(service.storedDisplayName()).toBe('Player One');
@@ -80,7 +85,11 @@ describe('MultiplayerAuthService', () => {
   it('clears only the guest session when signing out', async () => {
     localStorage.setItem(
       'math-war-multiplayer-session',
-      JSON.stringify({ token: 'token', user: { id: 'user-1', displayName: 'Player One' } }),
+      JSON.stringify({
+        token: 'token',
+        expiresAt: FUTURE_EXPIRES_AT,
+        user: { id: 'user-1', displayName: 'Player One' },
+      }),
     );
     localStorage.setItem('math-war-multiplayer-display-name', 'Player One');
     localStorage.setItem('unrelated-key', 'keep me');
@@ -104,7 +113,11 @@ describe('MultiplayerAuthService', () => {
   it('clears invalid guest sessions without clearing remembered or unrelated storage', async () => {
     localStorage.setItem(
       'math-war-multiplayer-session',
-      JSON.stringify({ token: 'token', user: { id: 'user-1', displayName: 'Player One' } }),
+      JSON.stringify({
+        token: 'token',
+        expiresAt: FUTURE_EXPIRES_AT,
+        user: { id: 'user-1', displayName: 'Player One' },
+      }),
     );
     localStorage.setItem('math-war-multiplayer-display-name', 'Player One');
     localStorage.setItem('unrelated-key', 'keep me');
@@ -127,6 +140,30 @@ describe('MultiplayerAuthService', () => {
 
   it('removes invalid stored sessions without clearing the remembered display name', () => {
     localStorage.setItem('math-war-multiplayer-session', '{');
+    localStorage.setItem('math-war-multiplayer-display-name', 'Player One');
+    TestBed.configureTestingModule({
+      providers: [
+        MultiplayerAuthService,
+        { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
+      ],
+    });
+
+    const service = TestBed.inject(MultiplayerAuthService);
+
+    expect(service.session()).toBeNull();
+    expect(service.storedDisplayName()).toBe('Player One');
+    expect(localStorage.getItem('math-war-multiplayer-session')).toBeNull();
+  });
+
+  it('removes expired stored sessions before connecting', () => {
+    localStorage.setItem(
+      'math-war-multiplayer-session',
+      JSON.stringify({
+        token: 'token',
+        expiresAt: PAST_EXPIRES_AT,
+        user: { id: 'user-1', displayName: 'Player One' },
+      }),
+    );
     localStorage.setItem('math-war-multiplayer-display-name', 'Player One');
     TestBed.configureTestingModule({
       providers: [

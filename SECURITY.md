@@ -10,6 +10,14 @@ release only.
 | 0.1.x   | Yes       |
 | < 0.1.0 | No        |
 
+## Deployment hardening
+
+- Use a high-entropy `SESSION_SECRET` of at least 32 characters in production.
+- Set `METRICS_TOKEN` and restrict `/metrics` to trusted operators or monitoring systems.
+- Serve production traffic over HTTPS so multiplayer bearer tokens are not exposed in transit.
+- Keep guest multiplayer access behind the server-issued token flow; do not expose direct database
+  credentials or server environment values to the browser.
+
 ## Reporting a vulnerability
 
 Please **do not** open a public GitHub issue for security problems. Instead,

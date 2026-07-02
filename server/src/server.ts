@@ -1,6 +1,8 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { Server as SocketServer, Socket } from 'socket.io';
 import {
@@ -27,6 +29,7 @@ import {
   startFormulaFrenzyMatch,
   VersionedCommand,
 } from '@math-war/game-engine';
+import { canJoinWaitingRoom, canStartFormulaMatch, isMatchPlayer } from './authorization.js';
 import { TokenVerifier } from './auth.js';
 import { logCommand } from './observability/logging.js';
 import {
@@ -45,6 +48,15 @@ interface AuthenticatedSocket extends Socket {
 
 type Ack<T = undefined> = (response: CommandAck<T>) => void;
 const ROOM_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const HTTP_BODY_LIMIT_BYTES = 16 * 1024;
+const GUEST_AUTH_RATE_LIMIT_MAX = 10;
+const GUEST_AUTH_RATE_LIMIT_WINDOW = '1 minute';
+const SOCKET_CONNECT_LIMIT = 100;
+const SOCKET_CONNECT_WINDOW_MS = 60_000;
+const SOCKET_JOIN_CREATE_LIMIT = 20;
+const SOCKET_COMMAND_LIMIT = 120;
+const SOCKET_TYPING_LIMIT = 240;
+const SOCKET_COMMAND_WINDOW_MS = 60_000;
 
 export interface MultiplayerServerOptions {
   readonly repository: MatchRepository;
@@ -59,7 +71,12 @@ export interface MultiplayerServerOptions {
   };
   readonly issueGuestSession?: (
     displayName: string,
-  ) => Promise<{ token: string; user: AuthenticatedUser }>;
+  ) => Promise<{ token: string; expiresAt: string; user: AuthenticatedUser }>;
+}
+
+interface RateBucket {
+  count: number;
+  resetAt: number;
 }
 
 function roomName(matchId: string): string {
@@ -105,6 +122,50 @@ function normalizeRoomCode(value: string): string {
   if (/^[A-Z0-9]{8}$/.test(compact)) return `${compact.slice(0, 4)}-${compact.slice(4)}`;
   return value.trim().toUpperCase();
 }
+function socketAddress(socket: Socket): string {
+  return socket.handshake.address || socket.conn.remoteAddress || 'unknown';
+}
+function createFixedWindowLimiter(windowMs: number) {
+  const buckets = new Map<string, RateBucket>();
+  return (key: string, limit: number): boolean => {
+    const now = Date.now();
+    const bucket = buckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      buckets.set(key, { count: 1, resetAt: now + windowMs });
+      return true;
+    }
+    bucket.count += 1;
+    if (bucket.count > limit) return false;
+    if (buckets.size > 10_000) {
+      for (const [bucketKey, value] of buckets) {
+        if (value.resetAt <= now) buckets.delete(bucketKey);
+      }
+    }
+    return true;
+  };
+}
+function timingSafeStringEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
+function isMetricsRequestAuthorized(authorization: string | undefined): boolean {
+  const token = process.env['METRICS_TOKEN'];
+  const requiresToken = process.env['NODE_ENV'] === 'production' || !!token;
+  if (!requiresToken) return true;
+  if (!token || !authorization?.startsWith('Bearer ')) return false;
+  return timingSafeStringEqual(authorization.slice('Bearer '.length), token);
+}
+function cspConnectSrc(allowedOrigin: string): string[] {
+  if (allowedOrigin === '*') return ["'self'", 'http:', 'https:', 'ws:', 'wss:'];
+  const sources = new Set(["'self'", allowedOrigin]);
+  try {
+    const origin = new URL(allowedOrigin);
+    sources.add(`${origin.protocol === 'https:' ? 'wss:' : 'ws:'}//${origin.host}`);
+  } catch {}
+  return [...sources];
+}
 function isVersionedCommand(value: unknown): value is VersionedCommand {
   if (!value || typeof value !== 'object') return false;
   const command = value as Partial<VersionedCommand>;
@@ -132,6 +193,7 @@ function isFormulaTypingCommand(value: unknown): value is FormulaFrenzyTypingCom
 
 export async function createMultiplayerServer(options: MultiplayerServerOptions) {
   const fastify = Fastify({
+    bodyLimit: HTTP_BODY_LIMIT_BYTES,
     logger:
       process.env['NODE_ENV'] === 'test'
         ? false
@@ -143,6 +205,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const metricsEnabled = process.env['METRICS_ENABLED'] !== 'false';
   const repository = new InstrumentedMatchRepository(options.repository, metrics);
   const requestStarts = new WeakMap<object, number>();
+  const socketConnectLimiter = createFixedWindowLimiter(SOCKET_CONNECT_WINDOW_MS);
+  const socketCommandLimiter = createFixedWindowLimiter(SOCKET_COMMAND_WINDOW_MS);
 
   fastify.addHook('onRequest', async (request) => {
     requestStarts.set(request, nowSeconds());
@@ -159,6 +223,22 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   });
 
   await fastify.register(cors, { origin: options.allowedOrigin });
+  await fastify.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        connectSrc: cspConnectSrc(options.allowedOrigin),
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", 'data:'],
+        mediaSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+      },
+    },
+  });
+  await fastify.register(rateLimit, { global: false });
   const healthHandler = async () => {
     metrics.recordHealthCall();
     return { status: 'ok' };
@@ -166,31 +246,45 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   fastify.get('/health', healthHandler);
   fastify.get('/healthz', healthHandler);
   if (metricsEnabled) {
-    fastify.get('/metrics', async (_request, reply) =>
-      reply.type(metrics.contentType).send(await metrics.metrics()),
-    );
+    fastify.get('/metrics', async (request, reply) => {
+      if (!isMetricsRequestAuthorized(request.headers.authorization)) {
+        return reply.code(401).send({ message: 'Metrics authorization is required.' });
+      }
+      return reply.type(metrics.contentType).send(await metrics.metrics());
+    });
   }
-  fastify.post<{ Body?: { displayName?: unknown } }>('/api/auth/guest', async (request, reply) => {
-    if (!options.issueGuestSession) {
-      metrics.recordGuestAuth('rejected');
-      return reply.code(503).send({ message: 'Guest authentication is not configured.' });
-    }
-    const displayName = request.body?.displayName;
-    if (typeof displayName !== 'string') {
-      metrics.recordGuestAuth('rejected');
-      return reply.code(400).send({ message: 'Display name is required.' });
-    }
-    try {
-      const session = await options.issueGuestSession(displayName);
-      metrics.recordGuestAuth('accepted');
-      return session;
-    } catch (error) {
-      metrics.recordGuestAuth('rejected');
-      return reply.code(400).send({
-        message: error instanceof Error ? error.message : 'Display name is required.',
-      });
-    }
-  });
+  fastify.post<{ Body?: { displayName?: unknown } }>(
+    '/api/auth/guest',
+    {
+      config: {
+        rateLimit: {
+          max: GUEST_AUTH_RATE_LIMIT_MAX,
+          timeWindow: GUEST_AUTH_RATE_LIMIT_WINDOW,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!options.issueGuestSession) {
+        metrics.recordGuestAuth('rejected');
+        return reply.code(503).send({ message: 'Guest authentication is not configured.' });
+      }
+      const displayName = request.body?.displayName;
+      if (typeof displayName !== 'string') {
+        metrics.recordGuestAuth('rejected');
+        return reply.code(400).send({ message: 'Display name is required.' });
+      }
+      try {
+        const session = await options.issueGuestSession(displayName);
+        metrics.recordGuestAuth('accepted');
+        return session;
+      } catch (error) {
+        metrics.recordGuestAuth('rejected');
+        return reply.code(400).send({
+          message: error instanceof Error ? error.message : 'Display name is required.',
+        });
+      }
+    },
+  );
   if (options.staticRoot || options.browserConfig) {
     if (!options.staticRoot || !options.browserConfig) {
       throw new Error('staticRoot and browserConfig must be configured together.');
@@ -265,6 +359,10 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   }
 
   io.use(async (socket, next) => {
+    if (!socketConnectLimiter(socketAddress(socket), SOCKET_CONNECT_LIMIT)) {
+      metrics.recordSocketAuthFailure('rate_limited');
+      return next(new Error('Too many connection attempts.'));
+    }
     const token = socket.handshake.auth?.['token'];
     if (typeof token !== 'string' || !token) {
       metrics.recordSocketAuthFailure('missing_token');
@@ -449,7 +547,20 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     updateActiveGauges();
     void reconnect(socket);
 
+    function acceptSocketCommand(command: SocketCommand, limit = SOCKET_COMMAND_LIMIT): boolean {
+      const userKey = `${socket.data.user.id}:${command}`;
+      const addressKey = `${socketAddress(socket)}:${command}`;
+      if (socketCommandLimiter(userKey, limit) && socketCommandLimiter(addressKey, limit * 2)) {
+        return true;
+      }
+      metrics.recordSocketCommand(command, 'rejected', 'RATE_LIMITED', 0);
+      return false;
+    }
+
     socket.on('room:create', async (command: VersionedCommand, ack: Ack<MultiplayerMatchState>) => {
+      if (!acceptSocketCommand('room:create', SOCKET_JOIN_CREATE_LIMIT)) {
+        return ack({ ok: false, code: 'RATE_LIMITED', error: 'Too many room requests.' });
+      }
       const acknowledge = observedAck(
         'room:create',
         nowSeconds(),
@@ -496,6 +607,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     });
 
     socket.on('room:join', async (command: RoomJoinCommand, ack: Ack<MultiplayerMatchState>) => {
+      if (!acceptSocketCommand('room:join', SOCKET_JOIN_CREATE_LIMIT)) {
+        return ack({ ok: false, code: 'RATE_LIMITED', error: 'Too many room requests.' });
+      }
       const acknowledge = observedAck(
         'room:join',
         nowSeconds(),
@@ -515,9 +629,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       const match = await repository.findByCode(normalizeRoomCode(command.roomCode));
       if (
         !match ||
-        match.status !== 'waiting' ||
-        stateGameId(match) !== requestedGameId(command) ||
-        match.players.length >= 2
+        !canJoinWaitingRoom(match, socket.data.user.id) ||
+        stateGameId(match) !== requestedGameId(command)
       )
         return acknowledge({
           ok: false,
@@ -571,6 +684,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     });
 
     socket.on('match:fire', async (command: FireCommand, ack: Ack<MatchState>) => {
+      if (!acceptSocketCommand('match:fire')) {
+        return ack({ ok: false, code: 'RATE_LIMITED', error: 'Too many match commands.' });
+      }
       const acknowledge = observedAck('match:fire', nowSeconds(), ack, 'equation-artillery');
       if (!isVersionedCommand(command) || typeof command.equation !== 'string')
         return acknowledge({
@@ -583,6 +699,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         return acknowledge({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
       const match = await repository.findById(matchId);
       if (!match) return acknowledge({ ok: false, code: 'MISSING', error: 'Match not found.' });
+      if (!isMatchPlayer(match, socket.data.user.id))
+        return acknowledge({ ok: false, code: 'FORBIDDEN', error: 'Not a match player.' });
       if (stateGameId(match) !== 'equation-artillery')
         return acknowledge({
           ok: false,
@@ -644,6 +762,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     socket.on(
       'formula:start',
       async (command: VersionedCommand, ack: Ack<FormulaFrenzyMatchState>) => {
+        if (!acceptSocketCommand('formula:start')) {
+          return ack({ ok: false, code: 'RATE_LIMITED', error: 'Too many match commands.' });
+        }
         const acknowledge = observedAck('formula:start', nowSeconds(), ack, 'formula-frenzy');
         if (!isVersionedCommand(command))
           return acknowledge({
@@ -656,6 +777,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           return acknowledge({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
         const match = await repository.findById(matchId);
         if (!match) return acknowledge({ ok: false, code: 'MISSING', error: 'Match not found.' });
+        if (!isMatchPlayer(match, socket.data.user.id))
+          return acknowledge({ ok: false, code: 'FORBIDDEN', error: 'Not a match player.' });
         if (stateGameId(match) !== 'formula-frenzy')
           return acknowledge({
             ok: false,
@@ -670,7 +793,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           });
         if (
           (match.status === 'waiting' || match.status === 'ended') &&
-          match.players[0].userId !== socket.data.user.id
+          !canStartFormulaMatch(match, socket.data.user.id)
         )
           return acknowledge({
             ok: false,
@@ -718,6 +841,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     socket.on(
       'formula:answer',
       async (command: FormulaFrenzyAnswerCommand, ack: Ack<FormulaFrenzyMatchState>) => {
+        if (!acceptSocketCommand('formula:answer')) {
+          return ack({ ok: false, code: 'RATE_LIMITED', error: 'Too many match commands.' });
+        }
         const acknowledge = observedAck('formula:answer', nowSeconds(), ack, 'formula-frenzy');
         if (!isFormulaAnswerCommand(command))
           return acknowledge({
@@ -730,6 +856,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           return acknowledge({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
         const match = await repository.findById(matchId);
         if (!match) return acknowledge({ ok: false, code: 'MISSING', error: 'Match not found.' });
+        if (!isMatchPlayer(match, socket.data.user.id))
+          return acknowledge({ ok: false, code: 'FORBIDDEN', error: 'Not a match player.' });
         if (stateGameId(match) !== 'formula-frenzy')
           return acknowledge({
             ok: false,
@@ -805,6 +933,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     socket.on(
       'formula:hint',
       async (command: FormulaFrenzyHintCommand, ack: Ack<FormulaFrenzyMatchState>) => {
+        if (!acceptSocketCommand('formula:hint')) {
+          return ack({ ok: false, code: 'RATE_LIMITED', error: 'Too many match commands.' });
+        }
         const acknowledge = observedAck('formula:hint', nowSeconds(), ack, 'formula-frenzy');
         if (!isFormulaHintCommand(command))
           return acknowledge({
@@ -817,6 +948,8 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           return acknowledge({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
         const match = await repository.findById(matchId);
         if (!match) return acknowledge({ ok: false, code: 'MISSING', error: 'Match not found.' });
+        if (!isMatchPlayer(match, socket.data.user.id))
+          return acknowledge({ ok: false, code: 'FORBIDDEN', error: 'Not a match player.' });
         if (stateGameId(match) !== 'formula-frenzy')
           return acknowledge({
             ok: false,
@@ -903,6 +1036,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         );
         return;
       }
+      if (!acceptSocketCommand('formula:typing', SOCKET_TYPING_LIMIT)) return;
       const input = command.input.slice(0, 24);
       socket.to(roomName(socket.data.matchId)).emit('formula:typing', {
         userId: socket.data.user.id,
@@ -912,6 +1046,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     });
 
     socket.on('match:leave', async (command: VersionedCommand, ack: Ack<MultiplayerMatchState>) => {
+      if (!acceptSocketCommand('match:leave')) {
+        return ack({ ok: false, code: 'RATE_LIMITED', error: 'Too many match commands.' });
+      }
       const acknowledge = observedAck('match:leave', nowSeconds(), ack);
       if (!isVersionedCommand(command))
         return acknowledge({

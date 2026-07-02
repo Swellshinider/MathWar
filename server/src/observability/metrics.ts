@@ -53,7 +53,7 @@ export interface MathWarMetrics {
   setActiveMatches(count: number): void;
   recordSocketConnection(): void;
   recordSocketDisconnect(reason: string): void;
-  recordSocketAuthFailure(reason: 'missing_token' | 'invalid_token'): void;
+  recordSocketAuthFailure(reason: 'missing_token' | 'invalid_token' | 'rate_limited'): void;
   recordResumeCheck(outcome: 'hit' | 'miss'): void;
   recordReconnect(outcome: 'success' | 'failure'): void;
   recordSocketCommand(

@@ -3,6 +3,7 @@ import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 
 export interface MultiplayerGuestSession {
   readonly token: string;
+  readonly expiresAt: string;
   readonly user: {
     readonly id: string;
     readonly displayName: string;
@@ -73,11 +74,14 @@ export class MultiplayerAuthService {
       const session = JSON.parse(rawValue) as Partial<MultiplayerGuestSession>;
       if (
         typeof session.token === 'string' &&
+        typeof session.expiresAt === 'string' &&
         typeof session.user?.id === 'string' &&
-        typeof session.user?.displayName === 'string'
+        typeof session.user?.displayName === 'string' &&
+        !this.isExpired(session.expiresAt)
       ) {
         return {
           token: session.token,
+          expiresAt: session.expiresAt,
           user: {
             id: session.user.id,
             displayName: session.user.displayName,
@@ -100,5 +104,10 @@ export class MultiplayerAuthService {
   private writeStoredDisplayName(displayName: string): void {
     this.storage?.setItem(DISPLAY_NAME_STORAGE_KEY, displayName);
     this.storedDisplayName.set(displayName);
+  }
+
+  private isExpired(expiresAt: string): boolean {
+    const expiresAtMs = new Date(expiresAt).getTime();
+    return !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
   }
 }

@@ -123,11 +123,29 @@ describe('multiplayer socket server', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       token: expect.any(String),
+      expiresAt: expect.any(String),
       user: {
         id: expect.any(String),
         displayName: 'Guest Player',
       },
     });
+  });
+
+  it('rate limits repeated guest session attempts', async () => {
+    const harness = await createHarness();
+    const responses = [];
+    for (let index = 0; index < 11; index += 1) {
+      responses.push(
+        await harness.server.fastify.inject({
+          method: 'POST',
+          url: '/api/auth/guest',
+          payload: { displayName: `Guest ${index}` },
+        }),
+      );
+    }
+
+    expect(responses.slice(0, 10).every((response) => response.statusCode === 200)).toBe(true);
+    expect(responses[10].statusCode).toBe(429);
   });
 
   it('exposes HTTP, auth, socket, and repository metrics', async () => {
@@ -174,6 +192,35 @@ describe('multiplayer socket server', () => {
     );
     expect(metrics.body).toContain('mathwar_socket_resume_checks_total{outcome="miss"}');
     expect(metrics.body).not.toContain('mathwar_socket_reconnects_total{outcome="attempt"}');
+  });
+
+  it('requires a bearer token for metrics when one is configured', async () => {
+    const previousMetricsToken = process.env['METRICS_TOKEN'];
+    process.env['METRICS_TOKEN'] = 'metrics-secret';
+    const harness = await createHarness();
+
+    try {
+      const missing = await harness.server.fastify.inject({ method: 'GET', url: '/metrics' });
+      expect(missing.statusCode).toBe(401);
+
+      const wrong = await harness.server.fastify.inject({
+        method: 'GET',
+        url: '/metrics',
+        headers: { authorization: 'Bearer wrong' },
+      });
+      expect(wrong.statusCode).toBe(401);
+
+      const accepted = await harness.server.fastify.inject({
+        method: 'GET',
+        url: '/metrics',
+        headers: { authorization: 'Bearer metrics-secret' },
+      });
+      expect(accepted.statusCode).toBe(200);
+      expect(accepted.body).toContain('mathwar_http_requests_total');
+    } finally {
+      if (previousMetricsToken === undefined) delete process.env['METRICS_TOKEN'];
+      else process.env['METRICS_TOKEN'] = previousMetricsToken;
+    }
   });
 
   it('requires authentication during the handshake', async () => {

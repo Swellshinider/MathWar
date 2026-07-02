@@ -116,6 +116,7 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
     ready: signal(true),
     session: signal<MultiplayerGuestSession | null>({
       token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
       user: { id: 'left', displayName: 'Left' },
     }),
     storedDisplayName: signal(''),
@@ -141,7 +142,11 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
   beforeEach(async () => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
-    auth.session.set({ token: 'token', user: { id: 'left', displayName: 'Left' } });
+    auth.session.set({
+      token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+      user: { id: 'left', displayName: 'Left' },
+    });
     await TestBed.configureTestingModule({
       imports: [FormulaFrenzyMultiplayerPageComponent],
       providers: [
@@ -206,7 +211,11 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
 
   it('hides restart from guests after a result', async () => {
     const ended = activeState({ status: 'ended', winnerUserId: 'left', endReason: 'timeout' });
-    auth.session.set({ token: 'token', user: { id: 'right', displayName: 'Right' } });
+    auth.session.set({
+      token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+      user: { id: 'right', displayName: 'Right' },
+    });
     const root = fixture.nativeElement as HTMLElement;
 
     handlers.state(ended);
