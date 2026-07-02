@@ -5,28 +5,29 @@ import {
   createGuestTokenIssuer,
   createGuestTokenVerifier,
 } from './auth.js';
-import { runMigrations } from './migrations.js';
-import { PostgresMatchRepository } from './postgres-repository.js';
+import { configureRedisSocketAdapter, redisAdapterOptionsFromEnv } from './redis-adapter.js';
+import { RedisMatchRepository, redisMatchRepositoryOptionsFromEnv } from './redis-repository.js';
 import { createMultiplayerServer } from './server.js';
 
-const databaseUrl = process.env['DATABASE_URL'];
+const redisUrl = process.env['REDIS_URL'];
 const allowedOrigin = process.env['CLIENT_ORIGIN'];
 const sessionSecret = process.env['SESSION_SECRET'];
-if (!databaseUrl || !allowedOrigin || !sessionSecret) {
-  throw new Error('DATABASE_URL, CLIENT_ORIGIN, and SESSION_SECRET are required.');
+if (!redisUrl || !allowedOrigin || !sessionSecret) {
+  throw new Error('REDIS_URL, CLIENT_ORIGIN, and SESSION_SECRET are required.');
 }
 assertProductionSessionSecret(sessionSecret, process.env['NODE_ENV']);
 
 const staticRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist/math-war/browser');
-const migrationsDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../db/migrations');
-
-await runMigrations(databaseUrl, migrationsDirectory);
+const redisAdapterOptions = redisAdapterOptionsFromEnv();
 
 const server = await createMultiplayerServer({
-  repository: new PostgresMatchRepository(databaseUrl),
+  repository: new RedisMatchRepository(redisUrl, redisMatchRepositoryOptionsFromEnv()),
   verifyToken: createGuestTokenVerifier(sessionSecret),
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
   allowedOrigin,
+  configureSocketAdapter: redisAdapterOptions
+    ? (io) => configureRedisSocketAdapter(io, redisAdapterOptions)
+    : undefined,
   staticRoot,
   browserConfig: {
     serverUrl: allowedOrigin,

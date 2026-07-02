@@ -56,7 +56,7 @@ game-engine test suite with Vitest.
 The multiplayer implementation has three parts:
 
 - `packages/game-engine`: deterministic simulation shared by browser and server
-- `server`: Fastify and Socket.IO authoritative server with PostgreSQL persistence
+- `server`: Fastify and Socket.IO authoritative server with Redis-backed ephemeral match state
 - `src/app/games/equation-artillery/multiplayer`: Angular lobby and match client
 
 Copy `public/config.example.js` to `public/config.js`, then set `serverUrl` to the
@@ -88,17 +88,16 @@ npm run server:dev
 npm start
 ```
 
-The server applies SQL files from `server/db/migrations` into PostgreSQL on startup and then
-checks that the multiplayer tables exist. `DATABASE_URL`, `SESSION_SECRET`, and
-`CLIENT_ORIGIN` are mandatory. The browser receives only `serverUrl` through
-`/config.js`.
+`REDIS_URL`, `SESSION_SECRET`, and `CLIENT_ORIGIN` are mandatory for the production-like server.
+The browser receives only `serverUrl` through `/config.js`. Redis stores ephemeral multiplayer room
+state and also coordinates Socket.IO room broadcasts and socket lookups across server instances.
+`REDIS_KEY_PREFIX` can be set to isolate MathWar keys when sharing a Redis database.
 
 ## Project Layout
 
 - `src/app`: Angular application, routes, shared shell, and game UI
 - `packages/game-engine`: shared deterministic simulation code
 - `server`: Fastify and Socket.IO multiplayer server
-- `server/db/migrations`: PostgreSQL schema migrations
 - `docs`: architecture notes and changelog
 - `public`: static browser assets and runtime config example
 

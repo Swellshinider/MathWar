@@ -3,8 +3,9 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveShot } from '@math-war/game-engine';
+import { Server as SocketServer } from 'socket.io';
 import { io as createClient, Socket } from 'socket.io-client';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
 import { InMemoryMatchRepository } from './repository.js';
 import { createMultiplayerServer } from './server.js';
@@ -18,7 +19,11 @@ interface Harness {
 
 const harnesses: Harness[] = [];
 
-async function createHarness(reconnectWindowMs = 60_000, idleCleanupMs = 40): Promise<Harness> {
+async function createHarness(
+  reconnectWindowMs = 60_000,
+  idleCleanupMs = 40,
+  configureSocketAdapter?: (io: SocketServer) => Promise<{ close(): Promise<void> } | void>,
+): Promise<Harness> {
   const repository = new InMemoryMatchRepository();
   const server = await createMultiplayerServer({
     repository,
@@ -28,6 +33,7 @@ async function createHarness(reconnectWindowMs = 60_000, idleCleanupMs = 40): Pr
     reconnectWindowMs,
     idleCleanupMs,
     sweepIntervalMs: 10,
+    configureSocketAdapter,
   });
   const address = await server.listen(0, '127.0.0.1');
   const harness = { repository, server, url: address, clients: [] };
@@ -231,6 +237,26 @@ describe('multiplayer socket server', () => {
       socket.once('connect_error', (error) => resolve(error.message)),
     );
     expect(message).toContain('Authentication required');
+  });
+
+  it('does not configure a socket adapter unless one is provided', async () => {
+    const harness = await createHarness();
+
+    expect(harness.server.io.sockets.adapter.constructor.name).toBe('Adapter');
+  });
+
+  it('configures and closes an injected socket adapter', async () => {
+    const close = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const configure = vi.fn(async (io: SocketServer) => {
+      expect(io).toBeInstanceOf(SocketServer);
+      return { close };
+    });
+    const harness = await createHarness(60_000, 40, configure);
+
+    expect(configure).toHaveBeenCalledTimes(1);
+    await harness.server.close();
+    harnesses.splice(harnesses.indexOf(harness), 1);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it('creates, joins, rejects unsafe commands, and resolves a character hit', async () => {
