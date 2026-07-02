@@ -126,6 +126,7 @@ describe('MultiplayerPageComponent', () => {
     ready: signal(true),
     session: signal<MultiplayerGuestSession | null>({
       token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
       user: { id: 'left', displayName: 'Left' },
     }),
     storedDisplayName: signal(''),
@@ -180,6 +181,7 @@ describe('MultiplayerPageComponent', () => {
     auth.ready.set(true);
     auth.session.set({
       token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
       user: { id: 'left', displayName: 'Left' },
     });
     auth.storedDisplayName.set('');
@@ -704,7 +706,11 @@ describe('MultiplayerPageComponent', () => {
 
     // The embedded lobby completes sign-in, which makes a session available and
     // lets the page open its socket.
-    auth.session.set({ token: 'token', user: { id: 'left', displayName: 'Left' } });
+    auth.session.set({
+      token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+      user: { id: 'left', displayName: 'Left' },
+    });
     fixture.detectChanges();
     handlers.connected?.();
     await fixture.whenStable();

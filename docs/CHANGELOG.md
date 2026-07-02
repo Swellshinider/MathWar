@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2026-07-02
+
+- Hardened multiplayer guest sessions with scoped token claims, expiry-aware client storage,
+  production secret validation, security headers, request throttling, and bearer-token protection
+  for server metrics.
+
 ### Added - 2026-07-01
 
 - Added Formula Frenzy hints with keyboard access, streak-based hint recovery, visible hint counts,

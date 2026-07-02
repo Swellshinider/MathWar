@@ -29,6 +29,7 @@ Server environment variables:
 - `DATABASE_SSL`: `true` or `false`
 - `DATABASE_SSL_REJECT_UNAUTHORIZED`: TLS verification toggle when SSL is enabled
 - `SESSION_SECRET`: symmetric signing secret for guest multiplayer tokens
+- `METRICS_TOKEN`: bearer token required to read `/metrics` in production
 - `CLIENT_ORIGIN`: public origin used for CORS and generated browser config
 - `HOST`, `PORT`, `NODE_ENV`: listener and runtime settings
 
@@ -39,10 +40,15 @@ Browser runtime configuration:
 ## Multiplayer flow
 
 1. The browser posts a display name to `POST /api/auth/guest`.
-2. Fastify returns a signed guest token and stable user id.
-3. The browser stores the session in `localStorage` and uses the token in the Socket.IO handshake.
+2. Fastify returns a signed guest token, expiry timestamp, and stable user id.
+3. The browser stores the session in `localStorage`, clears it once expired, and uses the token in
+   the Socket.IO handshake.
 4. The server verifies the token, maps the subject to the player id, and applies authoritative
    commands against PostgreSQL-backed match state.
+
+Guest tokens are scoped to the MathWar multiplayer issuer and audience. Production startup rejects
+short or placeholder `SESSION_SECRET` values so guest identities cannot be forged with predictable
+signing keys.
 
 ## Persistence
 

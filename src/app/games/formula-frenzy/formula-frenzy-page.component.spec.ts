@@ -13,7 +13,11 @@ describe('FormulaFrenzyPageComponent', () => {
   };
   const auth = {
     ready: vi.fn(() => true),
-    session: vi.fn(() => ({ token: 'token', user: { id: 'left', displayName: 'Left' } })),
+    session: vi.fn(() => ({
+      token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+      user: { id: 'left', displayName: 'Left' },
+    })),
     storedDisplayName: vi.fn(() => ''),
     error: vi.fn(() => null),
     signIn: vi.fn(),
@@ -104,9 +108,9 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(event.defaultPrevented).toBe(true);
     expect(component.hintsRemaining()).toBe(2);
     expect(component.currentHint()).toEqual(expect.any(String));
-    expect((fixture.nativeElement as HTMLElement).querySelector('.problem-hint')?.textContent).toContain(
-      `hint: ${component.currentHint()}`,
-    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.problem-hint')?.textContent,
+    ).toContain(`hint: ${component.currentHint()}`);
 
     component.answerControl.setValue(String(component.problem().answer));
     component.submitAnswer();

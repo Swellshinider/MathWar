@@ -65,6 +65,7 @@ describe('MultiplayerLobbyComponent', () => {
     ready: signal(true),
     session: signal<MultiplayerGuestSession | null>({
       token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
       user: { id: 'left', displayName: 'Left' },
     }),
     storedDisplayName: signal(''),
@@ -87,7 +88,11 @@ describe('MultiplayerLobbyComponent', () => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
     auth.ready.set(true);
-    auth.session.set({ token: 'token', user: { id: 'left', displayName: 'Left' } });
+    auth.session.set({
+      token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+      user: { id: 'left', displayName: 'Left' },
+    });
     auth.storedDisplayName.set('');
     auth.error.set(null);
     auth.signIn.mockResolvedValue(undefined);

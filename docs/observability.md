@@ -7,6 +7,15 @@ Metrics are enabled by default and can be disabled with:
 METRICS_ENABLED=false rtk npm run server:dev
 ```
 
+In production, configure `METRICS_TOKEN` and call `/metrics` with:
+
+```bash
+rtk curl -H "Authorization: Bearer $METRICS_TOKEN" http://127.0.0.1:3000/metrics
+```
+
+When `METRICS_TOKEN` is set outside production, the same bearer token is required. Local development
+and tests may read metrics without a token only when `METRICS_TOKEN` is unset.
+
 Use `LOG_LEVEL=debug`, `info`, `warn`, or `error` to control structured server log verbosity.
 
 ## Running Locally

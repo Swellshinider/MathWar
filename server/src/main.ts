@@ -1,6 +1,10 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
+import {
+  assertProductionSessionSecret,
+  createGuestTokenIssuer,
+  createGuestTokenVerifier,
+} from './auth.js';
 import { runMigrations } from './migrations.js';
 import { PostgresMatchRepository } from './postgres-repository.js';
 import { createMultiplayerServer } from './server.js';
@@ -11,6 +15,7 @@ const sessionSecret = process.env['SESSION_SECRET'];
 if (!databaseUrl || !allowedOrigin || !sessionSecret) {
   throw new Error('DATABASE_URL, CLIENT_ORIGIN, and SESSION_SECRET are required.');
 }
+assertProductionSessionSecret(sessionSecret, process.env['NODE_ENV']);
 
 const staticRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist/math-war/browser');
 const migrationsDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../db/migrations');
