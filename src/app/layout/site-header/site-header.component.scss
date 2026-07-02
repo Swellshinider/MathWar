@@ -67,9 +67,9 @@ a {
 }
 
 .sound-menu__button {
-  width: 2.75rem;
-  height: 2.75rem;
-  padding: 0;
+  width: calc(1em + 2 * var(--space-3));
+  padding-inline: var(--space-3);
+  color: var(--text-strong);
 }
 
 .sound-menu__button svg {
@@ -77,13 +77,19 @@ a {
   height: 1rem;
 }
 
-.header-link {
-  color: var(--text);
-  font-weight: var(--weight-bold);
+.sound-menu__button:hover,
+.sound-menu__button:focus-visible {
+  color: var(--text-strong);
 }
 
-.header-link:hover,
-.header-link:focus-visible {
+.header-about {
+  color: var(--text);
+  border-color: var(--text-subtle);
+}
+
+.header-about:hover,
+.header-about:focus-visible {
+  border-color: var(--text-muted);
   color: var(--text-strong);
 }
 
