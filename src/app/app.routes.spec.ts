@@ -68,6 +68,32 @@ describe('application routes', () => {
     expect(harness.routeNativeElement?.textContent).toContain('Solve fast');
   });
 
+  it('opens the Formula Frenzy leaderboard at its direct route', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              entries: [],
+              searchResult: null,
+              page: 1,
+              pageSize: 10,
+              total: 0,
+              sort: 'rank',
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        ),
+      ),
+    );
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/leaderboard/formula-frenzy');
+
+    expect(harness.routeNativeElement?.textContent).toContain('Formula Frenzy Leaderboard');
+    expect(harness.routeNativeElement?.textContent).toContain('Find username');
+  });
+
   it('opens Formula Frenzy multiplayer at its direct route', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/games/formula-frenzy/multiplayer');

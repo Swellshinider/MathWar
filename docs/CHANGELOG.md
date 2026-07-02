@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - 2026-07-02
 
+- Added a Formula Frenzy leaderboard with account-based score saving, best-score updates, ranking,
+  pagination, sorting, username lookup, and leaderboard entry points from the catalog and game over
+  flow.
 - Added registered accounts with create/login/logout flows, refresh-token autologin, account
   settings, display name and avatar updates, PostgreSQL-backed account storage, Argon2id password
   hashing, and unique username login.

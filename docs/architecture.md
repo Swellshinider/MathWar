@@ -63,7 +63,8 @@ in PostgreSQL, while display names remain editable profile names. Passwords are 
 hashes. Account access tokens are short-lived and kept in browser memory. Autologin uses an
 HttpOnly refresh-token cookie with server-side token rotation and reuse revocation.
 Username availability checks query PostgreSQL as the source of truth and cache only taken usernames
-in Redis for 30 minutes.
+in Redis for 30 minutes. Formula Frenzy leaderboard entries are also stored in PostgreSQL as durable
+best scores, keyed by account and game id.
 
 ## Multiplayer state
 
@@ -77,6 +78,6 @@ Redis stores the current multiplayer room state and short-lived indexes:
 - taken username availability hints for account creation
 
 This data is intentionally ephemeral. A Redis flush or outage can drop active private rooms.
-PostgreSQL is reserved for future durable product data such as leaderboards or match history.
+PostgreSQL stores durable account data and Formula Frenzy leaderboard best scores.
 Current per-process rate limit buckets and Formula Frenzy deadline timers are still local process
 concerns.

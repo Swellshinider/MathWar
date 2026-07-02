@@ -48,6 +48,12 @@ import { AccountRecord, AccountRepository } from './account-repository.js';
 import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { canJoinWaitingRoom, canStartFormulaMatch, isMatchPlayer } from './authorization.js';
 import { TokenVerifier } from './auth.js';
+import {
+  isLeaderboardGameId,
+  isLeaderboardSort,
+  LeaderboardRepository,
+  LeaderboardScoreInput,
+} from './leaderboard-repository.js';
 import { logCommand } from './observability/logging.js';
 import {
   createMathWarMetrics,
@@ -73,6 +79,8 @@ const ACCOUNT_AUTH_RATE_LIMIT_MAX = 10;
 const ACCOUNT_AUTH_RATE_LIMIT_WINDOW = '1 minute';
 const ACCOUNT_USERNAME_CHECK_RATE_LIMIT_MAX = 60;
 const ACCOUNT_USERNAME_CHECK_RATE_LIMIT_WINDOW = '1 minute';
+const LEADERBOARD_SAVE_RATE_LIMIT_MAX = 30;
+const LEADERBOARD_SAVE_RATE_LIMIT_WINDOW = '1 minute';
 const SOCKET_CONNECT_LIMIT = 100;
 const SOCKET_CONNECT_WINDOW_MS = 60_000;
 const SOCKET_JOIN_CREATE_LIMIT = 20;
@@ -90,6 +98,7 @@ export interface MultiplayerServerOptions {
     readonly usernameAvailabilityCache?: UsernameAvailabilityCache;
     readonly refreshCookieSecure?: boolean;
   };
+  readonly leaderboardRepository?: LeaderboardRepository;
   readonly allowedOrigin: string;
   readonly reconnectWindowMs?: number;
   readonly sweepIntervalMs?: number;
@@ -198,6 +207,30 @@ function isMetricsRequestAuthorized(authorization: string | undefined): boolean 
   if (!token || !authorization?.startsWith('Bearer ')) return false;
   return timingSafeStringEqual(authorization.slice('Bearer '.length), token);
 }
+function parsePositiveInteger(value: unknown, fallback: number, min: number, max: number): number {
+  if (value === undefined) return fallback;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`Expected an integer from ${min} to ${max}.`);
+  }
+  return parsed;
+}
+function parseBoundedInteger(value: unknown, label: string, min: number, max: number): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${label} must be an integer from ${min} to ${max}.`);
+  }
+  return parsed;
+}
+function parseNullableBoundedInteger(
+  value: unknown,
+  label: string,
+  min: number,
+  max: number,
+): number | null {
+  if (value === null) return null;
+  return parseBoundedInteger(value, label, min, max);
+}
 function accountAvatarUrl(account: AccountRecord): string | null {
   if (!account.avatarMimeType || !account.avatarUpdatedAt) return null;
   return `/api/account/avatar/${account.id}?v=${encodeURIComponent(account.avatarUpdatedAt)}`;
@@ -268,6 +301,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const repository = new InstrumentedMatchRepository(options.repository, metrics);
   const accountOptions = options.accounts;
   const accountRepository = accountOptions?.repository;
+  const leaderboardRepository = options.leaderboardRepository;
   const usernameAvailabilityCache = accountOptions?.usernameAvailabilityCache;
   const accountTokenVerifier = accountOptions
     ? createAccountTokenVerifier(accountOptions.accessTokenSecret)
@@ -674,6 +708,117 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         .type(avatar.mimeType)
         .send(avatar.bytes);
     });
+  }
+
+  if (leaderboardRepository) {
+    fastify.get<{
+      Params: { gameId: string };
+      Querystring: {
+        page?: unknown;
+        pageSize?: unknown;
+        sort?: unknown;
+        username?: unknown;
+      };
+    }>('/api/leaderboards/:gameId', async (request, reply) => {
+      try {
+        if (!isLeaderboardGameId(request.params.gameId)) {
+          return reply.code(404).send({ message: 'Leaderboard game is not supported.' });
+        }
+        const page = parsePositiveInteger(request.query.page, 1, 1, 100_000);
+        const pageSize = parsePositiveInteger(request.query.pageSize, 10, 1, 50);
+        const sortValue = typeof request.query.sort === 'string' ? request.query.sort : 'rank';
+        if (!isLeaderboardSort(sortValue)) {
+          return reply.code(400).send({ message: 'Leaderboard sort is invalid.' });
+        }
+        const username =
+          typeof request.query.username === 'string' && request.query.username.trim()
+            ? validateUsername(request.query.username)
+            : undefined;
+        reply.header('cache-control', 'no-store');
+        return leaderboardRepository.list({
+          gameId: request.params.gameId,
+          page,
+          pageSize,
+          sort: sortValue,
+          username,
+        });
+      } catch (error) {
+        return reply.code(400).send({
+          message: error instanceof Error ? error.message : 'Could not load leaderboard.',
+        });
+      }
+    });
+
+    fastify.post<{
+      Params: { gameId: string };
+      Body?: {
+        score?: unknown;
+        level?: unknown;
+        averageTimeMs?: unknown;
+        bestStreak?: unknown;
+        totalCorrect?: unknown;
+      };
+    }>(
+      '/api/leaderboards/:gameId/entries',
+      {
+        config: {
+          rateLimit: {
+            max: LEADERBOARD_SAVE_RATE_LIMIT_MAX,
+            timeWindow: LEADERBOARD_SAVE_RATE_LIMIT_WINDOW,
+          },
+        },
+      },
+      async (request, reply) => {
+        if (!isLeaderboardGameId(request.params.gameId)) {
+          return reply.code(404).send({ message: 'Leaderboard game is not supported.' });
+        }
+        let account: AccountRecord;
+        try {
+          account = await requireAccount(request);
+        } catch (error) {
+          return reply.code(401).send({
+            message: error instanceof Error ? error.message : 'Account authentication is required.',
+          });
+        }
+        try {
+          const score = parseBoundedInteger(request.body?.score, 'Score', 0, 1_000_000_000);
+          const level = parseBoundedInteger(request.body?.level, 'Level', 1, 1_000);
+          const averageTimeMs = parseNullableBoundedInteger(
+            request.body?.averageTimeMs,
+            'Average time',
+            0,
+            60 * 60 * 1000,
+          );
+          const bestStreak = parseBoundedInteger(
+            request.body?.bestStreak,
+            'Best streak',
+            0,
+            1_000_000,
+          );
+          const totalCorrect = parseBoundedInteger(
+            request.body?.totalCorrect,
+            'Total correct',
+            0,
+            1_000_000,
+          );
+          const entry: LeaderboardScoreInput = {
+            gameId: request.params.gameId,
+            accountId: account.id,
+            username: account.username,
+            score,
+            level,
+            averageTimeMs,
+            bestStreak,
+            totalCorrect,
+          };
+          return leaderboardRepository.saveBest(entry);
+        } catch (error) {
+          return reply.code(400).send({
+            message: error instanceof Error ? error.message : 'Could not save leaderboard score.',
+          });
+        }
+      },
+    );
   }
 
   fastify.post<{ Body?: { displayName?: unknown } }>(
@@ -1607,6 +1752,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
 
   await repository.initialize();
   await accountRepository?.initialize();
+  await leaderboardRepository?.initialize();
   await usernameAvailabilityCache?.initialize();
   const sweep = setInterval(async () => {
     const sweepStart = nowSeconds();
@@ -1657,6 +1803,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       await fastify.close();
       await socketAdapterHandle?.close();
       await usernameAvailabilityCache?.close();
+      await leaderboardRepository?.close();
       await accountRepository?.close();
       await repository.close();
       metrics.shutdown();

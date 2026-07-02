@@ -8,6 +8,10 @@
     <app-multiplayer-lobby gameId="formula-frenzy" (roomJoined)="enterMultiplayer($event)" />
   </div>
 
+  <div class="leaderboard-launch">
+    <a class="btn btn--ghost" routerLink="/leaderboard/formula-frenzy">Leaderboard</a>
+  </div>
+
   <section class="mode-panel" aria-label="Formula Frenzy mode">
     <div class="mode-panel__tabs" role="tablist" aria-label="Formula Frenzy modes">
       <button
@@ -66,8 +70,8 @@
               Score
             </button>
             <span id="formula-score-tooltip" class="info-tooltip" role="tooltip">
-              Correct answers score more when solved quickly, at higher levels, and with a streak.
-              A hinted answer earns half points.
+              Correct answers score more when solved quickly, at higher levels, and with a streak. A
+              hinted answer earns half points.
             </span>
           </span>
           <strong [class.score-pop]="scorePulsed()">{{ score() }}</strong>
@@ -228,6 +232,35 @@
         <p>Average {{ averageSolveTime() }}</p>
         <p>Best streak {{ bestStreak() }}</p>
         <button type="button" class="btn restart-button" (click)="restart()">Restart</button>
+        <button
+          type="button"
+          class="btn btn--primary save-leaderboard-button"
+          [disabled]="savingLeaderboard()"
+          (click)="saveCurrentRunToLeaderboard()"
+        >
+          Save to Leaderboard
+        </button>
+        @if (leaderboardAuthPrompt()) {
+          <div class="leaderboard-auth" role="alert">
+            <p>Sign in or create an account to save this score.</p>
+            <div class="leaderboard-auth__actions">
+              <a
+                class="btn btn--primary"
+                routerLink="/account/login"
+                [queryParams]="{ returnUrl: '/games/formula-frenzy?saveLeaderboard=1' }"
+              >
+                Sign in
+              </a>
+              <a
+                class="btn btn--ghost"
+                routerLink="/account/create"
+                [queryParams]="{ returnUrl: '/games/formula-frenzy?saveLeaderboard=1' }"
+              >
+                Create account
+              </a>
+            </div>
+          </div>
+        }
       }
     </dialog>
   </section>

@@ -1,0 +1,133 @@
+<section class="leaderboard-page">
+  <header class="leaderboard-header">
+    <div>
+      <p class="eyebrow">Leaderboard</p>
+      <h1>{{ title() }}</h1>
+    </div>
+    <a class="btn btn--ghost" routerLink="/">Mini-games</a>
+  </header>
+
+  @if (gameId()) {
+    <section class="leaderboard-panel glass" aria-label="Leaderboard controls and rankings">
+      <form class="leaderboard-search" (submit)="search($event)">
+        <label for="leaderboard-username">Find username</label>
+        <div class="leaderboard-search__row">
+          <input
+            id="leaderboard-username"
+            class="field"
+            name="username"
+            autocomplete="off"
+            maxlength="20"
+            [ngModel]="username()"
+            (ngModelChange)="username.set($event)"
+          />
+          <button type="submit" class="btn btn--primary">Search</button>
+        </div>
+      </form>
+
+      @if (data()?.searchResult; as result) {
+        <div class="search-result" role="status">
+          <strong>{{ result.username }}</strong>
+          <span>Rank {{ result.rank }}</span>
+          <span>Score {{ result.score }}</span>
+        </div>
+      } @else if (username().trim() && !loading() && data()) {
+        <p class="empty-message" role="status">No saved score for {{ username().trim() }}.</p>
+      }
+
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="leaderboard-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>
+                <button type="button" (click)="setSort('rank')" [class.active]="sort() === 'rank'">
+                  Rank
+                </button>
+              </th>
+              <th>Username</th>
+              <th>Score</th>
+              <th>
+                <button
+                  type="button"
+                  (click)="setSort('level')"
+                  [class.active]="sort() === 'level'"
+                >
+                  Level
+                </button>
+              </th>
+              <th>
+                <button
+                  type="button"
+                  (click)="setSort('averageTime')"
+                  [class.active]="sort() === 'averageTime'"
+                >
+                  Average time
+                </button>
+              </th>
+              <th>
+                <button
+                  type="button"
+                  (click)="setSort('bestStreak')"
+                  [class.active]="sort() === 'bestStreak'"
+                >
+                  Best streak
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of data()?.entries ?? []; track entry.id) {
+              <tr>
+                <td>{{ entry.rank }}</td>
+                <td>{{ entry.username }}</td>
+                <td>{{ entry.score }}</td>
+                <td>{{ entry.level }}</td>
+                <td>{{ formatAverage(entry) }}</td>
+                <td>{{ entry.bestStreak }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6">
+                  @if (loading()) {
+                    Loading leaderboard...
+                  } @else {
+                    No scores saved yet.
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="pagination" aria-label="Leaderboard pages">
+        <button
+          type="button"
+          class="btn btn--subtle"
+          [disabled]="page() <= 1"
+          (click)="previousPage()"
+        >
+          Previous
+        </button>
+        <span>Page {{ page() }} of {{ totalPages() }}</span>
+        <button
+          type="button"
+          class="btn btn--subtle"
+          [disabled]="page() >= totalPages()"
+          (click)="nextPage()"
+        >
+          Next
+        </button>
+      </nav>
+    </section>
+  } @else {
+    <section class="leaderboard-panel glass">
+      <p class="error" role="alert">{{ error() }}</p>
+      <a class="btn btn--primary" routerLink="/">Back to mini-games</a>
+    </section>
+  }
+</section>
