@@ -154,7 +154,7 @@ Repeat the ladder with `load:artillery` when measuring Equation Artillery shot r
 Focus first on p95 latency and saturation signals:
 
 - `mathwar_socket_command_duration_seconds` shows command cost by command.
-- `mathwar_repository_operation_duration_seconds{operation="update"}` shows PostgreSQL update cost.
+- `mathwar_repository_operation_duration_seconds{operation="update"}` shows Redis update cost.
 - `mathwar_game_operation_duration_seconds{operation="resolve_shot"}` shows Equation Artillery
   simulation cost.
 - `mathwar_event_loop_delay_p95_seconds` shows Node event-loop pressure.

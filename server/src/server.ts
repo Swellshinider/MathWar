@@ -41,6 +41,7 @@ import {
 } from './observability/metrics.js';
 import { InstrumentedMatchRepository } from './observability/repository.js';
 import { MatchRepository } from './repository.js';
+import { SocketAdapterHandle } from './redis-adapter.js';
 
 interface AuthenticatedSocket extends Socket {
   data: { user: AuthenticatedUser; matchId?: string };
@@ -69,6 +70,7 @@ export interface MultiplayerServerOptions {
   readonly browserConfig?: {
     readonly serverUrl: string;
   };
+  readonly configureSocketAdapter?: (io: SocketServer) => Promise<SocketAdapterHandle | void>;
   readonly issueGuestSession?: (
     displayName: string,
   ) => Promise<{ token: string; expiresAt: string; user: AuthenticatedUser }>;
@@ -81,6 +83,9 @@ interface RateBucket {
 
 function roomName(matchId: string): string {
   return `match:${matchId}`;
+}
+function userRoomName(userId: string): string {
+  return `user:${userId}`;
 }
 function stateGameId(state: MultiplayerMatchState): GameId {
   return state.gameId ?? 'equation-artillery';
@@ -314,9 +319,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const io = new SocketServer(fastify.server, {
     cors: { origin: options.allowedOrigin, methods: ['GET', 'POST'] },
   });
+  const socketAdapterHandle = await options.configureSocketAdapter?.(io);
   const reconnectWindowMs = options.reconnectWindowMs ?? 60_000;
   const idleCleanupMs = options.idleCleanupMs ?? 10 * 60_000;
-  const socketsByUser = new Map<string, Set<string>>();
   const activeFormulaMatchIds = new Set<string>();
   const activeMatchRoomIds = new Set<string>();
   const formulaDeadlineTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -454,8 +459,12 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     }
   }
 
-  function isRoomEmpty(matchId: string): boolean {
-    return !io.sockets.adapter.rooms.get(roomName(matchId))?.size;
+  async function isRoomEmpty(matchId: string): Promise<boolean> {
+    return (await io.in(roomName(matchId)).allSockets()).size === 0;
+  }
+
+  async function hasUserSockets(userId: string): Promise<boolean> {
+    return (await io.in(userRoomName(userId)).allSockets()).size > 0;
   }
 
   async function clearRoomEmpty(matchId: string): Promise<void> {
@@ -463,7 +472,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   }
 
   async function markRoomEmptyIfNeeded(matchId: string, emptySince: Date): Promise<void> {
-    if (!isRoomEmpty(matchId)) return;
+    if (!(await isRoomEmpty(matchId))) return;
     untrackActiveRoom(matchId);
     await repository.markRoomEmpty(matchId, emptySince);
   }
@@ -472,7 +481,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     matchId: string,
     knownState?: MultiplayerMatchState,
   ): Promise<boolean> {
-    if (!isRoomEmpty(matchId)) return false;
+    if (!(await isRoomEmpty(matchId))) return false;
     const state = knownState ?? (await repository.findById(matchId));
     if (!state || state.status !== 'ended') return false;
     activeFormulaMatchIds.delete(matchId);
@@ -540,12 +549,14 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
 
   io.on('connection', (rawSocket) => {
     const socket = rawSocket as AuthenticatedSocket;
-    const userSockets = socketsByUser.get(socket.data.user.id) ?? new Set<string>();
-    userSockets.add(socket.id);
-    socketsByUser.set(socket.data.user.id, userSockets);
+    const userRoomJoin = Promise.resolve(socket.join(userRoomName(socket.data.user.id)));
     metrics.recordSocketConnection();
     updateActiveGauges();
-    void reconnect(socket);
+    void userRoomJoin
+      .then(() => reconnect(socket))
+      .catch((error: unknown) => {
+        fastify.log.error({ error }, 'Failed to join user Socket.IO room');
+      });
 
     function acceptSocketCommand(command: SocketCommand, limit = SOCKET_COMMAND_LIMIT): boolean {
       const userKey = `${socket.data.user.id}:${command}`;
@@ -1065,7 +1076,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       if (match.status === 'ended') {
         socket.data.matchId = undefined;
         await socket.leave(roomName(matchId));
-        if (isRoomEmpty(matchId)) untrackActiveRoom(matchId);
+        if (await isRoomEmpty(matchId)) untrackActiveRoom(matchId);
         await deleteEndedMatchIfRoomEmpty(matchId, match);
         return acknowledge({ ok: true, data: publicState(match) });
       }
@@ -1098,7 +1109,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       trackFormulaMatch(result.state);
       await emitState(result.state);
       await socket.leave(roomName(matchId));
-      if (isRoomEmpty(matchId)) untrackActiveRoom(matchId);
+      if (await isRoomEmpty(matchId)) untrackActiveRoom(matchId);
       if (!(await deleteEndedMatchIfRoomEmpty(matchId, result.state))) {
         await markRoomEmptyIfNeeded(matchId, new Date());
         updateActiveGauges();
@@ -1109,16 +1120,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     socket.on('disconnect', async (reason) => {
       const start = nowSeconds();
       metrics.recordSocketDisconnect(reason);
-      const sockets = socketsByUser.get(socket.data.user.id);
-      sockets?.delete(socket.id);
       updateActiveGauges();
-      if (sockets?.size) {
-        metrics.recordSocketCommand('disconnect', 'accepted', 'MULTI_SOCKET', nowSeconds() - start);
-        return;
-      }
-      socketsByUser.delete(socket.data.user.id);
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      if (socketsByUser.has(socket.data.user.id)) {
+      if (await hasUserSockets(socket.data.user.id)) {
         metrics.recordSocketCommand('disconnect', 'accepted', 'RECONNECTED', nowSeconds() - start);
         return;
       }
@@ -1133,8 +1137,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         return;
       }
       if (match.status === 'active') {
+        const userStillConnected = await hasUserSockets(socket.data.user.id);
         const result = await repository.update(match.id, match.version, randomUUID(), (state) =>
-          socketsByUser.has(socket.data.user.id)
+          userStillConnected
             ? state
             : {
                 ...setPlayerConnected(state, socket.data.user.id, false),
@@ -1161,8 +1166,9 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       }
       // waiting or paused: no opponent transition is needed, but refresh the
       // idle clock so an abandoned room is reaped once it has been empty long enough.
+      const userStillConnected = await hasUserSockets(socket.data.user.id);
       const result = await repository.update(match.id, match.version, randomUUID(), (state) =>
-        socketsByUser.has(socket.data.user.id)
+        userStillConnected
           ? state
           : { ...state, version: state.version + 1, updatedAt: now.toISOString() },
       );
@@ -1229,6 +1235,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       for (const timer of formulaDeadlineTimers.values()) clearTimeout(timer);
       formulaDeadlineTimers.clear();
       await fastify.close();
+      await socketAdapterHandle?.close();
       await repository.close();
       metrics.shutdown();
     },

@@ -18,6 +18,11 @@ and tests may read metrics without a token only when `METRICS_TOKEN` is unset.
 
 Use `LOG_LEVEL=debug`, `info`, `warn`, or `error` to control structured server log verbosity.
 
+Redis stores ephemeral multiplayer state and powers Socket.IO room broadcasts and adapter-wide socket
+lookups. Deploy Redis as private infrastructure. Monitor Redis connection errors in server logs and
+compare per-process `mathwar_socket_active` and `mathwar_matches_active` values against load test
+expectations; these gauges are still reported by each scraped Node process.
+
 ## Running Locally
 
 For the in-memory development server:
@@ -27,8 +32,7 @@ rtk npm run server:dev:memory
 rtk curl http://127.0.0.1:3000/metrics
 ```
 
-For PostgreSQL-backed development, configure `server/.env.example` values in your environment,
-then run:
+For Redis-backed development, configure `server/.env.example` values in your environment, then run:
 
 ```bash
 rtk npm run server:dev

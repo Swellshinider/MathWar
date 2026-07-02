@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hardened multiplayer guest sessions with scoped token claims, expiry-aware client storage,
   production secret validation, security headers, request throttling, and bearer-token protection
   for server metrics.
+- Moved multiplayer room persistence to Redis-backed ephemeral state and added Redis-backed
+  Socket.IO coordination for multi-instance room broadcasts and socket lookups.
 
 ### Added - 2026-07-01
 
