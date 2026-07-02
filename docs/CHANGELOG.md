@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved multiplayer room persistence to Redis-backed ephemeral state and added Redis-backed
   Socket.IO coordination for multi-instance room broadcasts and socket lookups.
 
+### Fixed - 2026-07-02
+
+- Fixed production stylesheet loading under the server content security policy so global button
+  styles render after deployment.
+
 ### Added - 2026-07-01
 
 - Added Formula Frenzy hints with keyboard access, streak-based hint recovery, visible hint counts,
