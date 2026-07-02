@@ -2,6 +2,7 @@ import { InjectionToken } from '@angular/core';
 
 export interface MultiplayerConfig {
   readonly serverUrl: string;
+  readonly siteUrl?: string;
 }
 
 declare global {

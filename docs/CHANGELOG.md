@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - 2026-07-02
 
+- Added route-level SEO metadata, canonical URLs, social preview tags, structured data, robots.txt,
+  and sitemap.xml generation for public MathWar pages.
 - Added a Formula Frenzy leaderboard with account-based score saving, best-score updates, ranking,
   pagination, sorting, username lookup, and leaderboard entry points from the catalog and game over
   flow.

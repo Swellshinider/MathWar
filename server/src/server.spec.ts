@@ -103,6 +103,7 @@ describe('multiplayer socket server', () => {
       staticRoot,
       browserConfig: {
         serverUrl: 'https://math-war.example',
+        siteUrl: 'https://math-war.example/',
       },
     });
     harnesses.push({ repository, server, url: '', clients: [] });
@@ -112,8 +113,31 @@ describe('multiplayer socket server', () => {
       expect(config.headers['cache-control']).toBe('no-store');
       expect(config.headers['content-type']).toContain('application/javascript');
       expect(config.body).toContain('serverUrl');
+      expect(config.body).toContain('siteUrl');
       expect(config.body).not.toContain('supabase');
       expect(config.body).not.toContain('legacy');
+
+      const robots = await server.fastify.inject({ method: 'GET', url: '/robots.txt' });
+      expect(robots.statusCode).toBe(200);
+      expect(robots.headers['content-type']).toContain('text/plain');
+      expect(robots.body).toContain('User-agent: *');
+      expect(robots.body).toContain('Disallow: /api/');
+      expect(robots.body).toContain('Disallow: /socket.io/');
+      expect(robots.body).toContain('Sitemap: https://math-war.example/sitemap.xml');
+
+      const sitemap = await server.fastify.inject({ method: 'GET', url: '/sitemap.xml' });
+      expect(sitemap.statusCode).toBe(200);
+      expect(sitemap.headers['content-type']).toContain('application/xml');
+      expect(sitemap.body).toContain('<loc>https://math-war.example</loc>');
+      expect(sitemap.body).toContain(
+        '<loc>https://math-war.example/games/equation-artillery</loc>',
+      );
+      expect(sitemap.body).toContain('<loc>https://math-war.example/games/formula-frenzy</loc>');
+      expect(sitemap.body).toContain(
+        '<loc>https://math-war.example/leaderboard/formula-frenzy</loc>',
+      );
+      expect(sitemap.body).not.toContain('/account/login');
+      expect(sitemap.body).not.toContain('/multiplayer');
 
       const asset = await server.fastify.inject({ method: 'GET', url: '/main.js' });
       expect(asset.statusCode).toBe(200);
