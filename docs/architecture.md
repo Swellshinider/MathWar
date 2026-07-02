@@ -34,7 +34,6 @@ Server environment variables:
 - `DATABASE_URL`: PostgreSQL connection string for registered accounts
 - `ACCOUNT_ACCESS_TOKEN_SECRET`: signing secret for short-lived account access tokens
 - `ACCOUNT_REFRESH_TOKEN_SECRET`: HMAC secret for stored refresh-token hashes
-- `ACCOUNT_EMAIL_LOOKUP_SECRET`: HMAC secret for email lookup hashes
 - `CLIENT_ORIGIN`: public origin used for CORS and generated browser config
 - `HOST`, `PORT`, `NODE_ENV`: listener and runtime settings
 
@@ -59,12 +58,10 @@ signing keys.
 
 ## Account flow
 
-Registered accounts use email and password login. Passwords are stored as Argon2id hashes. Email
-addresses are not stored as plain text: the server stores a keyed lookup hash for uniqueness and
-login, plus an AES-GCM encrypted email value derived from the user's password so the address can be
-shown only during password-present flows. Account access tokens are short-lived and kept in browser
-memory. Autologin uses an HttpOnly refresh-token cookie with server-side token rotation and reuse
-revocation.
+Registered accounts use lowercase username and password login. Usernames are unique handles stored
+in PostgreSQL, while display names remain editable profile names. Passwords are stored as Argon2id
+hashes. Account access tokens are short-lived and kept in browser memory. Autologin uses an
+HttpOnly refresh-token cookie with server-side token rotation and reuse revocation.
 
 ## Multiplayer state
 

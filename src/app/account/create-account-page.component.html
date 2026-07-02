@@ -7,16 +7,41 @@
 
     <form class="account-form" [formGroup]="form" (submit)="$event.preventDefault(); submit()">
       <label class="field-label" for="create-display-name">Display name</label>
-      <input id="create-display-name" class="field" maxlength="80" formControlName="displayName" />
+      <input id="create-display-name" class="field" maxlength="15" formControlName="displayName" />
+      @if (form.controls.displayName.touched && form.controls.displayName.hasError('required')) {
+        <p class="field-message error">Display name is required.</p>
+      } @else if (
+        form.controls.displayName.touched && form.controls.displayName.hasError('maxlength')
+      ) {
+        <p class="field-message error">Display name must be 15 characters or fewer.</p>
+      }
 
-      <label class="field-label" for="create-email">Email</label>
+      <label class="field-label" for="create-username">Username</label>
       <input
-        id="create-email"
+        id="create-username"
         class="field"
-        type="email"
-        autocomplete="email"
-        formControlName="email"
+        autocomplete="username"
+        maxlength="20"
+        formControlName="username"
       />
+      @if (form.controls.username.touched && form.controls.username.hasError('required')) {
+        <p class="field-message error">Username is required.</p>
+      } @else if (
+        form.controls.username.touched &&
+        (form.controls.username.hasError('minlength') ||
+          form.controls.username.hasError('maxlength') ||
+          form.controls.username.hasError('pattern'))
+      ) {
+        <p class="field-message error">
+          Use 3 to 20 lowercase letters, numbers, underscores, or hyphens.
+        </p>
+      } @else if (form.controls.username.hasError('usernameTaken')) {
+        <p class="field-message error">That username is already taken.</p>
+      } @else if (usernameAvailability() === 'checking') {
+        <p class="field-message">Checking username…</p>
+      } @else if (usernameAvailability() === 'available') {
+        <p class="field-message success">Username is available.</p>
+      }
 
       <label class="field-label" for="create-password">Password</label>
       <input
@@ -26,14 +51,23 @@
         autocomplete="new-password"
         formControlName="password"
       />
+      @if (form.controls.password.touched && form.controls.password.hasError('required')) {
+        <p class="field-message error">Password is required.</p>
+      } @else if (form.controls.password.touched && form.controls.password.hasError('minlength')) {
+        <p class="field-message error">Password must be at least 8 characters.</p>
+      }
 
       @if (auth.error()) {
         <p class="error" role="alert">{{ auth.error() }}</p>
       }
 
       <div class="account-actions">
-        <button type="submit" class="btn btn--primary" [disabled]="submitting()">
-          Create account
+        <button
+          type="submit"
+          class="btn btn--primary"
+          [disabled]="submitting() || usernameAvailability() === 'checking'"
+        >
+          {{ usernameAvailability() === 'checking' ? 'Checking username…' : 'Create account' }}
         </button>
         <a class="btn btn--ghost" routerLink="/account/login">Sign in</a>
       </div>

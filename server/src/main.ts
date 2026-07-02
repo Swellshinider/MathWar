@@ -17,25 +17,22 @@ const allowedOrigin = process.env['CLIENT_ORIGIN'];
 const sessionSecret = process.env['SESSION_SECRET'];
 const accountAccessTokenSecret = process.env['ACCOUNT_ACCESS_TOKEN_SECRET'];
 const accountRefreshTokenSecret = process.env['ACCOUNT_REFRESH_TOKEN_SECRET'];
-const accountEmailLookupSecret = process.env['ACCOUNT_EMAIL_LOOKUP_SECRET'];
 if (
   !redisUrl ||
   !databaseUrl ||
   !allowedOrigin ||
   !sessionSecret ||
   !accountAccessTokenSecret ||
-  !accountRefreshTokenSecret ||
-  !accountEmailLookupSecret
+  !accountRefreshTokenSecret
 ) {
   throw new Error(
-    'REDIS_URL, DATABASE_URL, CLIENT_ORIGIN, SESSION_SECRET, ACCOUNT_ACCESS_TOKEN_SECRET, ACCOUNT_REFRESH_TOKEN_SECRET, and ACCOUNT_EMAIL_LOOKUP_SECRET are required.',
+    'REDIS_URL, DATABASE_URL, CLIENT_ORIGIN, SESSION_SECRET, ACCOUNT_ACCESS_TOKEN_SECRET, and ACCOUNT_REFRESH_TOKEN_SECRET are required.',
   );
 }
 assertProductionSessionSecret(sessionSecret, process.env['NODE_ENV']);
 assertProductionAccountSecrets(
   accountAccessTokenSecret,
   accountRefreshTokenSecret,
-  accountEmailLookupSecret,
   process.env['NODE_ENV'],
 );
 
@@ -57,7 +54,6 @@ const server = await createMultiplayerServer({
     repository: new PostgresAccountRepository(databaseUrl),
     accessTokenSecret: accountAccessTokenSecret,
     refreshTokenSecret: accountRefreshTokenSecret,
-    emailLookupSecret: accountEmailLookupSecret,
   },
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
   allowedOrigin,

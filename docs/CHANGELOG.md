@@ -11,10 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added registered accounts with create/login/logout flows, refresh-token autologin, account
   settings, display name and avatar updates, PostgreSQL-backed account storage, Argon2id password
-  hashing, and encrypted email storage with keyed lookup hashes.
+  hashing, and unique username login.
 
 ### Changed - 2026-07-02
 
+- Replaced account email login with unique lowercase username login while keeping display names as
+  editable profile names.
+- Added account form validation messages and debounced username availability checks during account
+  creation.
+- Limited account display names to 15 characters and usernames to 20 characters.
 - Hardened multiplayer guest sessions with scoped token claims, expiry-aware client storage,
   production secret validation, security headers, request throttling, and bearer-token protection
   for server metrics.

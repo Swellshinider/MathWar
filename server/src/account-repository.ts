@@ -1,11 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import { EncryptedEmail } from './account-auth.js';
 
 export interface AccountRecord {
   readonly id: string;
-  readonly emailLookupHash: string;
-  readonly encryptedEmail: EncryptedEmail;
+  readonly username: string;
   readonly passwordHash: string;
   readonly displayName: string;
   readonly avatarMimeType: string | null;
@@ -29,8 +27,7 @@ export interface RefreshTokenRecord {
 }
 
 export interface CreateAccountInput {
-  readonly emailLookupHash: string;
-  readonly encryptedEmail: EncryptedEmail;
+  readonly username: string;
   readonly passwordHash: string;
   readonly displayName: string;
 }
@@ -39,13 +36,9 @@ export interface AccountRepository {
   initialize(): Promise<void>;
   createAccount(input: CreateAccountInput): Promise<AccountRecord>;
   findAccountById(id: string): Promise<AccountRecord | null>;
-  findAccountByEmailLookupHash(emailLookupHash: string): Promise<AccountRecord | null>;
+  findAccountByUsername(username: string): Promise<AccountRecord | null>;
   updateProfile(id: string, displayName: string): Promise<AccountRecord | null>;
-  updatePasswordAndEmail(
-    id: string,
-    passwordHash: string,
-    encryptedEmail: EncryptedEmail,
-  ): Promise<AccountRecord | null>;
+  updatePassword(id: string, passwordHash: string): Promise<AccountRecord | null>;
   setAvatar(id: string, avatar: { bytes: Buffer; mimeType: string }): Promise<AccountRecord | null>;
   getAvatar(id: string): Promise<AccountAvatar | null>;
   createRefreshToken(input: {
@@ -62,11 +55,7 @@ export interface AccountRepository {
 const ACCOUNT_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS accounts (
   id uuid PRIMARY KEY,
-  email_lookup_hash text NOT NULL UNIQUE,
-  email_ciphertext text NOT NULL,
-  email_iv text NOT NULL,
-  email_tag text NOT NULL,
-  email_salt text NOT NULL,
+  username text NOT NULL UNIQUE CHECK (username = lower(username) AND username ~ '^[a-z0-9_-]{3,20}$'),
   password_hash text NOT NULL,
   display_name text NOT NULL,
   avatar_bytes bytea,
@@ -92,21 +81,20 @@ CREATE INDEX IF NOT EXISTS refresh_tokens_expires_at_idx ON refresh_tokens(expir
 
 export class InMemoryAccountRepository implements AccountRepository {
   private readonly accounts = new Map<string, AccountRecord & { avatarBytes?: Buffer }>();
-  private readonly accountIdsByEmailLookupHash = new Map<string, string>();
+  private readonly accountIdsByUsername = new Map<string, string>();
   private readonly refreshTokens = new Map<string, RefreshTokenRecord>();
   private readonly refreshTokenIdsByHash = new Map<string, string>();
 
   async initialize(): Promise<void> {}
 
   async createAccount(input: CreateAccountInput): Promise<AccountRecord> {
-    if (this.accountIdsByEmailLookupHash.has(input.emailLookupHash)) {
-      throw new Error('An account already exists for this email address.');
+    if (this.accountIdsByUsername.has(input.username)) {
+      throw new Error('An account already exists for this username.');
     }
     const now = new Date().toISOString();
     const account: AccountRecord = {
       id: randomUUID(),
-      emailLookupHash: input.emailLookupHash,
-      encryptedEmail: input.encryptedEmail,
+      username: input.username,
       passwordHash: input.passwordHash,
       displayName: input.displayName,
       avatarMimeType: null,
@@ -115,7 +103,7 @@ export class InMemoryAccountRepository implements AccountRepository {
       updatedAt: now,
     };
     this.accounts.set(account.id, account);
-    this.accountIdsByEmailLookupHash.set(account.emailLookupHash, account.id);
+    this.accountIdsByUsername.set(account.username, account.id);
     return structuredClone(account);
   }
 
@@ -123,8 +111,8 @@ export class InMemoryAccountRepository implements AccountRepository {
     return this.cloneAccount(this.accounts.get(id) ?? null);
   }
 
-  async findAccountByEmailLookupHash(emailLookupHash: string): Promise<AccountRecord | null> {
-    const id = this.accountIdsByEmailLookupHash.get(emailLookupHash);
+  async findAccountByUsername(username: string): Promise<AccountRecord | null> {
+    const id = this.accountIdsByUsername.get(username);
     return id ? this.findAccountById(id) : null;
   }
 
@@ -136,14 +124,10 @@ export class InMemoryAccountRepository implements AccountRepository {
     return this.cloneAccount(next);
   }
 
-  async updatePasswordAndEmail(
-    id: string,
-    passwordHash: string,
-    encryptedEmail: EncryptedEmail,
-  ): Promise<AccountRecord | null> {
+  async updatePassword(id: string, passwordHash: string): Promise<AccountRecord | null> {
     const account = this.accounts.get(id);
     if (!account) return null;
-    const next = { ...account, passwordHash, encryptedEmail, updatedAt: new Date().toISOString() };
+    const next = { ...account, passwordHash, updatedAt: new Date().toISOString() };
     this.accounts.set(id, next);
     return this.cloneAccount(next);
   }
@@ -243,26 +227,13 @@ export class PostgresAccountRepository implements AccountRepository {
     const result = await this.pool.query(
       `INSERT INTO accounts (
         id,
-        email_lookup_hash,
-        email_ciphertext,
-        email_iv,
-        email_tag,
-        email_salt,
+        username,
         password_hash,
         display_name
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4)
       RETURNING *`,
-      [
-        randomUUID(),
-        input.emailLookupHash,
-        input.encryptedEmail.ciphertext,
-        input.encryptedEmail.iv,
-        input.encryptedEmail.tag,
-        input.encryptedEmail.salt,
-        input.passwordHash,
-        input.displayName,
-      ],
+      [randomUUID(), input.username, input.passwordHash, input.displayName],
     );
     return mapAccount(result.rows[0]);
   }
@@ -272,10 +243,8 @@ export class PostgresAccountRepository implements AccountRepository {
     return result.rowCount ? mapAccount(result.rows[0]) : null;
   }
 
-  async findAccountByEmailLookupHash(emailLookupHash: string): Promise<AccountRecord | null> {
-    const result = await this.pool.query('SELECT * FROM accounts WHERE email_lookup_hash = $1', [
-      emailLookupHash,
-    ]);
+  async findAccountByUsername(username: string): Promise<AccountRecord | null> {
+    const result = await this.pool.query('SELECT * FROM accounts WHERE username = $1', [username]);
     return result.rowCount ? mapAccount(result.rows[0]) : null;
   }
 
@@ -290,30 +259,15 @@ export class PostgresAccountRepository implements AccountRepository {
     return result.rowCount ? mapAccount(result.rows[0]) : null;
   }
 
-  async updatePasswordAndEmail(
-    id: string,
-    passwordHash: string,
-    encryptedEmail: EncryptedEmail,
-  ): Promise<AccountRecord | null> {
+  async updatePassword(id: string, passwordHash: string): Promise<AccountRecord | null> {
     const result = await this.pool.query(
       `UPDATE accounts
       SET
         password_hash = $2,
-        email_ciphertext = $3,
-        email_iv = $4,
-        email_tag = $5,
-        email_salt = $6,
         updated_at = now()
       WHERE id = $1
       RETURNING *`,
-      [
-        id,
-        passwordHash,
-        encryptedEmail.ciphertext,
-        encryptedEmail.iv,
-        encryptedEmail.tag,
-        encryptedEmail.salt,
-      ],
+      [id, passwordHash],
     );
     return result.rowCount ? mapAccount(result.rows[0]) : null;
   }
@@ -395,13 +349,7 @@ export class PostgresAccountRepository implements AccountRepository {
 function mapAccount(row: Record<string, any>): AccountRecord {
   return {
     id: row['id'],
-    emailLookupHash: row['email_lookup_hash'],
-    encryptedEmail: {
-      ciphertext: row['email_ciphertext'],
-      iv: row['email_iv'],
-      tag: row['email_tag'],
-      salt: row['email_salt'],
-    },
+    username: row['username'],
     passwordHash: row['password_hash'],
     displayName: row['display_name'],
     avatarMimeType: row['avatar_mime_type'] ?? null,

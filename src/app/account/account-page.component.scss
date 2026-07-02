@@ -57,6 +57,12 @@ h2 {
   font-weight: var(--weight-bold);
 }
 
+.field-message {
+  margin: calc(var(--space-2) * -1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
 .field {
   width: 100%;
   min-height: 2.75rem;

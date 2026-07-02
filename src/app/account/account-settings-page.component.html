@@ -41,13 +41,33 @@
           [formGroup]="profileForm"
           (submit)="$event.preventDefault(); saveProfile()"
         >
+          <label class="field-label" for="settings-username">Username</label>
+          <input
+            id="settings-username"
+            class="field"
+            [value]="auth.user()?.username"
+            autocomplete="username"
+            readonly
+          />
+
           <label class="field-label" for="settings-display-name">Display name</label>
           <input
             id="settings-display-name"
             class="field"
-            maxlength="80"
+            maxlength="15"
             formControlName="displayName"
           />
+          @if (
+            profileForm.controls.displayName.touched &&
+            profileForm.controls.displayName.hasError('required')
+          ) {
+            <p class="field-message error">Display name is required.</p>
+          } @else if (
+            profileForm.controls.displayName.touched &&
+            profileForm.controls.displayName.hasError('maxlength')
+          ) {
+            <p class="field-message error">Display name must be 15 characters or fewer.</p>
+          }
           <button type="submit" class="btn btn--primary">Save profile</button>
         </form>
 
@@ -78,6 +98,17 @@
             autocomplete="current-password"
             formControlName="currentPassword"
           />
+          @if (
+            passwordForm.controls.currentPassword.touched &&
+            passwordForm.controls.currentPassword.hasError('required')
+          ) {
+            <p class="field-message error">Current password is required.</p>
+          } @else if (
+            passwordForm.controls.currentPassword.touched &&
+            passwordForm.controls.currentPassword.hasError('minlength')
+          ) {
+            <p class="field-message error">Current password must be at least 8 characters.</p>
+          }
 
           <label class="field-label" for="new-password">New password</label>
           <input
@@ -87,6 +118,17 @@
             autocomplete="new-password"
             formControlName="newPassword"
           />
+          @if (
+            passwordForm.controls.newPassword.touched &&
+            passwordForm.controls.newPassword.hasError('required')
+          ) {
+            <p class="field-message error">New password is required.</p>
+          } @else if (
+            passwordForm.controls.newPassword.touched &&
+            passwordForm.controls.newPassword.hasError('minlength')
+          ) {
+            <p class="field-message error">New password must be at least 8 characters.</p>
+          }
 
           <div class="account-actions">
             <button type="submit" class="btn btn--primary">Change password</button>

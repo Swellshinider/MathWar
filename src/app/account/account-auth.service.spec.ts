@@ -20,8 +20,8 @@ describe('AccountAuthService', () => {
               expiresAt: '2999-01-01T00:00:00.000Z',
               user: {
                 id: 'account-1',
+                username: 'player_one',
                 displayName: 'Player One',
-                email: null,
                 avatarUrl: '/api/account/avatar/account-1?v=1',
               },
             }),
@@ -56,8 +56,8 @@ describe('AccountAuthService', () => {
               expiresAt: '2999-01-01T00:00:00.000Z',
               user: {
                 id: 'account-1',
+                username: 'player_one',
                 displayName: 'Player One',
-                email: 'player@example.com',
                 avatarUrl: null,
               },
             }),
@@ -73,10 +73,38 @@ describe('AccountAuthService', () => {
     });
 
     const service = TestBed.inject(AccountAuthService);
-    const ok = await service.login('player@example.com', 'password123');
+    const ok = await service.login('player_one', 'password123');
 
     expect(ok).toBe(true);
     expect(service.token()).toBe('login-token');
-    expect(service.user()?.email).toBe('player@example.com');
+    expect(service.user()?.username).toBe('player_one');
+  });
+
+  it('checks username availability', async () => {
+    const fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/api/account/refresh') {
+        return Promise.resolve(new Response(null, { status: 401 }));
+      }
+      expect(url.pathname).toBe('/api/account/username-availability');
+      expect(url.searchParams.get('username')).toBe('player_one');
+      return Promise.resolve(
+        new Response(JSON.stringify({ username: 'player_one', available: false }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    });
+    vi.stubGlobal('fetch', fetch);
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: MULTIPLAYER_CONFIG, useValue: { serverUrl: 'http://localhost:3000' } },
+      ],
+    });
+
+    const service = TestBed.inject(AccountAuthService);
+    const availability = await service.checkUsernameAvailability('player_one');
+
+    expect(availability).toEqual({ username: 'player_one', available: false });
   });
 });

@@ -1,12 +1,6 @@
 import { jwtVerify, SignJWT } from 'jose';
 import { describe, expect, it } from 'vitest';
-import {
-  decryptEmail,
-  emailLookupHash,
-  encryptEmail,
-  hashPassword,
-  verifyPasswordHash,
-} from './account-auth.js';
+import { hashPassword, validateUsername, verifyPasswordHash } from './account-auth.js';
 import {
   assertProductionSessionSecret,
   createGuestTokenIssuer,
@@ -109,14 +103,11 @@ describe('account auth crypto', () => {
     await expect(verifyPasswordHash(passwordHash, 'wrong-password')).resolves.toBe(false);
   });
 
-  it('stores email lookup as a blind hash and encrypts the email with the password', async () => {
-    const lookup = emailLookupHash('Player@Example.com', 'server-secret');
-    const encrypted = await encryptEmail('player@example.com', 'correct-password');
-
-    expect(lookup).toBe(emailLookupHash('player@example.com', 'server-secret'));
-    expect(lookup).not.toContain('player@example.com');
-    expect(encrypted.ciphertext).not.toContain('player@example.com');
-    await expect(decryptEmail(encrypted, 'correct-password')).resolves.toBe('player@example.com');
-    await expect(decryptEmail(encrypted, 'wrong-password')).rejects.toThrow();
+  it('normalizes usernames to lowercase simple handles', () => {
+    expect(validateUsername('  Player_One-7  ')).toBe('player_one-7');
+    expect(() => validateUsername('ab')).toThrow('Username must be 3 to 20');
+    expect(() => validateUsername('player one')).toThrow('Username must be 3 to 20');
+    expect(() => validateUsername('player@example.com')).toThrow('Username must be 3 to 20');
+    expect(() => validateUsername('a'.repeat(21))).toThrow('Username must be 3 to 20');
   });
 });

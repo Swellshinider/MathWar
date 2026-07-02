@@ -17,7 +17,7 @@ export class AccountSettingsPageComponent {
   readonly status = signal<string | null>(null);
 
   readonly profileForm = this.fb.nonNullable.group({
-    displayName: ['', [Validators.required, Validators.maxLength(80)]],
+    displayName: ['', [Validators.required, Validators.maxLength(15)]],
   });
   readonly passwordForm = this.fb.nonNullable.group({
     currentPassword: ['', [Validators.required, Validators.minLength(8)]],
