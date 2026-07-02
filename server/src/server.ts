@@ -45,6 +45,7 @@ import {
   verifyPasswordHash,
 } from './account-auth.js';
 import { AccountRecord, AccountRepository } from './account-repository.js';
+import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { canJoinWaitingRoom, canStartFormulaMatch, isMatchPlayer } from './authorization.js';
 import { TokenVerifier } from './auth.js';
 import { logCommand } from './observability/logging.js';
@@ -86,6 +87,7 @@ export interface MultiplayerServerOptions {
     readonly repository: AccountRepository;
     readonly accessTokenSecret: string;
     readonly refreshTokenSecret: string;
+    readonly usernameAvailabilityCache?: UsernameAvailabilityCache;
     readonly refreshCookieSecure?: boolean;
   };
   readonly allowedOrigin: string;
@@ -266,6 +268,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const repository = new InstrumentedMatchRepository(options.repository, metrics);
   const accountOptions = options.accounts;
   const accountRepository = accountOptions?.repository;
+  const usernameAvailabilityCache = accountOptions?.usernameAvailabilityCache;
   const accountTokenVerifier = accountOptions
     ? createAccountTokenVerifier(accountOptions.accessTokenSecret)
     : null;
@@ -325,6 +328,23 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     });
   }
 
+  async function isUsernameCachedTaken(username: string): Promise<boolean> {
+    try {
+      return (await usernameAvailabilityCache?.isUsernameTaken(username)) ?? false;
+    } catch (error) {
+      fastify.log.warn({ error }, 'Username availability cache read failed');
+      return false;
+    }
+  }
+
+  async function cacheUsernameTaken(username: string): Promise<void> {
+    try {
+      await usernameAvailabilityCache?.storeUsernameTaken(username);
+    } catch (error) {
+      fastify.log.warn({ error }, 'Username availability cache write failed');
+    }
+  }
+
   async function requireAccount(request: { headers: { authorization?: string } }) {
     if (!accountRepository || !accountTokenVerifier)
       throw new Error('Account system is not configured.');
@@ -373,7 +393,12 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             return reply.code(400).send({ message: 'Username is required.' });
           }
           const username = validateUsername(request.query.username);
+          reply.header('cache-control', 'no-store');
+          if (await isUsernameCachedTaken(username)) {
+            return { username, available: false };
+          }
           const existing = await accountRepository.findAccountByUsername(username);
+          if (existing) await cacheUsernameTaken(username);
           return { username, available: !existing };
         } catch (error) {
           return reply.code(400).send({
@@ -397,6 +422,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         },
       },
       async (request, reply) => {
+        let username: string | null = null;
         try {
           if (
             typeof request.body?.username !== 'string' ||
@@ -407,14 +433,16 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
               .code(400)
               .send({ message: 'Username, password, and display name are required.' });
           }
-          const username = validateUsername(request.body.username);
+          username = validateUsername(request.body.username);
           const password = validatePassword(request.body.password);
           const displayName = validateAccountDisplayName(request.body.displayName);
           const existing = await accountRepository.findAccountByUsername(username);
-          if (existing)
+          if (existing) {
+            await cacheUsernameTaken(username);
             return reply
               .code(409)
               .send({ message: 'An account already exists for this username.' });
+          }
           const account = await accountRepository.createAccount({
             username,
             passwordHash: await hashPassword(password),
@@ -429,6 +457,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
           return session;
         } catch (error) {
           if (isUniqueConstraintViolation(error)) {
+            if (username) await cacheUsernameTaken(username);
             return reply
               .code(409)
               .send({ message: 'An account already exists for this username.' });
@@ -1578,6 +1607,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
 
   await repository.initialize();
   await accountRepository?.initialize();
+  await usernameAvailabilityCache?.initialize();
   const sweep = setInterval(async () => {
     const sweepStart = nowSeconds();
     const now = new Date();
@@ -1626,6 +1656,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       formulaDeadlineTimers.clear();
       await fastify.close();
       await socketAdapterHandle?.close();
+      await usernameAvailabilityCache?.close();
       await accountRepository?.close();
       await repository.close();
       metrics.shutdown();

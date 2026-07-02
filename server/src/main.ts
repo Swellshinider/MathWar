@@ -3,6 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { assertProductionAccountSecrets, createAccountTokenVerifier } from './account-auth.js';
 import { PostgresAccountRepository } from './account-repository.js';
 import {
+  RedisUsernameAvailabilityCache,
+  redisUsernameAvailabilityCacheOptionsFromEnv,
+} from './account-username-cache.js';
+import {
   assertProductionSessionSecret,
   createGuestTokenIssuer,
   createGuestTokenVerifier,
@@ -54,6 +58,10 @@ const server = await createMultiplayerServer({
     repository: new PostgresAccountRepository(databaseUrl),
     accessTokenSecret: accountAccessTokenSecret,
     refreshTokenSecret: accountRefreshTokenSecret,
+    usernameAvailabilityCache: new RedisUsernameAvailabilityCache(
+      redisUrl,
+      redisUsernameAvailabilityCacheOptionsFromEnv(),
+    ),
   },
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
   allowedOrigin,

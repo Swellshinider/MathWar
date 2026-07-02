@@ -62,6 +62,8 @@ Registered accounts use lowercase username and password login. Usernames are uni
 in PostgreSQL, while display names remain editable profile names. Passwords are stored as Argon2id
 hashes. Account access tokens are short-lived and kept in browser memory. Autologin uses an
 HttpOnly refresh-token cookie with server-side token rotation and reuse revocation.
+Username availability checks query PostgreSQL as the source of truth and cache only taken usernames
+in Redis for 30 minutes.
 
 ## Multiplayer state
 
@@ -72,6 +74,7 @@ Redis stores the current multiplayer room state and short-lived indexes:
 - active-user lookup keys for reconnect
 - command id sets for idempotency
 - sorted sets for reconnect, empty-room, and finished-room cleanup
+- taken username availability hints for account creation
 
 This data is intentionally ephemeral. A Redis flush or outage can drop active private rooms.
 PostgreSQL is reserved for future durable product data such as leaderboards or match history.
