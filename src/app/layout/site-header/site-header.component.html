@@ -20,7 +20,6 @@
           (focus)="openSoundMenu()"
         >
           <svg lucideVolume2 aria-hidden="true"></svg>
-          <span>Sound</span>
         </button>
 
         <div
@@ -51,7 +50,17 @@
         </div>
       </div>
 
-      <a class="btn btn--ghost header-about" routerLink="/about"> About </a>
+      <a class="btn btn--subtle header-about" routerLink="/about">About</a>
+
+      <a class="account-button" routerLink="/account/settings" aria-label="Account settings">
+        @if (account.avatarUrl()) {
+          <img class="account-button__avatar" [src]="account.avatarUrl()" alt="" />
+        } @else {
+          <span class="account-button__icon">
+            <svg lucideUser aria-hidden="true"></svg>
+          </span>
+        }
+      </a>
     </div>
   </div>
 </header>

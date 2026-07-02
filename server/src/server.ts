@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import Fastify from 'fastify';
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
@@ -29,6 +30,24 @@ import {
   startFormulaFrenzyMatch,
   VersionedCommand,
 } from '@math-war/game-engine';
+import {
+  AccountPublicUser,
+  ACCOUNT_REFRESH_COOKIE,
+  createAccountTokenVerifier,
+  createRefreshToken,
+  decryptEmail,
+  emailLookupHash,
+  encryptEmail,
+  hashPassword,
+  hashRefreshToken,
+  issueAccountAccessToken,
+  parseAvatarDataUrl,
+  validateAccountDisplayName,
+  validateEmail,
+  validatePassword,
+  verifyPasswordHash,
+} from './account-auth.js';
+import { AccountRecord, AccountRepository } from './account-repository.js';
 import { canJoinWaitingRoom, canStartFormulaMatch, isMatchPlayer } from './authorization.js';
 import { TokenVerifier } from './auth.js';
 import { logCommand } from './observability/logging.js';
@@ -49,9 +68,11 @@ interface AuthenticatedSocket extends Socket {
 
 type Ack<T = undefined> = (response: CommandAck<T>) => void;
 const ROOM_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const HTTP_BODY_LIMIT_BYTES = 16 * 1024;
+const HTTP_BODY_LIMIT_BYTES = 512 * 1024;
 const GUEST_AUTH_RATE_LIMIT_MAX = 10;
 const GUEST_AUTH_RATE_LIMIT_WINDOW = '1 minute';
+const ACCOUNT_AUTH_RATE_LIMIT_MAX = 10;
+const ACCOUNT_AUTH_RATE_LIMIT_WINDOW = '1 minute';
 const SOCKET_CONNECT_LIMIT = 100;
 const SOCKET_CONNECT_WINDOW_MS = 60_000;
 const SOCKET_JOIN_CREATE_LIMIT = 20;
@@ -62,6 +83,13 @@ const SOCKET_COMMAND_WINDOW_MS = 60_000;
 export interface MultiplayerServerOptions {
   readonly repository: MatchRepository;
   readonly verifyToken: TokenVerifier;
+  readonly accounts?: {
+    readonly repository: AccountRepository;
+    readonly accessTokenSecret: string;
+    readonly refreshTokenSecret: string;
+    readonly emailLookupSecret: string;
+    readonly refreshCookieSecure?: boolean;
+  };
   readonly allowedOrigin: string;
   readonly reconnectWindowMs?: number;
   readonly sweepIntervalMs?: number;
@@ -162,6 +190,27 @@ function isMetricsRequestAuthorized(authorization: string | undefined): boolean 
   if (!token || !authorization?.startsWith('Bearer ')) return false;
   return timingSafeStringEqual(authorization.slice('Bearer '.length), token);
 }
+function accountAvatarUrl(account: AccountRecord): string | null {
+  if (!account.avatarMimeType || !account.avatarUpdatedAt) return null;
+  return `/api/account/avatar/${account.id}?v=${encodeURIComponent(account.avatarUpdatedAt)}`;
+}
+function publicAccount(account: AccountRecord, email: string | null): AccountPublicUser {
+  return {
+    id: account.id,
+    displayName: account.displayName,
+    email,
+    avatarUrl: accountAvatarUrl(account),
+  };
+}
+function refreshCookieOptions(secure: boolean, expires: Date) {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure,
+    path: '/api/account',
+    expires,
+  };
+}
 function cspConnectSrc(allowedOrigin: string): string[] {
   if (allowedOrigin === '*') return ["'self'", 'http:', 'https:', 'ws:', 'wss:'];
   const sources = new Set(["'self'", allowedOrigin]);
@@ -209,6 +258,13 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const metrics = createMathWarMetrics();
   const metricsEnabled = process.env['METRICS_ENABLED'] !== 'false';
   const repository = new InstrumentedMatchRepository(options.repository, metrics);
+  const accountOptions = options.accounts;
+  const accountRepository = accountOptions?.repository;
+  const accountTokenVerifier = accountOptions
+    ? createAccountTokenVerifier(accountOptions.accessTokenSecret)
+    : null;
+  const refreshCookieSecure =
+    accountOptions?.refreshCookieSecure ?? process.env['NODE_ENV'] === 'production';
   const requestStarts = new WeakMap<object, number>();
   const socketConnectLimiter = createFixedWindowLimiter(SOCKET_CONNECT_WINDOW_MS);
   const socketCommandLimiter = createFixedWindowLimiter(SOCKET_COMMAND_WINDOW_MS);
@@ -227,7 +283,10 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
     );
   });
 
-  await fastify.register(cors, { origin: options.allowedOrigin });
+  await fastify.register(cors, {
+    origin: options.allowedOrigin,
+    credentials: options.allowedOrigin !== '*',
+  });
   await fastify.register(helmet, {
     contentSecurityPolicy: {
       directives: {
@@ -243,6 +302,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       },
     },
   });
+  await fastify.register(cookie);
   await fastify.register(rateLimit, { global: false });
   const healthHandler = async () => {
     metrics.recordHealthCall();
@@ -258,6 +318,304 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       return reply.type(metrics.contentType).send(await metrics.metrics());
     });
   }
+
+  async function requireAccount(request: { headers: { authorization?: string } }) {
+    if (!accountRepository || !accountTokenVerifier)
+      throw new Error('Account system is not configured.');
+    const authorization = request.headers.authorization;
+    if (!authorization?.startsWith('Bearer '))
+      throw new Error('Account authentication is required.');
+    const user = await accountTokenVerifier(authorization.slice('Bearer '.length));
+    const account = await accountRepository.findAccountById(user.id);
+    if (!account) throw new Error('Account authentication is required.');
+    return account;
+  }
+
+  async function createAccountSession(account: AccountRecord, email: string | null) {
+    if (!accountOptions || !accountRepository) throw new Error('Account system is not configured.');
+    const access = await issueAccountAccessToken(accountOptions.accessTokenSecret, account);
+    const refresh = createRefreshToken(accountOptions.refreshTokenSecret);
+    await accountRepository.createRefreshToken({
+      accountId: account.id,
+      tokenHash: refresh.hash,
+      expiresAt: refresh.expiresAt,
+    });
+    return {
+      session: {
+        accessToken: access.token,
+        expiresAt: access.expiresAt.toISOString(),
+        user: publicAccount(account, email),
+      },
+      refresh,
+    };
+  }
+
+  if (accountRepository && accountOptions) {
+    fastify.post<{
+      Body?: { email?: unknown; password?: unknown; displayName?: unknown };
+    }>(
+      '/api/account/register',
+      {
+        config: {
+          rateLimit: {
+            max: ACCOUNT_AUTH_RATE_LIMIT_MAX,
+            timeWindow: ACCOUNT_AUTH_RATE_LIMIT_WINDOW,
+          },
+        },
+      },
+      async (request, reply) => {
+        try {
+          if (
+            typeof request.body?.email !== 'string' ||
+            typeof request.body.password !== 'string' ||
+            typeof request.body.displayName !== 'string'
+          ) {
+            return reply
+              .code(400)
+              .send({ message: 'Email, password, and display name are required.' });
+          }
+          const email = validateEmail(request.body.email);
+          const password = validatePassword(request.body.password);
+          const displayName = validateAccountDisplayName(request.body.displayName);
+          const lookupHash = emailLookupHash(email, accountOptions.emailLookupSecret);
+          const existing = await accountRepository.findAccountByEmailLookupHash(lookupHash);
+          if (existing)
+            return reply
+              .code(409)
+              .send({ message: 'An account already exists for this email address.' });
+          const account = await accountRepository.createAccount({
+            emailLookupHash: lookupHash,
+            encryptedEmail: await encryptEmail(email, password),
+            passwordHash: await hashPassword(password),
+            displayName,
+          });
+          const { session, refresh } = await createAccountSession(account, email);
+          reply.setCookie(
+            ACCOUNT_REFRESH_COOKIE,
+            refresh.token,
+            refreshCookieOptions(refreshCookieSecure, refresh.expiresAt),
+          );
+          return session;
+        } catch (error) {
+          return reply.code(400).send({
+            message: error instanceof Error ? error.message : 'Could not create the account.',
+          });
+        }
+      },
+    );
+
+    fastify.post<{ Body?: { email?: unknown; password?: unknown } }>(
+      '/api/account/login',
+      {
+        config: {
+          rateLimit: {
+            max: ACCOUNT_AUTH_RATE_LIMIT_MAX,
+            timeWindow: ACCOUNT_AUTH_RATE_LIMIT_WINDOW,
+          },
+        },
+      },
+      async (request, reply) => {
+        try {
+          if (
+            typeof request.body?.email !== 'string' ||
+            typeof request.body.password !== 'string'
+          ) {
+            return reply.code(400).send({ message: 'Email and password are required.' });
+          }
+          const email = validateEmail(request.body.email);
+          const password = validatePassword(request.body.password);
+          const account = await accountRepository.findAccountByEmailLookupHash(
+            emailLookupHash(email, accountOptions.emailLookupSecret),
+          );
+          if (!account || !(await verifyPasswordHash(account.passwordHash, password))) {
+            return reply.code(401).send({ message: 'Email or password is incorrect.' });
+          }
+          const decryptedEmail = await decryptEmail(account.encryptedEmail, password);
+          const { session, refresh } = await createAccountSession(account, decryptedEmail);
+          reply.setCookie(
+            ACCOUNT_REFRESH_COOKIE,
+            refresh.token,
+            refreshCookieOptions(refreshCookieSecure, refresh.expiresAt),
+          );
+          return session;
+        } catch (error) {
+          return reply.code(400).send({
+            message: error instanceof Error ? error.message : 'Could not sign in.',
+          });
+        }
+      },
+    );
+
+    fastify.post('/api/account/refresh', async (request, reply) => {
+      const token = request.cookies[ACCOUNT_REFRESH_COOKIE];
+      if (!token) return reply.code(401).send({ message: 'Account refresh token is required.' });
+      const tokenHash = hashRefreshToken(token, accountOptions.refreshTokenSecret);
+      const current = await accountRepository.findRefreshToken(tokenHash);
+      if (!current) {
+        reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
+        return reply.code(401).send({ message: 'Account refresh token is invalid.' });
+      }
+      if (current.revokedAt) {
+        await accountRepository.revokeAccountRefreshTokens(current.accountId);
+        reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
+        return reply.code(401).send({ message: 'Account refresh token was already used.' });
+      }
+      if (new Date(current.expiresAt).getTime() <= Date.now()) {
+        await accountRepository.revokeRefreshToken(current.id);
+        reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
+        return reply.code(401).send({ message: 'Account refresh token expired.' });
+      }
+      const account = await accountRepository.findAccountById(current.accountId);
+      if (!account) {
+        reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
+        return reply.code(401).send({ message: 'Account no longer exists.' });
+      }
+      const refresh = createRefreshToken(accountOptions.refreshTokenSecret);
+      const created = await accountRepository.createRefreshToken({
+        accountId: account.id,
+        tokenHash: refresh.hash,
+        expiresAt: refresh.expiresAt,
+      });
+      await accountRepository.revokeRefreshToken(current.id, created.id);
+      const access = await issueAccountAccessToken(accountOptions.accessTokenSecret, account);
+      reply.setCookie(
+        ACCOUNT_REFRESH_COOKIE,
+        refresh.token,
+        refreshCookieOptions(refreshCookieSecure, refresh.expiresAt),
+      );
+      return {
+        accessToken: access.token,
+        expiresAt: access.expiresAt.toISOString(),
+        user: publicAccount(account, null),
+      };
+    });
+
+    fastify.post('/api/account/logout', async (request, reply) => {
+      const token = request.cookies[ACCOUNT_REFRESH_COOKIE];
+      if (token) {
+        const current = await accountRepository.findRefreshToken(
+          hashRefreshToken(token, accountOptions.refreshTokenSecret),
+        );
+        if (current) await accountRepository.revokeRefreshToken(current.id);
+      }
+      reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
+      return { ok: true };
+    });
+
+    fastify.get('/api/account/me', async (request, reply) => {
+      try {
+        const account = await requireAccount(request);
+        return publicAccount(account, null);
+      } catch {
+        return reply.code(401).send({ message: 'Account authentication is required.' });
+      }
+    });
+
+    fastify.patch<{ Body?: { displayName?: unknown } }>(
+      '/api/account/profile',
+      async (request, reply) => {
+        let account: AccountRecord;
+        try {
+          account = await requireAccount(request);
+        } catch (error) {
+          return reply.code(401).send({
+            message: error instanceof Error ? error.message : 'Account authentication is required.',
+          });
+        }
+        try {
+          if (typeof request.body?.displayName !== 'string') {
+            return reply.code(400).send({ message: 'Display name is required.' });
+          }
+          const updated = await accountRepository.updateProfile(
+            account.id,
+            validateAccountDisplayName(request.body.displayName),
+          );
+          if (!updated) return reply.code(404).send({ message: 'Account not found.' });
+          return publicAccount(updated, null);
+        } catch (error) {
+          return reply.code(400).send({
+            message: error instanceof Error ? error.message : 'Could not update the profile.',
+          });
+        }
+      },
+    );
+
+    fastify.post<{
+      Body?: { currentPassword?: unknown; newPassword?: unknown };
+    }>('/api/account/password', async (request, reply) => {
+      let account: AccountRecord;
+      try {
+        account = await requireAccount(request);
+      } catch (error) {
+        return reply.code(401).send({
+          message: error instanceof Error ? error.message : 'Account authentication is required.',
+        });
+      }
+      try {
+        if (
+          typeof request.body?.currentPassword !== 'string' ||
+          typeof request.body.newPassword !== 'string'
+        ) {
+          return reply.code(400).send({ message: 'Current and new password are required.' });
+        }
+        const currentPassword = validatePassword(request.body.currentPassword);
+        const newPassword = validatePassword(request.body.newPassword);
+        if (!(await verifyPasswordHash(account.passwordHash, currentPassword))) {
+          return reply.code(401).send({ message: 'Current password is incorrect.' });
+        }
+        const email = await decryptEmail(account.encryptedEmail, currentPassword);
+        const updated = await accountRepository.updatePasswordAndEmail(
+          account.id,
+          await hashPassword(newPassword),
+          await encryptEmail(email, newPassword),
+        );
+        await accountRepository.revokeAccountRefreshTokens(account.id);
+        reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
+        return publicAccount(updated ?? account, null);
+      } catch (error) {
+        return reply.code(400).send({
+          message: error instanceof Error ? error.message : 'Could not update the password.',
+        });
+      }
+    });
+
+    fastify.post<{ Body?: { dataUrl?: unknown } }>(
+      '/api/account/avatar',
+      async (request, reply) => {
+        let account: AccountRecord;
+        try {
+          account = await requireAccount(request);
+        } catch (error) {
+          return reply.code(401).send({
+            message: error instanceof Error ? error.message : 'Account authentication is required.',
+          });
+        }
+        try {
+          if (typeof request.body?.dataUrl !== 'string') {
+            return reply.code(400).send({ message: 'Avatar image is required.' });
+          }
+          const avatar = parseAvatarDataUrl(request.body.dataUrl);
+          const updated = await accountRepository.setAvatar(account.id, avatar);
+          if (!updated) return reply.code(404).send({ message: 'Account not found.' });
+          return publicAccount(updated, null);
+        } catch (error) {
+          return reply.code(400).send({
+            message: error instanceof Error ? error.message : 'Could not update the avatar.',
+          });
+        }
+      },
+    );
+
+    fastify.get<{ Params: { id: string } }>('/api/account/avatar/:id', async (request, reply) => {
+      const avatar = await accountRepository.getAvatar(request.params.id);
+      if (!avatar) return reply.code(404).send({ message: 'Avatar not found.' });
+      return reply
+        .header('cache-control', 'private, max-age=3600')
+        .type(avatar.mimeType)
+        .send(avatar.bytes);
+    });
+  }
+
   fastify.post<{ Body?: { displayName?: unknown } }>(
     '/api/auth/guest',
     {
@@ -1188,6 +1546,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   });
 
   await repository.initialize();
+  await accountRepository?.initialize();
   const sweep = setInterval(async () => {
     const sweepStart = nowSeconds();
     const now = new Date();
@@ -1236,6 +1595,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       formulaDeadlineTimers.clear();
       await fastify.close();
       await socketAdapterHandle?.close();
+      await accountRepository?.close();
       await repository.close();
       metrics.shutdown();
     },

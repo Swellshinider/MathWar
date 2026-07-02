@@ -1,4 +1,5 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { computed, Injectable, inject, signal } from '@angular/core';
+import { AccountAuthService } from '../../account/account-auth.service';
 import { MULTIPLAYER_CONFIG } from './multiplayer-config';
 
 export interface MultiplayerGuestSession {
@@ -15,8 +16,24 @@ const DISPLAY_NAME_STORAGE_KEY = 'math-war-multiplayer-display-name';
 
 @Injectable({ providedIn: 'root' })
 export class MultiplayerAuthService {
+  private readonly account = inject(AccountAuthService);
   private readonly config = inject(MULTIPLAYER_CONFIG);
-  readonly session = signal<MultiplayerGuestSession | null>(this.readStoredSession());
+  private readonly guestSession = signal<MultiplayerGuestSession | null>(this.readStoredSession());
+  readonly session = computed<MultiplayerGuestSession | null>(() => {
+    const accountUser = this.account.user();
+    const accountToken = this.account.token();
+    if (accountUser && accountToken) {
+      return {
+        token: accountToken,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        user: {
+          id: accountUser.id,
+          displayName: accountUser.displayName,
+        },
+      };
+    }
+    return this.guestSession();
+  });
   readonly storedDisplayName = signal(this.readStoredDisplayName());
   readonly ready = signal(true);
   readonly error = signal<string | null>(null);
@@ -46,20 +63,20 @@ export class MultiplayerAuthService {
       return;
     }
     const session = body as MultiplayerGuestSession;
-    this.session.set(session);
+    this.guestSession.set(session);
     this.writeStoredSession(session);
     this.writeStoredDisplayName(session.user.displayName);
     this.error.set(null);
   }
 
   signOut(): void {
-    this.session.set(null);
+    this.guestSession.set(null);
     this.error.set(null);
     this.storage?.removeItem(STORAGE_KEY);
   }
 
   clearInvalidSession(): void {
-    this.session.set(null);
+    this.guestSession.set(null);
     this.storage?.removeItem(STORAGE_KEY);
   }
 

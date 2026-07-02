@@ -6,6 +6,8 @@ import { resolveShot } from '@math-war/game-engine';
 import { Server as SocketServer } from 'socket.io';
 import { io as createClient, Socket } from 'socket.io-client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createAccountTokenVerifier } from './account-auth.js';
+import { InMemoryAccountRepository } from './account-repository.js';
 import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
 import { InMemoryMatchRepository } from './repository.js';
 import { createMultiplayerServer } from './server.js';
@@ -135,6 +137,98 @@ describe('multiplayer socket server', () => {
         displayName: 'Guest Player',
       },
     });
+  });
+
+  it('creates account sessions, rotates refresh tokens, and accepts account socket tokens', async () => {
+    const repository = new InMemoryMatchRepository();
+    const accountRepository = new InMemoryAccountRepository();
+    const accountAccessSecret = 'account-access-secret-with-enough-length';
+    const verifyGuestToken = createGuestTokenVerifier('test-secret');
+    const verifyAccountToken = createAccountTokenVerifier(accountAccessSecret);
+    const server = await createMultiplayerServer({
+      repository,
+      verifyToken: async (token) => {
+        try {
+          return await verifyGuestToken(token);
+        } catch {
+          return verifyAccountToken(token);
+        }
+      },
+      issueGuestSession: createGuestTokenIssuer('test-secret'),
+      accounts: {
+        repository: accountRepository,
+        accessTokenSecret: accountAccessSecret,
+        refreshTokenSecret: 'account-refresh-secret-with-enough-length',
+        emailLookupSecret: 'email-lookup-secret-with-enough-length',
+        refreshCookieSecure: false,
+      },
+      allowedOrigin: '*',
+      reconnectWindowMs: 60_000,
+      idleCleanupMs: 40,
+      sweepIntervalMs: 10,
+    });
+    const address = await server.listen(0, '127.0.0.1');
+    const harness = { repository, server, url: address, clients: [] };
+    harnesses.push(harness);
+
+    const created = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/register',
+      payload: {
+        email: 'Player@example.com',
+        password: 'password123',
+        displayName: 'Player One',
+      },
+    });
+    expect(created.statusCode).toBe(200);
+    const createdBody = created.json();
+    expect(createdBody).toMatchObject({
+      accessToken: expect.any(String),
+      user: {
+        id: expect.any(String),
+        displayName: 'Player One',
+        email: 'player@example.com',
+      },
+    });
+    expect(created.headers['set-cookie']).toContain('math-war-refresh-token=');
+
+    const duplicate = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/register',
+      payload: {
+        email: 'player@example.com',
+        password: 'password123',
+        displayName: 'Other',
+      },
+    });
+    expect(duplicate.statusCode).toBe(409);
+
+    const refreshCookie = String(created.headers['set-cookie']).split(';')[0];
+    const refreshed = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/refresh',
+      headers: { cookie: refreshCookie },
+    });
+    expect(refreshed.statusCode).toBe(200);
+    expect(refreshed.json()).toMatchObject({
+      accessToken: expect.any(String),
+      user: {
+        displayName: 'Player One',
+        email: null,
+      },
+    });
+
+    const profile = await server.fastify.inject({
+      method: 'PATCH',
+      url: '/api/account/profile',
+      headers: { authorization: `Bearer ${refreshed.json().accessToken}` },
+      payload: { displayName: 'Renamed Player' },
+    });
+    expect(profile.statusCode).toBe(200);
+    expect(profile.json().displayName).toBe('Renamed Player');
+
+    const socket = await connect(harness, refreshed.json().accessToken);
+    expect(socket.connected).toBe(true);
   });
 
   it('rate limits repeated guest session attempts', async () => {

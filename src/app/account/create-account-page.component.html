@@ -1,0 +1,42 @@
+<section class="account-page">
+  <div class="account-panel glass">
+    <header>
+      <p class="eyebrow">Account</p>
+      <h1>Create account</h1>
+    </header>
+
+    <form class="account-form" [formGroup]="form" (submit)="$event.preventDefault(); submit()">
+      <label class="field-label" for="create-display-name">Display name</label>
+      <input id="create-display-name" class="field" maxlength="80" formControlName="displayName" />
+
+      <label class="field-label" for="create-email">Email</label>
+      <input
+        id="create-email"
+        class="field"
+        type="email"
+        autocomplete="email"
+        formControlName="email"
+      />
+
+      <label class="field-label" for="create-password">Password</label>
+      <input
+        id="create-password"
+        class="field"
+        type="password"
+        autocomplete="new-password"
+        formControlName="password"
+      />
+
+      @if (auth.error()) {
+        <p class="error" role="alert">{{ auth.error() }}</p>
+      }
+
+      <div class="account-actions">
+        <button type="submit" class="btn btn--primary" [disabled]="submitting()">
+          Create account
+        </button>
+        <a class="btn btn--ghost" routerLink="/account/login">Sign in</a>
+      </div>
+    </form>
+  </div>
+</section>

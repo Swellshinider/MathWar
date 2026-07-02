@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-02
+
+- Added registered accounts with create/login/logout flows, refresh-token autologin, account
+  settings, display name and avatar updates, PostgreSQL-backed account storage, Argon2id password
+  hashing, and encrypted email storage with keyed lookup hashes.
+
 ### Changed - 2026-07-02
 
 - Hardened multiplayer guest sessions with scoped token claims, expiry-aware client storage,

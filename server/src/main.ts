@@ -1,5 +1,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertProductionAccountSecrets, createAccountTokenVerifier } from './account-auth.js';
+import { PostgresAccountRepository } from './account-repository.js';
 import {
   assertProductionSessionSecret,
   createGuestTokenIssuer,
@@ -10,19 +12,53 @@ import { RedisMatchRepository, redisMatchRepositoryOptionsFromEnv } from './redi
 import { createMultiplayerServer } from './server.js';
 
 const redisUrl = process.env['REDIS_URL'];
+const databaseUrl = process.env['DATABASE_URL'];
 const allowedOrigin = process.env['CLIENT_ORIGIN'];
 const sessionSecret = process.env['SESSION_SECRET'];
-if (!redisUrl || !allowedOrigin || !sessionSecret) {
-  throw new Error('REDIS_URL, CLIENT_ORIGIN, and SESSION_SECRET are required.');
+const accountAccessTokenSecret = process.env['ACCOUNT_ACCESS_TOKEN_SECRET'];
+const accountRefreshTokenSecret = process.env['ACCOUNT_REFRESH_TOKEN_SECRET'];
+const accountEmailLookupSecret = process.env['ACCOUNT_EMAIL_LOOKUP_SECRET'];
+if (
+  !redisUrl ||
+  !databaseUrl ||
+  !allowedOrigin ||
+  !sessionSecret ||
+  !accountAccessTokenSecret ||
+  !accountRefreshTokenSecret ||
+  !accountEmailLookupSecret
+) {
+  throw new Error(
+    'REDIS_URL, DATABASE_URL, CLIENT_ORIGIN, SESSION_SECRET, ACCOUNT_ACCESS_TOKEN_SECRET, ACCOUNT_REFRESH_TOKEN_SECRET, and ACCOUNT_EMAIL_LOOKUP_SECRET are required.',
+  );
 }
 assertProductionSessionSecret(sessionSecret, process.env['NODE_ENV']);
+assertProductionAccountSecrets(
+  accountAccessTokenSecret,
+  accountRefreshTokenSecret,
+  accountEmailLookupSecret,
+  process.env['NODE_ENV'],
+);
 
 const staticRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist/math-war/browser');
 const redisAdapterOptions = redisAdapterOptionsFromEnv();
+const verifyGuestToken = createGuestTokenVerifier(sessionSecret);
+const verifyAccountToken = createAccountTokenVerifier(accountAccessTokenSecret);
 
 const server = await createMultiplayerServer({
   repository: new RedisMatchRepository(redisUrl, redisMatchRepositoryOptionsFromEnv()),
-  verifyToken: createGuestTokenVerifier(sessionSecret),
+  verifyToken: async (token) => {
+    try {
+      return await verifyGuestToken(token);
+    } catch {
+      return verifyAccountToken(token);
+    }
+  },
+  accounts: {
+    repository: new PostgresAccountRepository(databaseUrl),
+    accessTokenSecret: accountAccessTokenSecret,
+    refreshTokenSecret: accountRefreshTokenSecret,
+    emailLookupSecret: accountEmailLookupSecret,
+  },
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
   allowedOrigin,
   configureSocketAdapter: redisAdapterOptions
