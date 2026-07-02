@@ -1,6 +1,7 @@
 import { createAccountTokenVerifier } from './account-auth.js';
 import { InMemoryAccountRepository } from './account-repository.js';
 import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
+import { InMemoryLeaderboardRepository } from './leaderboard-repository.js';
 import { InMemoryMatchRepository } from './repository.js';
 import { configureRedisSocketAdapter, redisAdapterOptionsFromEnv } from './redis-adapter.js';
 import { createMultiplayerServer } from './server.js';
@@ -32,6 +33,7 @@ const server = await createMultiplayerServer({
     refreshTokenSecret: accountRefreshTokenSecret,
     refreshCookieSecure: false,
   },
+  leaderboardRepository: new InMemoryLeaderboardRepository(),
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
   allowedOrigin,
   configureSocketAdapter: redisAdapterOptions

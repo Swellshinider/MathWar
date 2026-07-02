@@ -1,0 +1,155 @@
+:host {
+  display: block;
+}
+
+.leaderboard-page {
+  width: min(100%, var(--bp-2xl));
+  margin-inline: auto;
+  padding: clamp(1rem, 4vw, 2rem);
+}
+
+.leaderboard-header,
+.leaderboard-panel {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.leaderboard-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  margin-bottom: var(--space-5);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: var(--space-2) 0 0;
+  color: var(--text-strong);
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-tight);
+}
+
+.leaderboard-panel {
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.leaderboard-search {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.leaderboard-search label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-bold);
+}
+
+.leaderboard-search__row,
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.leaderboard-search__row .field {
+  flex: 1 1 16rem;
+}
+
+.search-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+}
+
+.search-result strong {
+  color: var(--text-strong);
+}
+
+.leaderboard-table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 44rem;
+}
+
+th,
+td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-1);
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+td {
+  color: var(--text);
+  font-weight: var(--weight-bold);
+}
+
+th button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--weight-black);
+  cursor: pointer;
+}
+
+th button.active,
+th button:hover,
+th button:focus-visible {
+  color: var(--accent);
+}
+
+th button:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.pagination {
+  justify-content: center;
+  color: var(--text-muted);
+  font-weight: var(--weight-bold);
+}
+
+.error,
+.empty-message {
+  margin: 0;
+  font-weight: var(--weight-bold);
+}
+
+.error {
+  color: var(--error);
+}
+
+.empty-message {
+  color: var(--text-muted);
+}
+
+@media (max-width: 40rem) {
+  .leaderboard-header {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}

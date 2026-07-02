@@ -7,17 +7,21 @@ import {
   OnInit,
   ViewChild,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideHeart, LucideLightbulb } from '@lucide/angular';
 import { MultiplayerMatchState } from '@math-war/game-engine';
+import { AccountAuthService } from '../../account/account-auth.service';
+import { LeaderboardRun, LeaderboardService } from '../../leaderboard/leaderboard.service';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { preventBackspaceNavigation } from '../../shared/dom/prevent-backspace-navigation';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-lobby.component';
+import { ToastService } from '../../shared/toast/toast.service';
 import {
   FORMULA_OPERATION_OPTIONS,
   FORMULA_LEVELS,
@@ -38,6 +42,7 @@ type FormulaFrenzyMode = 'progression' | 'free-practice';
     GameFrameComponent,
     MultiplayerLobbyComponent,
     ReactiveFormsModule,
+    RouterLink,
     LucideHeart,
     LucideLightbulb,
   ],
@@ -45,8 +50,12 @@ type FormulaFrenzyMode = 'progression' | 'free-practice';
   styleUrl: './formula-frenzy-page.component.scss',
 })
 export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnDestroy {
+  private readonly auth = inject(AccountAuthService);
   private readonly audio = inject(AudioSettingsService);
+  private readonly leaderboard = inject(LeaderboardService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
   @ViewChild('answerInput') private answerInput?: ElementRef<HTMLInputElement>;
   @ViewChild('resultDialog') private resultDialog?: ElementRef<HTMLDialogElement>;
 
@@ -89,6 +98,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   readonly highestLevelName = computed(() => FORMULA_LEVELS[this.highestLevel() - 1].name);
   readonly totalCorrect = signal(0);
   readonly gameOver = signal(false);
+  readonly leaderboardAuthPrompt = signal(false);
+  readonly savingLeaderboard = signal(false);
   readonly answerRejected = signal(false);
   readonly answerRejectionCount = signal(0);
   readonly scorePulsed = signal(false);
@@ -111,6 +122,13 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private scorePulseId: ReturnType<typeof setTimeout> | null = null;
   private multiplierPulseId: ReturnType<typeof setTimeout> | null = null;
   private nextTickAtMs = 0;
+  private pendingAutoSaveHandled = false;
+
+  constructor() {
+    effect(() => {
+      if (this.auth.ready()) void this.savePendingLeaderboardRun();
+    });
+  }
 
   ngOnInit(): void {
     this.syncAnswerControl();
@@ -227,6 +245,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.totalCorrect.set(0);
     this.totalSolveTimeMs.set(0);
     this.gameOver.set(false);
+    this.leaderboardAuthPrompt.set(false);
+    this.savingLeaderboard.set(false);
     this.runStarted.set(this.gameMode() !== 'progression');
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
@@ -311,8 +331,20 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     return true;
   }
 
+  async saveCurrentRunToLeaderboard(): Promise<void> {
+    if (!this.gameOver() || this.savingLeaderboard()) return;
+    const run = this.currentLeaderboardRun();
+    if (!this.auth.user()) {
+      this.leaderboard.storePendingRun('formula-frenzy', run);
+      this.leaderboardAuthPrompt.set(true);
+      return;
+    }
+    await this.saveRunToLeaderboard(run);
+  }
+
   private lose(): void {
     this.gameOver.set(true);
+    this.leaderboardAuthPrompt.set(false);
     this.runStarted.set(false);
     this.clearTimers();
     this.syncAnswerControl();
@@ -399,6 +431,48 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
 
   private playSound(file: string): void {
     this.audio.playOneShot(`/sounds/formula-frenzy/${file}`);
+  }
+
+  private currentLeaderboardRun(): LeaderboardRun {
+    const totalCorrect = this.totalCorrect();
+    return {
+      score: this.score(),
+      level: this.highestLevel(),
+      averageTimeMs: totalCorrect === 0 ? null : Math.round(this.totalSolveTimeMs() / totalCorrect),
+      bestStreak: this.bestStreak(),
+      totalCorrect,
+    };
+  }
+
+  private async saveRunToLeaderboard(run: LeaderboardRun): Promise<void> {
+    this.savingLeaderboard.set(true);
+    try {
+      const result = await this.leaderboard.save('formula-frenzy', run);
+      if (result.status === 'not_improved') {
+        this.toast.show('That run is lower than your saved leaderboard score.');
+      } else {
+        this.toast.show('Score saved to leaderboard.');
+      }
+      this.leaderboardAuthPrompt.set(false);
+    } catch (error) {
+      this.toast.show(error instanceof Error ? error.message : 'Could not save leaderboard score.');
+    } finally {
+      this.savingLeaderboard.set(false);
+    }
+  }
+
+  private async savePendingLeaderboardRun(): Promise<void> {
+    if (this.pendingAutoSaveHandled || !this.auth.ready()) return;
+    if (this.route.snapshot.queryParamMap.get('saveLeaderboard') !== '1') return;
+    if (!this.auth.user()) return;
+    this.pendingAutoSaveHandled = true;
+    const run = this.leaderboard.takePendingRun('formula-frenzy');
+    await this.router.navigate([], {
+      queryParams: { saveLeaderboard: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    if (run) await this.saveRunToLeaderboard(run);
   }
 
   private nextProblem(): FormulaProblem {

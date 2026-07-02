@@ -11,6 +11,7 @@ import {
   createGuestTokenIssuer,
   createGuestTokenVerifier,
 } from './auth.js';
+import { PostgresLeaderboardRepository } from './leaderboard-repository.js';
 import { configureRedisSocketAdapter, redisAdapterOptionsFromEnv } from './redis-adapter.js';
 import { RedisMatchRepository, redisMatchRepositoryOptionsFromEnv } from './redis-repository.js';
 import { createMultiplayerServer } from './server.js';
@@ -63,6 +64,7 @@ const server = await createMultiplayerServer({
       redisUsernameAvailabilityCacheOptionsFromEnv(),
     ),
   },
+  leaderboardRepository: new PostgresLeaderboardRepository(databaseUrl),
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
   allowedOrigin,
   configureSocketAdapter: redisAdapterOptions

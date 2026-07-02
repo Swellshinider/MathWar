@@ -1,7 +1,7 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AccountAuthService } from './account-auth.service';
 
 @Component({
@@ -13,6 +13,7 @@ import { AccountAuthService } from './account-auth.service';
 export class LoginPageComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly auth = inject(AccountAuthService);
   readonly submitting = signal(false);
@@ -52,6 +53,11 @@ export class LoginPageComponent {
       this.form.controls.password.value,
     );
     this.submitting.set(false);
-    if (ok) await this.router.navigateByUrl('/account/settings');
+    if (ok) await this.router.navigateByUrl(this.returnUrl());
+  }
+
+  private returnUrl(): string {
+    const value = this.route.snapshot.queryParamMap.get('returnUrl');
+    return value && value.startsWith('/') && !value.startsWith('//') ? value : '/account/settings';
   }
 }

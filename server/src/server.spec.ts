@@ -10,6 +10,7 @@ import { createAccountTokenVerifier } from './account-auth.js';
 import { InMemoryAccountRepository } from './account-repository.js';
 import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
+import { InMemoryLeaderboardRepository } from './leaderboard-repository.js';
 import { InMemoryMatchRepository } from './repository.js';
 import { createMultiplayerServer } from './server.js';
 
@@ -283,6 +284,78 @@ describe('multiplayer socket server', () => {
 
     const socket = await connect(harness, refreshed.json().accessToken);
     expect(socket.connected).toBe(true);
+  });
+
+  it('saves and lists Formula Frenzy leaderboard scores', async () => {
+    const repository = new InMemoryMatchRepository();
+    const accountRepository = new InMemoryAccountRepository();
+    const leaderboardRepository = new InMemoryLeaderboardRepository();
+    const accountAccessSecret = 'account-access-secret-with-enough-length';
+    const server = await createMultiplayerServer({
+      repository,
+      verifyToken: createAccountTokenVerifier(accountAccessSecret),
+      accounts: {
+        repository: accountRepository,
+        accessTokenSecret: accountAccessSecret,
+        refreshTokenSecret: 'account-refresh-secret-with-enough-length',
+        refreshCookieSecure: false,
+      },
+      leaderboardRepository,
+      allowedOrigin: '*',
+      sweepIntervalMs: 10,
+    });
+    harnesses.push({ repository, server, url: '', clients: [] });
+
+    const created = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/register',
+      payload: {
+        username: 'Player_One',
+        password: 'password123',
+        displayName: 'Player One',
+      },
+    });
+    const token = created.json().accessToken;
+    const unauthorized = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/leaderboards/formula-frenzy/entries',
+      payload: { score: 100, level: 3, averageTimeMs: 1200, bestStreak: 4, totalCorrect: 8 },
+    });
+    expect(unauthorized.statusCode).toBe(401);
+
+    const saved = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/leaderboards/formula-frenzy/entries',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { score: 100, level: 3, averageTimeMs: 1200, bestStreak: 4, totalCorrect: 8 },
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json()).toMatchObject({
+      status: 'created',
+      entry: { username: 'player_one', rank: 1, score: 100 },
+    });
+
+    const lower = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/leaderboards/formula-frenzy/entries',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { score: 90, level: 20, averageTimeMs: 10, bestStreak: 99, totalCorrect: 8 },
+    });
+    expect(lower.statusCode).toBe(200);
+    expect(lower.json()).toMatchObject({
+      status: 'not_improved',
+      entry: { score: 100 },
+    });
+
+    const page = await server.fastify.inject({
+      method: 'GET',
+      url: '/api/leaderboards/formula-frenzy?username=player_one',
+    });
+    expect(page.statusCode).toBe(200);
+    expect(page.json()).toMatchObject({
+      total: 1,
+      searchResult: { username: 'player_one', rank: 1 },
+    });
   });
 
   it('rate limits repeated guest session attempts', async () => {

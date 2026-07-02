@@ -38,6 +38,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'leaderboard/:gameId',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./leaderboard/leaderboard-page.component').then(
+        (module) => module.LeaderboardPageComponent,
+      ),
+  },
+  {
     path: 'games/equation-artillery',
     pathMatch: 'full',
     loadComponent: () =>

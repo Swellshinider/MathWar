@@ -4,6 +4,10 @@
     <p>Practice mathematical ideas through short, focused games.</p>
   </header>
 
+  <div class="catalog-actions">
+    <a class="btn btn--primary" routerLink="/leaderboard/formula-frenzy">Leaderboard</a>
+  </div>
+
   <div class="game-grid">
     @for (game of games; track game.id) {
       <a class="game-card" [routerLink]="game.route" [attr.aria-label]="'Play ' + game.title">

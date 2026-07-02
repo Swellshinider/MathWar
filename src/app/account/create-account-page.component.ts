@@ -1,7 +1,7 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AccountAuthService } from './account-auth.service';
 
@@ -16,6 +16,7 @@ type UsernameAvailabilityStatus = 'idle' | 'checking' | 'available' | 'taken' | 
 export class CreateAccountPageComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly auth = inject(AccountAuthService);
   readonly submitting = signal(false);
@@ -63,7 +64,7 @@ export class CreateAccountPageComponent {
       this.form.controls.displayName.value,
     );
     this.submitting.set(false);
-    if (ok) await this.router.navigateByUrl('/account/settings');
+    if (ok) await this.router.navigateByUrl(this.returnUrl());
   }
 
   private async checkUsernameAvailability(value: string): Promise<void> {
@@ -98,5 +99,10 @@ export class CreateAccountPageComponent {
     if (!errors?.['usernameTaken']) return;
     const { usernameTaken: _usernameTaken, ...nextErrors } = errors;
     this.form.controls.username.setErrors(Object.keys(nextErrors).length ? nextErrors : null);
+  }
+
+  private returnUrl(): string {
+    const value = this.route.snapshot.queryParamMap.get('returnUrl');
+    return value && value.startsWith('/') && !value.startsWith('//') ? value : '/account/settings';
   }
 }

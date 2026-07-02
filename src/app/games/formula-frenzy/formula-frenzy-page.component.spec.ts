@@ -1,8 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { AccountAuthService } from '../../account/account-auth.service';
+import { LeaderboardService } from '../../leaderboard/leaderboard.service';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { MultiplayerAuthService } from '../../shared/multiplayer/multiplayer-auth.service';
 import { MultiplayerSocketService } from '../../shared/multiplayer/multiplayer-socket.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import { FormulaFrenzyPageComponent } from './formula-frenzy-page.component';
 
 describe('FormulaFrenzyPageComponent', () => {
@@ -10,6 +13,22 @@ describe('FormulaFrenzyPageComponent', () => {
   let component: FormulaFrenzyPageComponent;
   const audio = {
     playOneShot: vi.fn(),
+  };
+  const account = {
+    ready: vi.fn(() => true),
+    user: vi.fn<() => { id: string; username: string; displayName: string } | null>(() => ({
+      id: 'account-1',
+      username: 'player_one',
+      displayName: 'Player One',
+    })),
+  };
+  const leaderboard = {
+    save: vi.fn(),
+    storePendingRun: vi.fn(),
+    takePendingRun: vi.fn(() => null),
+  };
+  const toast = {
+    show: vi.fn(),
   };
   const auth = {
     ready: vi.fn(() => true),
@@ -34,13 +53,40 @@ describe('FormulaFrenzyPageComponent', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(0);
+    account.ready.mockReturnValue(true);
+    account.user.mockReturnValue({
+      id: 'account-1',
+      username: 'player_one',
+      displayName: 'Player One',
+    });
+    leaderboard.save.mockResolvedValue({
+      status: 'created',
+      entry: {
+        id: 'entry-1',
+        gameId: 'formula-frenzy',
+        accountId: 'account-1',
+        username: 'player_one',
+        rank: 1,
+        score: 193,
+        level: 1,
+        averageTimeMs: 2500,
+        bestStreak: 1,
+        totalCorrect: 1,
+        createdAt: '2026-07-02T00:00:00.000Z',
+        updatedAt: '2026-07-02T00:00:00.000Z',
+      },
+    });
+    leaderboard.takePendingRun.mockReturnValue(null);
 
     await TestBed.configureTestingModule({
       imports: [FormulaFrenzyPageComponent],
       providers: [
+        { provide: AccountAuthService, useValue: account },
         { provide: AudioSettingsService, useValue: audio },
+        { provide: LeaderboardService, useValue: leaderboard },
         { provide: MultiplayerAuthService, useValue: auth },
         { provide: MultiplayerSocketService, useValue: socket },
+        { provide: ToastService, useValue: toast },
         provideRouter([]),
       ],
     }).compileComponents();
@@ -293,6 +339,51 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.gameOver()).toBe(false);
     expect(component.score()).toBe(0);
     expect(component.averageSolveTime()).toBe('0.0s');
+  });
+
+  it('saves the finished run to the leaderboard for signed-in users', async () => {
+    component.startRun();
+    vi.advanceTimersByTime(2500);
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    component.hearts.set(1);
+    vi.advanceTimersByTime(component.problem().deadlineMs);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.save-leaderboard-button')
+      ?.click();
+    await fixture.whenStable();
+
+    expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', {
+      score: 193,
+      level: 1,
+      averageTimeMs: 2500,
+      bestStreak: 1,
+      totalCorrect: 1,
+    });
+    expect(toast.show).toHaveBeenCalledWith('Score saved to leaderboard.');
+  });
+
+  it('prompts guests to sign in before saving a leaderboard score', () => {
+    account.user.mockReturnValue(null);
+    component.startRun();
+    component.hearts.set(1);
+    vi.advanceTimersByTime(component.problem().deadlineMs);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.save-leaderboard-button')
+      ?.click();
+    fixture.detectChanges();
+
+    expect(leaderboard.storePendingRun).toHaveBeenCalledWith(
+      'formula-frenzy',
+      expect.objectContaining({ score: 0, level: 1, averageTimeMs: null }),
+    );
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Sign in or create an account',
+    );
   });
 
   it('switches to free practice without a game over timer', () => {
