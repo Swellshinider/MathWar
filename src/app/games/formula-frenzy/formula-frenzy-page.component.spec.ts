@@ -414,7 +414,7 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.hearts()).toBe(0);
     expect(root.querySelector('.hint-token')).toBeNull();
     expect(root.querySelector('.hearts')).toBeNull();
-    expect(root.textContent).toContain('Hardcore');
+    expect(root.querySelector('.hud-mode')).toBeNull();
   });
 
   it('does not reveal hints in hardcore with the H key', () => {
