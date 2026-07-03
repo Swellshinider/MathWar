@@ -25,6 +25,14 @@
       <button
         type="button"
         class="mode-tab"
+        [class.mode-tab--active]="gameMode() === 'hardcore'"
+        (click)="selectHardcore()"
+      >
+        Hardcore
+      </button>
+      <button
+        type="button"
+        class="mode-tab"
         [class.mode-tab--active]="gameMode() === 'free-practice'"
         (click)="selectFreePractice()"
       >
@@ -32,7 +40,7 @@
       </button>
     </div>
 
-    @if (gameMode() === 'progression' && !runStarted() && !gameOver()) {
+    @if (timedMode() && !runStarted() && !gameOver()) {
       <div class="sprint-control">
         <button type="button" class="btn btn--subtle start-button" (click)="startRun()">
           Start run
@@ -58,7 +66,7 @@
 
   <section class="frenzy-surface" aria-label="Formula Frenzy game">
     <div class="hud" aria-label="Run stats">
-      @if (gameMode() === 'progression') {
+      @if (timedMode()) {
         <div class="hud-score">
           <span class="info">
             <button
@@ -71,7 +79,7 @@
             </button>
             <span id="formula-score-tooltip" class="info-tooltip" role="tooltip">
               Correct answers score more when solved quickly, at higher levels, and with a streak. A
-              hinted answer earns half points.
+              hinted answer earns half points in Progression.
             </span>
           </span>
           <strong [class.score-pop]="scorePulsed()">{{ score() }}</strong>
@@ -86,8 +94,8 @@
                 Streak {{ streak() }}
               </button>
               <span id="formula-streak-tooltip" class="info-tooltip" role="tooltip">
-                A streak is your run of correct answers. Every correct answer raises the score
-                multiplier, and every fifth answer restores one heart.
+                A streak is your run of correct answers. In Progression, every fifth answer restores
+                one heart.
               </span>
             </span>
             <span
@@ -129,37 +137,42 @@
             </span>
           </div>
         </div>
-        <div class="hud-resources">
-          <button
-            type="button"
-            class="hint-token info"
-            [disabled]="!canRequestHint()"
-            aria-label="Request hint"
-            aria-describedby="formula-hint-tooltip"
-            (click)="requestHint()"
-          >
-            <svg lucideLightbulb aria-hidden="true"></svg>
-            <span>{{ hintsRemaining() }}</span>
-            <span id="formula-hint-tooltip" class="info-tooltip" role="tooltip">
-              Press H or click the lightbulb to reveal a simpler expression. Each run starts with
-              three hints. Every 10-answer streak restores one hint, up to three, and a hinted
-              answer earns half score.
-            </span>
-          </button>
-          <div
-            class="hearts info"
-            aria-label="Hearts"
-            aria-describedby="formula-hearts-tooltip"
-            tabindex="0"
-          >
-            @for (heart of heartSlots; track heart) {
-              <svg lucideHeart [class.heart--empty]="heart > hearts()" aria-hidden="true"></svg>
-            }
-            <span id="formula-hearts-tooltip" class="info-tooltip" role="tooltip">
-              Hearts are your health. Wrong answers spend one heart, and reaching zero ends the run.
-            </span>
+        @if (gameMode() === 'progression') {
+          <div class="hud-resources">
+            <button
+              type="button"
+              class="hint-token info"
+              [disabled]="!canRequestHint()"
+              aria-label="Request hint"
+              aria-describedby="formula-hint-tooltip"
+              (click)="requestHint()"
+            >
+              <svg lucideLightbulb aria-hidden="true"></svg>
+              <span>{{ hintsRemaining() }}</span>
+              <span id="formula-hint-tooltip" class="info-tooltip" role="tooltip">
+                Press H or click the lightbulb to reveal a simpler expression. Each run starts with
+                three hints. Every 10-answer streak restores one hint, up to three, and a hinted
+                answer earns half score.
+              </span>
+            </button>
+            <div
+              class="hearts info"
+              aria-label="Hearts"
+              aria-describedby="formula-hearts-tooltip"
+              tabindex="0"
+            >
+              @for (heart of heartSlots; track heart) {
+                <svg lucideHeart [class.heart--empty]="heart > hearts()" aria-hidden="true"></svg>
+              }
+              <span id="formula-hearts-tooltip" class="info-tooltip" role="tooltip">
+                Hearts are your health. Wrong answers spend one heart, and reaching zero ends the
+                run.
+              </span>
+            </div>
           </div>
-        </div>
+        } @else {
+          <div class="hud-mode">Hardcore</div>
+        }
       } @else {
         <span>Solved {{ score() }}</span>
         <span class="hud-mode">Free Practice</span>
@@ -177,7 +190,7 @@
     </div>
 
     <div class="problem-panel">
-      @if (gameMode() === 'progression' && !runStarted() && !gameOver()) {
+      @if (timedMode() && !runStarted() && !gameOver()) {
         <p class="problem-prompt">?? + ??</p>
       } @else {
         <p class="problem-prompt">{{ problem().prompt }}</p>
@@ -188,7 +201,7 @@
       @if (practicePaused()) {
         <p class="practice-warning" role="alert">Choose at least one calculation type.</p>
       }
-      @if (gameMode() === 'progression') {
+      @if (timedMode()) {
         <div class="run-meta" aria-label="Current run details">
           <span>Time {{ timeRemaining() }}</span>
         </div>
@@ -247,14 +260,14 @@
               <a
                 class="btn btn--primary"
                 routerLink="/account/login"
-                [queryParams]="{ returnUrl: '/games/formula-frenzy?saveLeaderboard=1' }"
+                [queryParams]="{ returnUrl: leaderboardReturnUrl() }"
               >
                 Sign in
               </a>
               <a
                 class="btn btn--ghost"
                 routerLink="/account/create"
-                [queryParams]="{ returnUrl: '/games/formula-frenzy?saveLeaderboard=1' }"
+                [queryParams]="{ returnUrl: leaderboardReturnUrl() }"
               >
                 Create account
               </a>

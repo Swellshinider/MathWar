@@ -64,6 +64,7 @@ describe('FormulaFrenzyPageComponent', () => {
       entry: {
         id: 'entry-1',
         gameId: 'formula-frenzy',
+        difficulty: 'normal',
         accountId: 'account-1',
         username: 'player_one',
         rank: 1,
@@ -107,6 +108,7 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(root.textContent).toContain('Create private room');
     expect(root.textContent).toContain('Join room');
     expect(root.textContent).toContain('Progression');
+    expect(root.textContent).toContain('Hardcore');
     expect(root.textContent).toContain('Free Practice');
     expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe('?? + ??');
     expect(root.querySelector('#formula-answer')?.getAttribute('type')).toBe('text');
@@ -356,6 +358,7 @@ describe('FormulaFrenzyPageComponent', () => {
     await fixture.whenStable();
 
     expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', {
+      difficulty: 'normal',
       score: 193,
       level: 1,
       averageTimeMs: 2500,
@@ -379,7 +382,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     expect(leaderboard.storePendingRun).toHaveBeenCalledWith(
       'formula-frenzy',
-      expect.objectContaining({ score: 0, level: 1, averageTimeMs: null }),
+      expect.objectContaining({ difficulty: 'normal', score: 0, level: 1, averageTimeMs: null }),
     );
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Sign in or create an account',
@@ -399,6 +402,90 @@ describe('FormulaFrenzyPageComponent', () => {
     fixture.detectChanges();
 
     expect(component.gameOver()).toBe(false);
+  });
+
+  it('runs hardcore without hints or hearts', () => {
+    component.selectHardcore();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(component.gameMode()).toBe('hardcore');
+    expect(component.hintsRemaining()).toBe(0);
+    expect(component.hearts()).toBe(0);
+    expect(root.querySelector('.hint-token')).toBeNull();
+    expect(root.querySelector('.hearts')).toBeNull();
+    expect(root.textContent).toContain('Hardcore');
+  });
+
+  it('does not reveal hints in hardcore with the H key', () => {
+    component.selectHardcore();
+    component.startRun();
+    const event = new KeyboardEvent('keydown', {
+      key: 'h',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    document.dispatchEvent(event);
+    fixture.detectChanges();
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(component.currentHint()).toBeNull();
+    expect(component.hintsRemaining()).toBe(0);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.problem-hint')).toBeNull();
+  });
+
+  it('ends hardcore on the first wrong answer', () => {
+    component.selectHardcore();
+    component.startRun();
+    component.answerControl.setValue(String(component.problem().answer! + 1));
+
+    component.submitAnswer();
+    fixture.detectChanges();
+
+    expect(component.gameOver()).toBe(true);
+    expect(component.streak()).toBe(0);
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/wrong-answer.wav');
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/game-over.wav');
+  });
+
+  it('does not restore hints or hearts on hardcore streaks', () => {
+    component.selectHardcore();
+    component.startRun();
+
+    for (let index = 0; index < 10; index += 1) {
+      component.answerControl.setValue(String(component.problem().answer));
+      component.submitAnswer();
+    }
+
+    expect(component.streak()).toBe(10);
+    expect(component.hearts()).toBe(0);
+    expect(component.hintsRemaining()).toBe(0);
+    expect(audio.playOneShot).not.toHaveBeenCalledWith('/sounds/formula-frenzy/heart-up.wav');
+  });
+
+  it('saves hardcore runs to the hardcore leaderboard difficulty', async () => {
+    component.selectHardcore();
+    component.startRun();
+    vi.advanceTimersByTime(2500);
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    vi.advanceTimersByTime(component.problem().deadlineMs);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.save-leaderboard-button')
+      ?.click();
+    await fixture.whenStable();
+
+    expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', {
+      difficulty: 'hardcore',
+      score: 193,
+      level: 1,
+      averageTimeMs: 2500,
+      bestStreak: 1,
+      totalCorrect: 1,
+    });
   });
 
   it('uses selected operation types in free practice', () => {

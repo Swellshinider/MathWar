@@ -49,6 +49,7 @@ import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { canJoinWaitingRoom, canStartFormulaMatch, isMatchPlayer } from './authorization.js';
 import { TokenVerifier } from './auth.js';
 import {
+  isLeaderboardDifficulty,
   isLeaderboardGameId,
   isLeaderboardSort,
   LeaderboardRepository,
@@ -757,6 +758,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         page?: unknown;
         pageSize?: unknown;
         sort?: unknown;
+        difficulty?: unknown;
         username?: unknown;
       };
     }>('/api/leaderboards/:gameId', async (request, reply) => {
@@ -770,6 +772,11 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         if (!isLeaderboardSort(sortValue)) {
           return reply.code(400).send({ message: 'Leaderboard sort is invalid.' });
         }
+        const difficultyValue =
+          typeof request.query.difficulty === 'string' ? request.query.difficulty : 'normal';
+        if (!isLeaderboardDifficulty(difficultyValue)) {
+          return reply.code(400).send({ message: 'Leaderboard difficulty is invalid.' });
+        }
         const username =
           typeof request.query.username === 'string' && request.query.username.trim()
             ? validateUsername(request.query.username)
@@ -777,6 +784,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
         reply.header('cache-control', 'no-store');
         return leaderboardRepository.list({
           gameId: request.params.gameId,
+          difficulty: difficultyValue,
           page,
           pageSize,
           sort: sortValue,
@@ -793,6 +801,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       Params: { gameId: string };
       Body?: {
         score?: unknown;
+        difficulty?: unknown;
         level?: unknown;
         averageTimeMs?: unknown;
         bestStreak?: unknown;
@@ -841,8 +850,14 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
             0,
             1_000_000,
           );
+          const difficulty =
+            typeof request.body?.difficulty === 'string' ? request.body.difficulty : 'normal';
+          if (!isLeaderboardDifficulty(difficulty)) {
+            return reply.code(400).send({ message: 'Leaderboard difficulty is invalid.' });
+          }
           const entry: LeaderboardScoreInput = {
             gameId: request.params.gameId,
+            difficulty,
             accountId: account.id,
             username: account.username,
             score,

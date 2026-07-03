@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-03
+
+- Added Formula Frenzy Hardcore solo mode with one-miss game over, no hints, no hearts, and a
+  separate Hardcore leaderboard difficulty.
+
 ### Added - 2026-07-02
 
 - Added route-level SEO metadata, canonical URLs, social preview tags, structured data, robots.txt,
