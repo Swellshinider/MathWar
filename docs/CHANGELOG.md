@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added Formula Frenzy Hardcore solo mode with one-miss game over, no hints, no hearts, and a
   separate Hardcore leaderboard difficulty.
+- Added a dismissible Hardcore rules warning before starting the first Hardcore run.
+- Restricted Formula Frenzy answer input to numeric characters while preserving the hint shortcut.
+- Cleared the Formula Frenzy answer field after wrong answers.
 
 ### Added - 2026-07-02
 

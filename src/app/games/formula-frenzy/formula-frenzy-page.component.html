@@ -219,6 +219,7 @@
               answerRejectionCount() > 0 && answerRejectionCount() % 2 === 0
             "
             [formControl]="answerControl"
+            (input)="sanitizeAnswerInput()"
           />
         </div>
         <div class="answer-keypad" aria-label="Answer keypad">
@@ -273,6 +274,36 @@
           </div>
         }
       }
+    </dialog>
+
+    <dialog
+      #hardcoreWarningDialog
+      class="game-over hardcore-warning"
+      aria-labelledby="formula-hardcore-warning-title"
+    >
+      <h2 id="formula-hardcore-warning-title">Hardcore rules</h2>
+      <p>Hardcore mode allows no errors. One wrong answer ends the run.</p>
+      <p>Hints and hearts are not available.</p>
+      <label
+        style="
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-2);
+          text-align: left;
+        "
+      >
+        <input
+          type="checkbox"
+          style="width: auto; flex: 0 0 auto"
+          [checked]="hideHardcoreWarning()"
+          (change)="setHideHardcoreWarning($any($event.target).checked)"
+        />
+        <span>Do not show this message again</span>
+      </label>
+      <button type="button" class="btn btn--primary" (click)="continueHardcoreRun()">
+        Continue
+      </button>
     </dialog>
   </section>
 </app-game-frame>
