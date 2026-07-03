@@ -2,11 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 
 export type LeaderboardGameId = 'formula-frenzy';
+export type LeaderboardDifficulty = 'normal' | 'hardcore';
 export type LeaderboardSort = 'rank' | 'level' | 'averageTime' | 'bestStreak';
 export type LeaderboardSaveStatus = 'created' | 'updated' | 'not_improved';
 
 export interface LeaderboardScoreInput {
   readonly gameId: LeaderboardGameId;
+  readonly difficulty: LeaderboardDifficulty;
   readonly accountId: string;
   readonly username: string;
   readonly score: number;
@@ -19,6 +21,7 @@ export interface LeaderboardScoreInput {
 export interface LeaderboardEntry {
   readonly id: string;
   readonly gameId: LeaderboardGameId;
+  readonly difficulty: LeaderboardDifficulty;
   readonly accountId: string;
   readonly username: string;
   readonly score: number;
@@ -41,6 +44,7 @@ export interface LeaderboardPage {
   readonly pageSize: number;
   readonly total: number;
   readonly sort: LeaderboardSort;
+  readonly difficulty: LeaderboardDifficulty;
 }
 
 export interface LeaderboardSaveResult {
@@ -53,6 +57,7 @@ export interface LeaderboardRepository {
   saveBest(input: LeaderboardScoreInput): Promise<LeaderboardSaveResult>;
   list(input: {
     readonly gameId: LeaderboardGameId;
+    readonly difficulty: LeaderboardDifficulty;
     readonly page: number;
     readonly pageSize: number;
     readonly sort: LeaderboardSort;
@@ -65,6 +70,7 @@ const LEADERBOARD_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS leaderboard_entries (
   id uuid PRIMARY KEY,
   game_id text NOT NULL,
+  difficulty text NOT NULL DEFAULT 'normal',
   account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   score integer NOT NULL CHECK (score >= 0),
   level integer NOT NULL CHECK (level >= 1),
@@ -72,13 +78,35 @@ CREATE TABLE IF NOT EXISTS leaderboard_entries (
   best_streak integer NOT NULL CHECK (best_streak >= 0),
   total_correct integer NOT NULL CHECK (total_correct >= 0),
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (game_id, account_id)
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS leaderboard_entries_rank_idx
+ALTER TABLE leaderboard_entries
+  ADD COLUMN IF NOT EXISTS difficulty text NOT NULL DEFAULT 'normal';
+
+ALTER TABLE leaderboard_entries
+  DROP CONSTRAINT IF EXISTS leaderboard_entries_difficulty_check;
+
+ALTER TABLE leaderboard_entries
+  ADD CONSTRAINT leaderboard_entries_difficulty_check
+  CHECK (difficulty IN ('normal', 'hardcore'));
+
+ALTER TABLE leaderboard_entries
+  DROP CONSTRAINT IF EXISTS leaderboard_entries_game_id_account_id_key;
+
+ALTER TABLE leaderboard_entries
+  DROP CONSTRAINT IF EXISTS leaderboard_entries_game_id_difficulty_account_id_key;
+
+ALTER TABLE leaderboard_entries
+  ADD CONSTRAINT leaderboard_entries_game_id_difficulty_account_id_key
+  UNIQUE (game_id, difficulty, account_id);
+
+DROP INDEX IF EXISTS leaderboard_entries_rank_idx;
+
+CREATE INDEX leaderboard_entries_rank_idx
   ON leaderboard_entries (
     game_id,
+    difficulty,
     score DESC,
     level DESC,
     average_time_ms ASC NULLS LAST,
@@ -90,6 +118,10 @@ CREATE INDEX IF NOT EXISTS leaderboard_entries_rank_idx
 
 export function isLeaderboardGameId(value: string): value is LeaderboardGameId {
   return value === 'formula-frenzy';
+}
+
+export function isLeaderboardDifficulty(value: string): value is LeaderboardDifficulty {
+  return value === 'normal' || value === 'hardcore';
 }
 
 export function isLeaderboardSort(value: string): value is LeaderboardSort {
@@ -114,7 +146,7 @@ export class InMemoryLeaderboardRepository implements LeaderboardRepository {
   async initialize(): Promise<void> {}
 
   async saveBest(input: LeaderboardScoreInput): Promise<LeaderboardSaveResult> {
-    const key = this.entryKey(input.gameId, input.accountId);
+    const key = this.entryKey(input.gameId, input.difficulty, input.accountId);
     const existing = this.entries.get(key);
     if (existing && !isBetterLeaderboardScore(input, existing)) {
       return {
@@ -127,6 +159,7 @@ export class InMemoryLeaderboardRepository implements LeaderboardRepository {
     const entry: LeaderboardEntry = {
       id: existing?.id ?? randomUUID(),
       gameId: input.gameId,
+      difficulty: input.difficulty,
       accountId: input.accountId,
       username: input.username,
       score: input.score,
@@ -146,13 +179,16 @@ export class InMemoryLeaderboardRepository implements LeaderboardRepository {
 
   async list(input: {
     readonly gameId: LeaderboardGameId;
+    readonly difficulty: LeaderboardDifficulty;
     readonly page: number;
     readonly pageSize: number;
     readonly sort: LeaderboardSort;
     readonly username?: string;
   }): Promise<LeaderboardPage> {
     const ranked = this.rankEntries(
-      [...this.entries.values()].filter((entry) => entry.gameId === input.gameId),
+      [...this.entries.values()].filter(
+        (entry) => entry.gameId === input.gameId && entry.difficulty === input.difficulty,
+      ),
     );
     const sorted = sortEntries(ranked, input.sort);
     const start = (input.page - 1) * input.pageSize;
@@ -166,6 +202,7 @@ export class InMemoryLeaderboardRepository implements LeaderboardRepository {
       pageSize: input.pageSize,
       total: ranked.length,
       sort: input.sort,
+      difficulty: input.difficulty,
     };
   }
 
@@ -173,7 +210,9 @@ export class InMemoryLeaderboardRepository implements LeaderboardRepository {
 
   private rankEntry(entry: LeaderboardEntry): RankedLeaderboardEntry {
     return this.rankEntries(
-      [...this.entries.values()].filter((current) => current.gameId === entry.gameId),
+      [...this.entries.values()].filter(
+        (current) => current.gameId === entry.gameId && current.difficulty === entry.difficulty,
+      ),
     ).find((current) => current.id === entry.id)!;
   }
 
@@ -183,8 +222,12 @@ export class InMemoryLeaderboardRepository implements LeaderboardRepository {
       .map((entry, index) => ({ ...structuredClone(entry), rank: index + 1 }));
   }
 
-  private entryKey(gameId: LeaderboardGameId, accountId: string): string {
-    return `${gameId}:${accountId}`;
+  private entryKey(
+    gameId: LeaderboardGameId,
+    difficulty: LeaderboardDifficulty,
+    accountId: string,
+  ): string {
+    return `${gameId}:${difficulty}:${accountId}`;
   }
 }
 
@@ -211,9 +254,9 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
         `SELECT entry.*, account.username
         FROM leaderboard_entries entry
         JOIN accounts account ON account.id = entry.account_id
-        WHERE entry.game_id = $1 AND entry.account_id = $2
+        WHERE entry.game_id = $1 AND entry.difficulty = $2 AND entry.account_id = $3
         FOR UPDATE`,
-        [input.gameId, input.accountId],
+        [input.gameId, input.difficulty, input.accountId],
       );
       const existing = existingResult.rowCount ? mapLeaderboardEntry(existingResult.rows[0]) : null;
       if (existing && !isBetterLeaderboardScore(input, existing)) {
@@ -229,16 +272,17 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
         ? await client.query(
             `UPDATE leaderboard_entries
             SET
-              score = $3,
-              level = $4,
-              average_time_ms = $5,
-              best_streak = $6,
-              total_correct = $7,
+              score = $4,
+              level = $5,
+              average_time_ms = $6,
+              best_streak = $7,
+              total_correct = $8,
               updated_at = now()
-            WHERE game_id = $1 AND account_id = $2
+            WHERE game_id = $1 AND difficulty = $2 AND account_id = $3
             RETURNING *`,
             [
               input.gameId,
+              input.difficulty,
               input.accountId,
               input.score,
               input.level,
@@ -251,6 +295,7 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
             `INSERT INTO leaderboard_entries (
               id,
               game_id,
+              difficulty,
               account_id,
               score,
               level,
@@ -258,11 +303,12 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
               best_streak,
               total_correct
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *`,
             [
               randomUUID(),
               input.gameId,
+              input.difficulty,
               input.accountId,
               input.score,
               input.level,
@@ -288,6 +334,7 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
 
   async list(input: {
     readonly gameId: LeaderboardGameId;
+    readonly difficulty: LeaderboardDifficulty;
     readonly page: number;
     readonly pageSize: number;
     readonly sort: LeaderboardSort;
@@ -300,7 +347,7 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
           entry.*,
           account.username,
           row_number() OVER (
-            PARTITION BY entry.game_id
+            PARTITION BY entry.game_id, entry.difficulty
             ORDER BY
               entry.score DESC,
               entry.level DESC,
@@ -311,19 +358,25 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
           ) AS rank
         FROM leaderboard_entries entry
         JOIN accounts account ON account.id = entry.account_id
-        WHERE entry.game_id = $1
+        WHERE entry.game_id = $1 AND entry.difficulty = $2
       )
       SELECT * FROM ranked
       ORDER BY ${sortSql(input.sort)}
-      LIMIT $2 OFFSET $3`,
-      [input.gameId, input.pageSize, offset],
+      LIMIT $3 OFFSET $4`,
+      [input.gameId, input.difficulty, input.pageSize, offset],
     );
     const count = await this.pool.query(
-      'SELECT count(*)::int AS total FROM leaderboard_entries WHERE game_id = $1',
-      [input.gameId],
+      `SELECT count(*)::int AS total
+      FROM leaderboard_entries
+      WHERE game_id = $1 AND difficulty = $2`,
+      [input.gameId, input.difficulty],
     );
     const searchResult = input.username
-      ? await this.findByUsername(input.gameId, input.username.trim().toLowerCase())
+      ? await this.findByUsername(
+          input.gameId,
+          input.difficulty,
+          input.username.trim().toLowerCase(),
+        )
       : null;
     return {
       entries: ordered.rows.map(mapRankedLeaderboardEntry),
@@ -332,6 +385,7 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
       pageSize: input.pageSize,
       total: count.rows[0]?.total ?? 0,
       sort: input.sort,
+      difficulty: input.difficulty,
     };
   }
 
@@ -346,7 +400,7 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
           entry.*,
           account.username,
           row_number() OVER (
-            PARTITION BY entry.game_id
+            PARTITION BY entry.game_id, entry.difficulty
             ORDER BY
               entry.score DESC,
               entry.level DESC,
@@ -367,6 +421,7 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
 
   private async findByUsername(
     gameId: LeaderboardGameId,
+    difficulty: LeaderboardDifficulty,
     username: string,
   ): Promise<RankedLeaderboardEntry | null> {
     const result = await this.pool.query(
@@ -375,7 +430,7 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
           entry.*,
           account.username,
           row_number() OVER (
-            PARTITION BY entry.game_id
+            PARTITION BY entry.game_id, entry.difficulty
             ORDER BY
               entry.score DESC,
               entry.level DESC,
@@ -386,10 +441,10 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
           ) AS rank
         FROM leaderboard_entries entry
         JOIN accounts account ON account.id = entry.account_id
-        WHERE entry.game_id = $1
+        WHERE entry.game_id = $1 AND entry.difficulty = $2
       )
-      SELECT * FROM ranked WHERE username = $2`,
-      [gameId, username],
+      SELECT * FROM ranked WHERE username = $3`,
+      [gameId, difficulty, username],
     );
     return result.rowCount ? mapRankedLeaderboardEntry(result.rows[0]) : null;
   }
@@ -466,6 +521,7 @@ function mapLeaderboardEntry(row: Record<string, any>): LeaderboardEntry {
   return {
     id: row['id'],
     gameId: row['game_id'],
+    difficulty: row['difficulty'],
     accountId: row['account_id'],
     username: row['username'],
     score: Number(row['score']),

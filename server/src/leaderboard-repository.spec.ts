@@ -6,6 +6,7 @@ describe('InMemoryLeaderboardRepository', () => {
     const repository = new InMemoryLeaderboardRepository();
     const base = {
       gameId: 'formula-frenzy' as const,
+      difficulty: 'normal' as const,
       accountId: 'account-1',
       username: 'player_one',
       score: 100,
@@ -30,6 +31,7 @@ describe('InMemoryLeaderboardRepository', () => {
     const repository = new InMemoryLeaderboardRepository();
     await repository.saveBest({
       gameId: 'formula-frenzy',
+      difficulty: 'normal',
       accountId: 'slow',
       username: 'slow',
       score: 100,
@@ -40,6 +42,7 @@ describe('InMemoryLeaderboardRepository', () => {
     });
     await repository.saveBest({
       gameId: 'formula-frenzy',
+      difficulty: 'normal',
       accountId: 'fast',
       username: 'fast',
       score: 100,
@@ -50,6 +53,7 @@ describe('InMemoryLeaderboardRepository', () => {
     });
     await repository.saveBest({
       gameId: 'formula-frenzy',
+      difficulty: 'normal',
       accountId: 'high-score',
       username: 'high_score',
       score: 200,
@@ -61,6 +65,7 @@ describe('InMemoryLeaderboardRepository', () => {
 
     const page = await repository.list({
       gameId: 'formula-frenzy',
+      difficulty: 'normal',
       page: 1,
       pageSize: 10,
       sort: 'rank',
@@ -69,5 +74,42 @@ describe('InMemoryLeaderboardRepository', () => {
 
     expect(page.entries.map((entry) => entry.username)).toEqual(['high_score', 'fast', 'slow']);
     expect(page.searchResult).toMatchObject({ username: 'fast', rank: 2 });
+  });
+
+  it('keeps separate best scores per difficulty', async () => {
+    const repository = new InMemoryLeaderboardRepository();
+    const base = {
+      gameId: 'formula-frenzy' as const,
+      accountId: 'account-1',
+      username: 'player_one',
+      score: 100,
+      level: 2,
+      averageTimeMs: 2500,
+      bestStreak: 3,
+      totalCorrect: 5,
+    };
+
+    await repository.saveBest({ ...base, difficulty: 'normal' });
+    await repository.saveBest({ ...base, difficulty: 'hardcore', score: 50 });
+
+    const normal = await repository.list({
+      gameId: 'formula-frenzy',
+      difficulty: 'normal',
+      page: 1,
+      pageSize: 10,
+      sort: 'rank',
+    });
+    const hardcore = await repository.list({
+      gameId: 'formula-frenzy',
+      difficulty: 'hardcore',
+      page: 1,
+      pageSize: 10,
+      sort: 'rank',
+    });
+
+    expect(normal.entries).toHaveLength(1);
+    expect(hardcore.entries).toHaveLength(1);
+    expect(normal.entries[0]).toMatchObject({ difficulty: 'normal', score: 100 });
+    expect(hardcore.entries[0]).toMatchObject({ difficulty: 'hardcore', score: 50 });
   });
 });

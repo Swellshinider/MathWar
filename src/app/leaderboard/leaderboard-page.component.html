@@ -9,6 +9,25 @@
 
   @if (gameId()) {
     <section class="leaderboard-panel glass" aria-label="Leaderboard controls and rankings">
+      <div class="mode-panel__tabs" role="tablist" aria-label="Leaderboard difficulty">
+        <button
+          type="button"
+          class="mode-tab"
+          [class.mode-tab--active]="difficulty() === 'normal'"
+          (click)="setDifficulty('normal')"
+        >
+          Normal
+        </button>
+        <button
+          type="button"
+          class="mode-tab"
+          [class.mode-tab--active]="difficulty() === 'hardcore'"
+          (click)="setDifficulty('hardcore')"
+        >
+          Hardcore
+        </button>
+      </div>
+
       <form class="leaderboard-search" (submit)="search($event)">
         <label for="leaderboard-username">Find username</label>
         <div class="leaderboard-search__row">

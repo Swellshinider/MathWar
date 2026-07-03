@@ -16,6 +16,7 @@ describe('LeaderboardPageComponent', () => {
         {
           id: 'entry-1',
           gameId: 'formula-frenzy',
+          difficulty: 'normal',
           accountId: 'account-1',
           username: 'player_one',
           rank: 1,
@@ -33,6 +34,7 @@ describe('LeaderboardPageComponent', () => {
       pageSize: 10,
       total: 12,
       sort: 'rank',
+      difficulty: 'normal',
     });
 
     await TestBed.configureTestingModule({
@@ -70,6 +72,7 @@ describe('LeaderboardPageComponent', () => {
       page: 1,
       pageSize: 10,
       sort: 'rank',
+      difficulty: 'normal',
       username: '',
     });
   });
@@ -88,12 +91,31 @@ describe('LeaderboardPageComponent', () => {
       page: 1,
       pageSize: 10,
       sort: 'level',
+      difficulty: 'normal',
       username: '',
     });
     expect(leaderboard.list).toHaveBeenCalledWith('formula-frenzy', {
       page: 2,
       pageSize: 10,
       sort: 'level',
+      difficulty: 'normal',
+      username: '',
+    });
+  });
+
+  it('switches leaderboard difficulty', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+
+    Array.from(root.querySelectorAll<HTMLButtonElement>('.mode-tab'))
+      .find((button) => button.textContent?.includes('Hardcore'))
+      ?.click();
+    await fixture.whenStable();
+
+    expect(leaderboard.list).toHaveBeenCalledWith('formula-frenzy', {
+      page: 1,
+      pageSize: 10,
+      sort: 'rank',
+      difficulty: 'hardcore',
       username: '',
     });
   });

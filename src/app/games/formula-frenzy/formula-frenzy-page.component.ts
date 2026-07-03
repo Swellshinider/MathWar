@@ -16,7 +16,11 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideHeart, LucideLightbulb } from '@lucide/angular';
 import { MultiplayerMatchState } from '@math-war/game-engine';
 import { AccountAuthService } from '../../account/account-auth.service';
-import { LeaderboardRun, LeaderboardService } from '../../leaderboard/leaderboard.service';
+import {
+  LeaderboardDifficulty,
+  LeaderboardRun,
+  LeaderboardService,
+} from '../../leaderboard/leaderboard.service';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { preventBackspaceNavigation } from '../../shared/dom/prevent-backspace-navigation';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
@@ -34,7 +38,9 @@ import {
   scoreFormulaAnswer,
 } from './game/problem-generator';
 
-type FormulaFrenzyMode = 'progression' | 'free-practice';
+type FormulaFrenzyMode = 'progression' | 'hardcore' | 'free-practice';
+
+const HARDCORE_WARNING_STORAGE_KEY = 'math-war.formula-frenzy.hide-hardcore-warning';
 
 @Component({
   selector: 'app-formula-frenzy-page',
@@ -58,10 +64,13 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private readonly toast = inject(ToastService);
   @ViewChild('answerInput') private answerInput?: ElementRef<HTMLInputElement>;
   @ViewChild('resultDialog') private resultDialog?: ElementRef<HTMLDialogElement>;
+  @ViewChild('hardcoreWarningDialog') private hardcoreWarningDialog?: ElementRef<HTMLDialogElement>;
 
   readonly problem = signal<FormulaProblem>(createFormulaProblemForLevel(1));
   readonly keypadKeys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0'] as const;
   readonly gameMode = signal<FormulaFrenzyMode>('progression');
+  readonly timedMode = computed(() => this.gameMode() !== 'free-practice');
+  readonly hardcoreMode = computed(() => this.gameMode() === 'hardcore');
   readonly runStarted = signal(false);
   readonly heartSlots = [1, 2, 3] as const;
   readonly hintsRemaining = signal(3);
@@ -100,6 +109,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   readonly gameOver = signal(false);
   readonly leaderboardAuthPrompt = signal(false);
   readonly savingLeaderboard = signal(false);
+  readonly hideHardcoreWarning = signal(false);
   readonly answerRejected = signal(false);
   readonly answerRejectionCount = signal(0);
   readonly scorePulsed = signal(false);
@@ -110,6 +120,10 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     if (this.totalCorrect() === 0) return '0.0s';
     return `${(this.totalSolveTimeMs() / this.totalCorrect() / 1000).toFixed(1)}s`;
   });
+  readonly leaderboardReturnUrl = computed(
+    () =>
+      `/games/formula-frenzy?saveLeaderboard=1${this.hardcoreMode() ? '&difficulty=hardcore' : ''}`,
+  );
   readonly timeRemaining = computed(() => `${(this.timeRemainingMs() / 1000).toFixed(1)}s`);
   readonly multiplier = computed(() =>
     Math.min(3, 1 + Math.max(0, this.streak() - 1) * 0.1).toFixed(1),
@@ -154,7 +168,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
 
   submitAnswer(event?: SubmitEvent): void {
     event?.preventDefault();
-    if (this.gameOver() || this.practicePaused() || this.progressionPaused()) return;
+    if (this.gameOver() || this.practicePaused() || this.timedModePaused()) return;
 
     const answer = Number(this.answerControl.value);
     if (Number.isNaN(answer)) {
@@ -211,23 +225,28 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.pulseMultiplier();
     this.bestStreak.update((best) => Math.max(best, nextStreak));
     const previousHearts = this.hearts();
-    if (nextStreak % 5 === 0) this.hearts.update((hearts) => Math.min(3, hearts + 1));
-    if (nextStreak % 10 === 0) this.hintsRemaining.update((hints) => Math.min(3, hints + 1));
+    if (this.gameMode() === 'progression' && nextStreak % 5 === 0) {
+      this.hearts.update((hearts) => Math.min(3, hearts + 1));
+    }
+    if (this.gameMode() === 'progression' && nextStreak % 10 === 0) {
+      this.hintsRemaining.update((hints) => Math.min(3, hints + 1));
+    }
     this.highestLevel.update((highest) => Math.max(highest, progress.level));
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
     this.currentHint.set(null);
     this.problem.set(this.nextProblem());
-    if (this.gameMode() === 'progression') this.startProblemTimer();
+    if (this.timedMode()) this.startProblemTimer();
     this.playSound('right-answer.wav');
     if (this.hearts() > previousHearts) this.playSound('heart-up.wav');
-    if (this.gameMode() === 'progression' && this.level() > previousLevel) {
+    if (this.timedMode() && this.level() > previousLevel) {
       this.playSound('level-up.wav');
     }
   }
 
   restart(): void {
+    this.closeHardcoreWarningDialog();
     this.closeResultDialog();
     this.score.set(0);
     this.scorePulsed.set(false);
@@ -238,8 +257,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.streak.set(0);
     this.multiplierPulsed.set(false);
     this.bestStreak.set(0);
-    this.hearts.set(3);
-    this.hintsRemaining.set(3);
+    this.hearts.set(this.hardcoreMode() ? 0 : 3);
+    this.hintsRemaining.set(this.hardcoreMode() ? 0 : 3);
     this.currentHint.set(null);
     this.highestLevel.set(1);
     this.totalCorrect.set(0);
@@ -247,19 +266,39 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.gameOver.set(false);
     this.leaderboardAuthPrompt.set(false);
     this.savingLeaderboard.set(false);
-    this.runStarted.set(this.gameMode() !== 'progression');
+    this.hideHardcoreWarning.set(false);
+    this.runStarted.set(!this.timedMode());
     this.answerRejected.set(false);
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
     this.problem.set(this.nextProblem());
     this.clearTimers();
     this.clearPulseTimers();
-    this.timeRemainingMs.set(this.gameMode() === 'progression' ? this.problem().deadlineMs : 0);
+    this.timeRemainingMs.set(this.timedMode() ? this.problem().deadlineMs : 0);
     this.syncAnswerControl();
   }
 
   startRun(): void {
-    if (this.gameMode() !== 'progression' || this.runStarted()) return;
+    if (!this.timedMode() || this.runStarted()) return;
+    if (this.hardcoreMode() && !this.hardcoreWarningDismissed()) {
+      this.openHardcoreWarningDialog();
+      return;
+    }
+    this.beginRun();
+  }
+
+  continueHardcoreRun(): void {
+    if (!this.hardcoreMode() || this.runStarted()) return;
+    if (this.hideHardcoreWarning()) this.dismissHardcoreWarning();
+    this.closeHardcoreWarningDialog();
+    this.beginRun();
+  }
+
+  setHideHardcoreWarning(value: boolean): void {
+    this.hideHardcoreWarning.set(value);
+  }
+
+  private beginRun(): void {
     this.runStarted.set(true);
     this.syncAnswerControl();
     this.startProblemTimer();
@@ -272,6 +311,11 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
 
   selectProgression(): void {
     this.gameMode.set('progression');
+    this.restart();
+  }
+
+  selectHardcore(): void {
+    this.gameMode.set('hardcore');
     this.restart();
   }
 
@@ -322,6 +366,13 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.answerControl.setValue('');
   }
 
+  sanitizeAnswerInput(): void {
+    const sanitized = sanitizeFormulaAnswerInput(this.answerControl.value);
+    if (sanitized !== this.answerControl.value) {
+      this.answerControl.setValue(sanitized, { emitEvent: false });
+    }
+  }
+
   requestHint(): boolean {
     if (!this.canRequestHint()) return false;
     const hint = this.problem().hint;
@@ -362,7 +413,12 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.rejectAnswer();
     this.streak.set(0);
     this.pulseMultiplier();
-    if (this.gameMode() !== 'progression') return;
+    this.answerControl.setValue('');
+    if (this.gameMode() === 'free-practice') return;
+    if (this.hardcoreMode()) {
+      this.lose();
+      return;
+    }
     this.hearts.update((hearts) => Math.max(0, hearts - 1));
     if (this.hearts() === 0) this.lose();
   }
@@ -436,12 +492,17 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private currentLeaderboardRun(): LeaderboardRun {
     const totalCorrect = this.totalCorrect();
     return {
+      difficulty: this.leaderboardDifficulty(),
       score: this.score(),
       level: this.highestLevel(),
       averageTimeMs: totalCorrect === 0 ? null : Math.round(this.totalSolveTimeMs() / totalCorrect),
       bestStreak: this.bestStreak(),
       totalCorrect,
     };
+  }
+
+  private leaderboardDifficulty(): LeaderboardDifficulty {
+    return this.hardcoreMode() ? 'hardcore' : 'normal';
   }
 
   private async saveRunToLeaderboard(run: LeaderboardRun): Promise<void> {
@@ -466,13 +527,20 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     if (this.route.snapshot.queryParamMap.get('saveLeaderboard') !== '1') return;
     if (!this.auth.user()) return;
     this.pendingAutoSaveHandled = true;
-    const run = this.leaderboard.takePendingRun('formula-frenzy');
+    const difficulty = this.pendingLeaderboardDifficulty();
+    const run = this.leaderboard.takePendingRun('formula-frenzy', difficulty);
     await this.router.navigate([], {
-      queryParams: { saveLeaderboard: null },
+      queryParams: { saveLeaderboard: null, difficulty: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
     if (run) await this.saveRunToLeaderboard(run);
+  }
+
+  private pendingLeaderboardDifficulty(): LeaderboardDifficulty {
+    return this.route.snapshot.queryParamMap.get('difficulty') === 'hardcore'
+      ? 'hardcore'
+      : 'normal';
   }
 
   private nextProblem(): FormulaProblem {
@@ -483,15 +551,15 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   }
 
   private syncAnswerControl(): void {
-    if (this.gameOver() || this.practicePaused() || this.progressionPaused()) {
+    if (this.gameOver() || this.practicePaused() || this.timedModePaused()) {
       this.answerControl.disable({ emitEvent: false });
     } else {
       this.answerControl.enable({ emitEvent: false });
     }
   }
 
-  private progressionPaused(): boolean {
-    return this.gameMode() === 'progression' && !this.runStarted();
+  private timedModePaused(): boolean {
+    return this.timedMode() && !this.runStarted();
   }
 
   private syncResultDialog(): void {
@@ -517,4 +585,45 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     dialog.close?.();
     dialog.removeAttribute('open');
   }
+
+  private openHardcoreWarningDialog(): void {
+    const dialog = this.hardcoreWarningDialog?.nativeElement;
+    if (!dialog || dialog.open) return;
+    try {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+      if (!dialog.open) dialog.setAttribute('open', '');
+    } catch {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  private closeHardcoreWarningDialog(): void {
+    const dialog = this.hardcoreWarningDialog?.nativeElement;
+    if (!dialog?.open) return;
+    dialog.close?.();
+    dialog.removeAttribute('open');
+  }
+
+  private hardcoreWarningDismissed(): boolean {
+    try {
+      return localStorage.getItem(HARDCORE_WARNING_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private dismissHardcoreWarning(): void {
+    try {
+      localStorage.setItem(HARDCORE_WARNING_STORAGE_KEY, '1');
+    } catch {
+      // Storage can be unavailable in tests, SSR, or privacy modes.
+    }
+  }
+}
+
+function sanitizeFormulaAnswerInput(value: string): string {
+  const negative = value.trimStart().startsWith('-');
+  const digits = value.replace(/\D/g, '');
+  return `${negative ? '-' : ''}${digits}`;
 }

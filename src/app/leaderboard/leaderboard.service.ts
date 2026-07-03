@@ -3,10 +3,12 @@ import { AccountAuthService } from '../account/account-auth.service';
 import { MULTIPLAYER_CONFIG } from '../shared/multiplayer/multiplayer-config';
 
 export type LeaderboardGameId = 'formula-frenzy';
+export type LeaderboardDifficulty = 'normal' | 'hardcore';
 export type LeaderboardSort = 'rank' | 'level' | 'averageTime' | 'bestStreak';
 export type LeaderboardSaveStatus = 'created' | 'updated' | 'not_improved';
 
 export interface LeaderboardRun {
+  readonly difficulty: LeaderboardDifficulty;
   readonly score: number;
   readonly level: number;
   readonly averageTimeMs: number | null;
@@ -31,6 +33,7 @@ export interface LeaderboardPage {
   readonly pageSize: number;
   readonly total: number;
   readonly sort: LeaderboardSort;
+  readonly difficulty: LeaderboardDifficulty;
 }
 
 export interface LeaderboardSaveResult {
@@ -51,6 +54,7 @@ export class LeaderboardService {
       readonly page: number;
       readonly pageSize: number;
       readonly sort: LeaderboardSort;
+      readonly difficulty: LeaderboardDifficulty;
       readonly username?: string;
     },
   ): Promise<LeaderboardPage> {
@@ -58,6 +62,7 @@ export class LeaderboardService {
     url.searchParams.set('page', String(options.page));
     url.searchParams.set('pageSize', String(options.pageSize));
     url.searchParams.set('sort', options.sort);
+    url.searchParams.set('difficulty', options.difficulty);
     if (options.username?.trim()) url.searchParams.set('username', options.username.trim());
     const response = await fetch(url);
     const payload = await response.json().catch(() => null);
@@ -73,17 +78,21 @@ export class LeaderboardService {
   }
 
   storePendingRun(gameId: LeaderboardGameId, run: LeaderboardRun): void {
-    sessionStorage.setItem(`${PENDING_RUN_PREFIX}${gameId}`, JSON.stringify(run));
+    sessionStorage.setItem(this.pendingRunKey(gameId, run.difficulty), JSON.stringify(run));
   }
 
-  takePendingRun(gameId: LeaderboardGameId): LeaderboardRun | null {
-    const key = `${PENDING_RUN_PREFIX}${gameId}`;
+  takePendingRun(
+    gameId: LeaderboardGameId,
+    difficulty: LeaderboardDifficulty = 'normal',
+  ): LeaderboardRun | null {
+    const key = this.pendingRunKey(gameId, difficulty);
     const value = sessionStorage.getItem(key);
     if (!value) return null;
     sessionStorage.removeItem(key);
     try {
       const parsed = JSON.parse(value) as Partial<LeaderboardRun>;
       if (
+        (parsed.difficulty !== 'normal' && parsed.difficulty !== 'hardcore') ||
         typeof parsed.score !== 'number' ||
         typeof parsed.level !== 'number' ||
         typeof parsed.bestStreak !== 'number' ||
@@ -93,6 +102,7 @@ export class LeaderboardService {
         return null;
       }
       return {
+        difficulty: parsed.difficulty,
         score: parsed.score,
         level: parsed.level,
         averageTimeMs: parsed.averageTimeMs,
@@ -102,6 +112,10 @@ export class LeaderboardService {
     } catch {
       return null;
     }
+  }
+
+  private pendingRunKey(gameId: LeaderboardGameId, difficulty: LeaderboardDifficulty): string {
+    return `${PENDING_RUN_PREFIX}${gameId}:${difficulty}`;
   }
 
   private async authorizedJson<T>(

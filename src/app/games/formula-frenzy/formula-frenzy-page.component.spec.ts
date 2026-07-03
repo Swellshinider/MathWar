@@ -53,6 +53,7 @@ describe('FormulaFrenzyPageComponent', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(0);
+    vi.stubGlobal('localStorage', createMemoryStorage());
     account.ready.mockReturnValue(true);
     account.user.mockReturnValue({
       id: 'account-1',
@@ -64,6 +65,7 @@ describe('FormulaFrenzyPageComponent', () => {
       entry: {
         id: 'entry-1',
         gameId: 'formula-frenzy',
+        difficulty: 'normal',
         accountId: 'account-1',
         username: 'player_one',
         rank: 1,
@@ -98,6 +100,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it('renders the Formula Frenzy play surface', () => {
@@ -107,6 +110,7 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(root.textContent).toContain('Create private room');
     expect(root.textContent).toContain('Join room');
     expect(root.textContent).toContain('Progression');
+    expect(root.textContent).toContain('Hardcore');
     expect(root.textContent).toContain('Free Practice');
     expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe('?? + ??');
     expect(root.querySelector('#formula-answer')?.getAttribute('type')).toBe('text');
@@ -230,6 +234,45 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.answerControl.value).toBe('');
   });
 
+  it('removes non-numeric typed answer characters without blocking negative answers', () => {
+    component.startRun();
+    fixture.detectChanges();
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      '#formula-answer',
+    )!;
+
+    input.value = '12a-3h';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+    expect(component.answerControl.value).toBe('123');
+
+    input.value = '-4x5';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+    expect(component.answerControl.value).toBe('-45');
+  });
+
+  it('keeps the hint keybinding when the answer input is focused', () => {
+    component.startRun();
+    fixture.detectChanges();
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      '#formula-answer',
+    )!;
+    input.focus();
+    const event = new KeyboardEvent('keydown', {
+      key: 'h',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    input.dispatchEvent(event);
+    fixture.detectChanges();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(component.hintsRemaining()).toBe(2);
+    expect(component.currentHint()).toEqual(expect.any(String));
+  });
+
   it('marks the answer input invalid without showing an error message', () => {
     component.startRun();
     component.answerControl.setValue(String(component.problem().answer! + 1));
@@ -239,6 +282,7 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.score()).toBe(0);
     expect(component.answerRejected()).toBe(true);
     expect(component.answerRejectionCount()).toBe(1);
+    expect(component.answerControl.value).toBe('');
     const answerInput = (fixture.nativeElement as HTMLElement).querySelector('#formula-answer');
     expect(answerInput?.classList).toContain('answer-input--invalid');
     expect(answerInput?.classList).toContain('answer-input--shake-a');
@@ -252,6 +296,7 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.score()).toBe(0);
     expect(component.answerRejected()).toBe(true);
     expect(component.answerRejectionCount()).toBe(2);
+    expect(component.answerControl.value).toBe('');
     expect(answerInput?.classList).toContain('answer-input--shake-b');
   });
 
@@ -356,6 +401,7 @@ describe('FormulaFrenzyPageComponent', () => {
     await fixture.whenStable();
 
     expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', {
+      difficulty: 'normal',
       score: 193,
       level: 1,
       averageTimeMs: 2500,
@@ -379,7 +425,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     expect(leaderboard.storePendingRun).toHaveBeenCalledWith(
       'formula-frenzy',
-      expect.objectContaining({ score: 0, level: 1, averageTimeMs: null }),
+      expect.objectContaining({ difficulty: 'normal', score: 0, level: 1, averageTimeMs: null }),
     );
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Sign in or create an account',
@@ -399,6 +445,131 @@ describe('FormulaFrenzyPageComponent', () => {
     fixture.detectChanges();
 
     expect(component.gameOver()).toBe(false);
+  });
+
+  it('runs hardcore without hints or hearts', () => {
+    component.selectHardcore();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(component.gameMode()).toBe('hardcore');
+    expect(component.hintsRemaining()).toBe(0);
+    expect(component.hearts()).toBe(0);
+    expect(root.querySelector('.hint-token')).toBeNull();
+    expect(root.querySelector('.hearts')).toBeNull();
+    expect(root.querySelector('.hud-mode')).toBeNull();
+  });
+
+  it('shows the hardcore warning before starting the run', () => {
+    component.selectHardcore();
+    fixture.detectChanges();
+
+    component.startRun();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const dialog = root.querySelector<HTMLDialogElement>('dialog.hardcore-warning');
+    expect(component.runStarted()).toBe(false);
+    expect(dialog?.open).toBe(true);
+    expect(dialog?.textContent).toContain('One wrong answer ends the run.');
+    expect(dialog?.textContent).toContain('Hints and hearts are not available.');
+
+    root.querySelector<HTMLButtonElement>('dialog.hardcore-warning .btn')?.click();
+    fixture.detectChanges();
+
+    expect(component.runStarted()).toBe(true);
+    expect(dialog?.open).toBe(false);
+    expect(document.activeElement).toBe(root.querySelector<HTMLInputElement>('#formula-answer'));
+  });
+
+  it('persists the hardcore warning opt-out', () => {
+    component.selectHardcore();
+    fixture.detectChanges();
+
+    component.startRun();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLInputElement>('dialog.hardcore-warning input')?.click();
+    fixture.detectChanges();
+    root.querySelector<HTMLButtonElement>('dialog.hardcore-warning .btn')?.click();
+    fixture.detectChanges();
+
+    expect(localStorage.getItem('math-war.formula-frenzy.hide-hardcore-warning')).toBe('1');
+
+    component.restart();
+    component.startRun();
+    fixture.detectChanges();
+
+    expect(component.runStarted()).toBe(true);
+    expect(root.querySelector<HTMLDialogElement>('dialog.hardcore-warning')?.open).toBe(false);
+  });
+
+  it('does not reveal hints in hardcore with the H key', () => {
+    startHardcoreRun();
+    const event = new KeyboardEvent('keydown', {
+      key: 'h',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    document.dispatchEvent(event);
+    fixture.detectChanges();
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(component.currentHint()).toBeNull();
+    expect(component.hintsRemaining()).toBe(0);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.problem-hint')).toBeNull();
+  });
+
+  it('ends hardcore on the first wrong answer', () => {
+    startHardcoreRun();
+    component.answerControl.setValue(String(component.problem().answer! + 1));
+
+    component.submitAnswer();
+    fixture.detectChanges();
+
+    expect(component.gameOver()).toBe(true);
+    expect(component.streak()).toBe(0);
+    expect(component.answerControl.value).toBe('');
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/wrong-answer.wav');
+    expect(audio.playOneShot).toHaveBeenCalledWith('/sounds/formula-frenzy/game-over.wav');
+  });
+
+  it('does not restore hints or hearts on hardcore streaks', () => {
+    startHardcoreRun();
+
+    for (let index = 0; index < 10; index += 1) {
+      component.answerControl.setValue(String(component.problem().answer));
+      component.submitAnswer();
+    }
+
+    expect(component.streak()).toBe(10);
+    expect(component.hearts()).toBe(0);
+    expect(component.hintsRemaining()).toBe(0);
+    expect(audio.playOneShot).not.toHaveBeenCalledWith('/sounds/formula-frenzy/heart-up.wav');
+  });
+
+  it('saves hardcore runs to the hardcore leaderboard difficulty', async () => {
+    startHardcoreRun();
+    vi.advanceTimersByTime(2500);
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    vi.advanceTimersByTime(component.problem().deadlineMs);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.save-leaderboard-button')
+      ?.click();
+    await fixture.whenStable();
+
+    expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', {
+      difficulty: 'hardcore',
+      score: 193,
+      level: 1,
+      averageTimeMs: 2500,
+      bestStreak: 1,
+      totalCorrect: 1,
+    });
   });
 
   it('uses selected operation types in free practice', () => {
@@ -430,6 +601,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     expect(component.score()).toBe(1);
     expect(component.streak()).toBe(0);
+    expect(component.answerControl.value).toBe('');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 0');
   });
 
@@ -454,4 +626,29 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(component.problem().prompt).toMatch(/^\d+ \/ \d+$/);
     expect(root.querySelector<HTMLInputElement>('#formula-answer')?.disabled).toBe(false);
   });
+
+  function startHardcoreRun(): void {
+    component.selectHardcore();
+    fixture.detectChanges();
+    component.startRun();
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('dialog.hardcore-warning .btn')
+      ?.click();
+    fixture.detectChanges();
+  }
 });
+
+function createMemoryStorage(): Storage {
+  const store = new Map<string, string>();
+  return {
+    get length() {
+      return store.size;
+    },
+    clear: () => store.clear(),
+    getItem: (key) => store.get(key) ?? null,
+    key: (index) => [...store.keys()][index] ?? null,
+    removeItem: (key) => store.delete(key),
+    setItem: (key, value) => store.set(key, String(value)),
+  };
+}

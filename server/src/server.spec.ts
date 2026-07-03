@@ -356,7 +356,7 @@ describe('multiplayer socket server', () => {
     expect(saved.statusCode).toBe(200);
     expect(saved.json()).toMatchObject({
       status: 'created',
-      entry: { username: 'player_one', rank: 1, score: 100 },
+      entry: { username: 'player_one', difficulty: 'normal', rank: 1, score: 100 },
     });
 
     const lower = await server.fastify.inject({
@@ -371,6 +371,25 @@ describe('multiplayer socket server', () => {
       entry: { score: 100 },
     });
 
+    const hardcore = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/leaderboards/formula-frenzy/entries',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        difficulty: 'hardcore',
+        score: 50,
+        level: 2,
+        averageTimeMs: 1000,
+        bestStreak: 3,
+        totalCorrect: 4,
+      },
+    });
+    expect(hardcore.statusCode).toBe(200);
+    expect(hardcore.json()).toMatchObject({
+      status: 'created',
+      entry: { username: 'player_one', difficulty: 'hardcore', rank: 1, score: 50 },
+    });
+
     const page = await server.fastify.inject({
       method: 'GET',
       url: '/api/leaderboards/formula-frenzy?username=player_one',
@@ -378,7 +397,19 @@ describe('multiplayer socket server', () => {
     expect(page.statusCode).toBe(200);
     expect(page.json()).toMatchObject({
       total: 1,
+      difficulty: 'normal',
       searchResult: { username: 'player_one', rank: 1 },
+    });
+
+    const hardcorePage = await server.fastify.inject({
+      method: 'GET',
+      url: '/api/leaderboards/formula-frenzy?difficulty=hardcore&username=player_one',
+    });
+    expect(hardcorePage.statusCode).toBe(200);
+    expect(hardcorePage.json()).toMatchObject({
+      total: 1,
+      difficulty: 'hardcore',
+      searchResult: { username: 'player_one', score: 50, rank: 1 },
     });
   });
 

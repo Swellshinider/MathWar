@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
+  LeaderboardDifficulty,
   LeaderboardEntry,
   LeaderboardGameId,
   LeaderboardPage,
@@ -24,6 +25,7 @@ export class LeaderboardPageComponent implements OnInit {
   readonly gameId = signal<LeaderboardGameId | null>(null);
   readonly page = signal(1);
   readonly sort = signal<LeaderboardSort>('rank');
+  readonly difficulty = signal<LeaderboardDifficulty>('normal');
   readonly username = signal('');
   readonly data = signal<LeaderboardPage | null>(null);
   readonly loading = signal(false);
@@ -56,6 +58,7 @@ export class LeaderboardPageComponent implements OnInit {
           page: this.page(),
           pageSize: PAGE_SIZE,
           sort: this.sort(),
+          difficulty: this.difficulty(),
           username: this.username(),
         }),
       );
@@ -69,6 +72,13 @@ export class LeaderboardPageComponent implements OnInit {
   setSort(sort: LeaderboardSort): void {
     if (this.sort() === sort) return;
     this.sort.set(sort);
+    this.page.set(1);
+    void this.load();
+  }
+
+  setDifficulty(difficulty: LeaderboardDifficulty): void {
+    if (this.difficulty() === difficulty) return;
+    this.difficulty.set(difficulty);
     this.page.set(1);
     void this.load();
   }
