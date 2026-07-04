@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restricted Formula Frenzy answer input to numeric characters while preserving the hint shortcut.
 - Cleared the Formula Frenzy answer field after wrong answers.
 
+### Changed - 2026-07-03
+
+- Changed Formula Frenzy Free Practice to follow Progression levels without timers, hints, hearts,
+  operation filters, or fail states.
+
 ### Added - 2026-07-02
 
 - Added route-level SEO metadata, canonical URLs, social preview tags, structured data, robots.txt,

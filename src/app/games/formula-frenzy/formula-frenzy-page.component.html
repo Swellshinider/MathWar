@@ -46,28 +46,21 @@
           Start run
         </button>
       </div>
-    }
-
-    @if (gameMode() === 'free-practice') {
-      <div class="practice-options" aria-label="Calculation types">
-        @for (option of operationOptions; track option.operation) {
-          <label>
-            <input
-              type="checkbox"
-              [checked]="practiceOperations().includes(option.operation)"
-              (change)="setPracticeOperation(option.operation, $any($event.target).checked)"
-            />
-            <span>{{ option.label }}</span>
-          </label>
-        }
+    } @else if (gameMode() === 'free-practice') {
+      <div class="sprint-control">
+        <button type="button" class="btn btn--subtle reset-level-button" (click)="restart()">
+          Reset to Level 1
+        </button>
       </div>
     }
   </section>
 
   <section class="frenzy-surface" aria-label="Formula Frenzy game">
     <div class="hud" aria-label="Run stats">
-      @if (timedMode()) {
-        <div class="hud-score">
+      <div class="hud-score">
+        @if (gameMode() === 'free-practice') {
+          <span>Solved</span>
+        } @else {
           <span class="info">
             <button
               type="button"
@@ -82,8 +75,12 @@
               hinted answer earns half points in Progression.
             </span>
           </span>
-          <strong [class.score-pop]="scorePulsed()">{{ score() }}</strong>
-          <div class="score-meta">
+        }
+        <strong [class.score-pop]="scorePulsed()">{{ score() }}</strong>
+        <div class="score-meta">
+          @if (gameMode() === 'free-practice') {
+            <span>Streak {{ streak() }}</span>
+          } @else {
             <span class="info">
               <button
                 type="button"
@@ -98,12 +95,16 @@
                 one heart.
               </span>
             </span>
-            <span
-              class="multiplier"
-              [class.multiplier--boosted]="streak() > 1"
-              [class.multiplier--hot]="streak() >= 10"
-              [class.multiplier-pop]="multiplierPulsed()"
-            >
+          }
+          <span
+            class="multiplier"
+            [class.multiplier--boosted]="streak() > 1"
+            [class.multiplier--hot]="streak() >= 10"
+            [class.multiplier-pop]="multiplierPulsed()"
+          >
+            @if (gameMode() === 'free-practice') {
+              {{ multiplier() }}x
+            } @else {
               <span class="info">
                 <button
                   type="button"
@@ -117,72 +118,58 @@
                   The multiplier increases with your streak and applies to each correct answer.
                 </span>
               </span>
-            </span>
-          </div>
+            }
+          </span>
         </div>
-        <div class="hud-level">
-          <span>Level {{ level() }}</span>
-          <strong>{{ levelName() }}</strong>
+      </div>
+      <div class="hud-level">
+        <span>Level {{ level() }}</span>
+        <strong>{{ levelName() }}</strong>
+        <div
+          class="xp-bar info"
+          aria-label="XP progress"
+          aria-describedby="formula-xp-tooltip"
+          tabindex="0"
+        >
+          <span class="xp-bar__fill" [style.width.%]="xpProgress()"></span>
+          <span class="xp-bar__text">{{ xp() }} / {{ xpRequired() }}</span>
+          <span id="formula-xp-tooltip" class="info-tooltip" role="tooltip">
+            XP comes from correct answers. Filling the bar raises your level and unlocks harder
+            formulas.
+          </span>
+        </div>
+      </div>
+      @if (gameMode() === 'progression') {
+        <div class="hud-resources">
+          <button
+            type="button"
+            class="hint-token info"
+            [disabled]="!canRequestHint()"
+            aria-label="Request hint"
+            aria-describedby="formula-hint-tooltip"
+            (click)="requestHint()"
+          >
+            <svg lucideLightbulb aria-hidden="true"></svg>
+            <span>{{ hintsRemaining() }}</span>
+            <span id="formula-hint-tooltip" class="info-tooltip" role="tooltip">
+              Press H or click the lightbulb to reveal a simpler expression. Each run starts with
+              three hints. Every 10-answer streak restores one hint, up to three, and a hinted answer
+              earns half score.
+            </span>
+          </button>
           <div
-            class="xp-bar info"
-            aria-label="XP progress"
-            aria-describedby="formula-xp-tooltip"
+            class="hearts info"
+            aria-label="Hearts"
+            aria-describedby="formula-hearts-tooltip"
             tabindex="0"
           >
-            <span class="xp-bar__fill" [style.width.%]="xpProgress()"></span>
-            <span class="xp-bar__text">{{ xp() }} / {{ xpRequired() }}</span>
-            <span id="formula-xp-tooltip" class="info-tooltip" role="tooltip">
-              XP comes from correct answers. Filling the bar raises your level and unlocks harder
-              formulas.
+            @for (heart of heartSlots; track heart) {
+              <svg lucideHeart [class.heart--empty]="heart > hearts()" aria-hidden="true"></svg>
+            }
+            <span id="formula-hearts-tooltip" class="info-tooltip" role="tooltip">
+              Hearts are your health. Wrong answers spend one heart, and reaching zero ends the run.
             </span>
           </div>
-        </div>
-        @if (gameMode() === 'progression') {
-          <div class="hud-resources">
-            <button
-              type="button"
-              class="hint-token info"
-              [disabled]="!canRequestHint()"
-              aria-label="Request hint"
-              aria-describedby="formula-hint-tooltip"
-              (click)="requestHint()"
-            >
-              <svg lucideLightbulb aria-hidden="true"></svg>
-              <span>{{ hintsRemaining() }}</span>
-              <span id="formula-hint-tooltip" class="info-tooltip" role="tooltip">
-                Press H or click the lightbulb to reveal a simpler expression. Each run starts with
-                three hints. Every 10-answer streak restores one hint, up to three, and a hinted
-                answer earns half score.
-              </span>
-            </button>
-            <div
-              class="hearts info"
-              aria-label="Hearts"
-              aria-describedby="formula-hearts-tooltip"
-              tabindex="0"
-            >
-              @for (heart of heartSlots; track heart) {
-                <svg lucideHeart [class.heart--empty]="heart > hearts()" aria-hidden="true"></svg>
-              }
-              <span id="formula-hearts-tooltip" class="info-tooltip" role="tooltip">
-                Hearts are your health. Wrong answers spend one heart, and reaching zero ends the
-                run.
-              </span>
-            </div>
-          </div>
-        }
-      } @else {
-        <span>Solved {{ score() }}</span>
-        <span class="hud-mode">Free Practice</span>
-        <div class="hud-streak">
-          <span>Streak {{ streak() }}</span>
-          <span
-            class="multiplier"
-            [class.multiplier--boosted]="streak() > 1"
-            [class.multiplier--hot]="streak() >= 10"
-            [class.multiplier-pop]="multiplierPulsed()"
-            >{{ multiplier() }}x</span
-          >
         </div>
       }
     </div>
@@ -195,9 +182,6 @@
         @if (currentHint()) {
           <p class="problem-hint">hint: {{ currentHint() }}</p>
         }
-      }
-      @if (practicePaused()) {
-        <p class="practice-warning" role="alert">Choose at least one calculation type.</p>
       }
       @if (timedMode()) {
         <div class="run-meta" aria-label="Current run details">
