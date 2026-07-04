@@ -12,6 +12,14 @@ import {
 } from './index.js';
 import { describe, expect, it } from 'vitest';
 
+function seededRandom(seed = 1): () => number {
+  let value = seed;
+  return () => {
+    value = (value * 1_664_525 + 1_013_904_223) >>> 0;
+    return value / 0x1_0000_0000;
+  };
+}
+
 describe('formula frenzy multiplayer simulation', () => {
   it('defines the 25-level progression table', () => {
     expect(FORMULA_LEVELS).toHaveLength(25);
@@ -67,7 +75,7 @@ describe('formula frenzy multiplayer simulation', () => {
     const root = createFormulaProblemForLevel(12, () => 0);
 
     expect(addition.hint).toEqual(expect.any(String));
-    expect(root.hint).toBe('2 * 2');
+    expect(root.hint).toBe('4 * 4 + 2 * 2');
   });
 
   it('simplifies multiplication hints instead of restating the factors', () => {
@@ -392,17 +400,71 @@ describe('formula frenzy multiplayer simulation', () => {
     const power = createFormulaProblemForLevel(11, () => 0);
     const root = createFormulaProblemForLevel(12, () => 0);
 
-    expect(power.prompt).toBe('2²');
-    expect(root.prompt).toBe('√4');
+    expect(power.prompt).toBe('4² + 4');
+    expect(root.prompt).toBe('√16 + 4');
     expect(Number.isInteger(power.answer)).toBe(true);
     expect(Number.isInteger(root.answer)).toBe(true);
   });
 
-  it('groups compound right-hand subtraction prompts', () => {
+  it('groups compound prompts once parentheses unlock', () => {
     const randomValues = [0.55, 0.42, 0.2, 0.8, 0.05, 0.9, 0.8];
     const problem = createFormulaProblemForLevel(15, () => randomValues.shift() ?? 0);
 
-    expect(problem.prompt).toBe('9 * 5 - (4 - 4)');
-    expect(problem.answer).toBe(45);
+    expect(problem.prompt).toBe('(10 * 6) - (41 - 1)');
+    expect(problem.answer).toBe(20);
+  });
+
+  it('avoids tiny arithmetic prompts at level 8', () => {
+    const random = seededRandom(8);
+
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      const problem = createFormulaProblemForLevel(8, random);
+
+      expect(problem.prompt).toMatch(/[*/]/);
+      expect(problem.prompt).toMatch(/ [+-] /);
+      expect(problem.prompt).not.toMatch(/(?<!\d)[123](?!\d)/);
+    }
+  });
+
+  it('keeps parentheses out of pre-parentheses levels', () => {
+    for (let level = 6; level < 15; level += 1) {
+      const random = seededRandom(level);
+
+      for (let attempt = 0; attempt < 25; attempt += 1) {
+        expect(createFormulaProblemForLevel(level, random).prompt).not.toContain('(');
+      }
+    }
+  });
+
+  it('uses precedence prompts at level 10 without parentheses', () => {
+    const random = seededRandom(10);
+
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      const problem = createFormulaProblemForLevel(10, random);
+
+      expect(problem.prompt).toMatch(/[*/²³√∛]/);
+      expect(problem.prompt).toMatch(/ [+-] /);
+      expect(problem.prompt).not.toContain('(');
+    }
+  });
+
+  it('prevents negative answers before negative results unlock', () => {
+    for (let level = 1; level < 17; level += 1) {
+      const random = seededRandom(level * 31);
+
+      for (let attempt = 0; attempt < 25; attempt += 1) {
+        expect(createFormulaProblemForLevel(level, random).answer).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('avoids zero-value grouped subtraction filler', () => {
+    const random = seededRandom(15);
+
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const problem = createFormulaProblemForLevel(15, random);
+
+      expect(problem.prompt).not.toMatch(/\((\d+) - \1\)/);
+    }
   });
 });

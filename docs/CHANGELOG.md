@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Changed Formula Frenzy Free Practice to follow Progression levels without timers, hints, hearts,
   operation filters, or fail states.
+- Rebalanced Formula Frenzy progression prompts so level 10 introduces mixed-operation precedence
+  without early parentheses, while parenthesized groups stay locked to later levels.
 
 ### Added - 2026-07-02
 
