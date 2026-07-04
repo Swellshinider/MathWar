@@ -435,11 +435,20 @@ describe('FormulaFrenzyPageComponent', () => {
   it('switches to free practice without a game over timer', () => {
     component.selectFreePractice();
     fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
 
     expect(component.gameMode()).toBe('free-practice');
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Solved 0');
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 0');
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Time ');
+    expect(root.textContent).toContain('Solved');
+    expect(root.textContent).toContain('Streak 0');
+    expect(root.textContent).toContain('Level 1');
+    expect(root.textContent).toContain('Number Scout');
+    expect(root.textContent).toContain('Reset to Level 1');
+    expect(root.textContent).not.toContain('Time ');
+    expect(root.querySelector('.reset-level-button')).not.toBeNull();
+    expect(root.querySelector('.hint-token')).toBeNull();
+    expect(root.querySelector('.hearts')).toBeNull();
+    expect(root.querySelector('.practice-options')).toBeNull();
+    expect(root.querySelector('.mode-panel input[type="checkbox"]')).toBeNull();
 
     vi.advanceTimersByTime(60000);
     fixture.detectChanges();
@@ -572,59 +581,86 @@ describe('FormulaFrenzyPageComponent', () => {
     });
   });
 
-  it('uses selected operation types in free practice', () => {
+  it('advances through progression levels in free practice without speed scoring', () => {
     component.selectFreePractice();
-    component.setPracticeOperation('addition', false);
-    component.setPracticeOperation('subtraction', false);
-    component.setPracticeOperation('division', false);
-    component.setPracticeOperation('power', false);
-    component.setPracticeOperation('root', false);
 
-    component.answerControl.setValue(String(component.problem().answer));
-    component.submitAnswer();
+    for (let index = 0; index < 8; index += 1) {
+      component.answerControl.setValue(String(component.problem().answer));
+      component.submitAnswer();
+    }
     fixture.detectChanges();
 
-    expect(component.practiceOperations()).toEqual(['multiplication']);
+    expect(component.score()).toBe(8);
+    expect(component.experience()).toBe(8);
+    expect(component.level()).toBe(4);
+    expect(component.xp()).toBe(0);
+    expect(component.highestLevel()).toBe(4);
+    expect(component.totalCorrect()).toBe(8);
+    expect(component.problem().level).toBe(4);
     expect(component.problem().prompt).toMatch(/^\d+ \* \d+$/);
-    expect(component.score()).toBe(1);
-    expect(component.streak()).toBe(1);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 1');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Level 4');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Factor Runner');
   });
 
   it('resets the free practice streak on a wrong answer', () => {
     component.selectFreePractice();
     component.answerControl.setValue(String(component.problem().answer));
     component.submitAnswer();
+    const score = component.score();
+    const experience = component.experience();
+    const level = component.level();
     component.answerControl.setValue(String(component.problem().answer! + 1));
     component.submitAnswer();
     fixture.detectChanges();
 
-    expect(component.score()).toBe(1);
+    expect(component.score()).toBe(score);
+    expect(component.experience()).toBe(experience);
+    expect(component.level()).toBe(level);
     expect(component.streak()).toBe(0);
+    expect(component.gameOver()).toBe(false);
     expect(component.answerControl.value).toBe('');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Streak 0');
   });
 
-  it('pauses free practice when all operation types are unchecked', () => {
+  it('does not reveal hints in free practice with the H key', () => {
     component.selectFreePractice();
-    for (const operation of component.practiceOperations()) {
-      component.setPracticeOperation(operation, false);
+    fixture.detectChanges();
+    const event = new KeyboardEvent('keydown', {
+      key: 'h',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    document.dispatchEvent(event);
+    fixture.detectChanges();
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(component.currentHint()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.problem-hint')).toBeNull();
+  });
+
+  it('resets free practice to level 1 from the toolbar', () => {
+    component.selectFreePractice();
+    for (let index = 0; index < 3; index += 1) {
+      component.answerControl.setValue(String(component.problem().answer));
+      component.submitAnswer();
     }
     fixture.detectChanges();
 
-    const root = fixture.nativeElement as HTMLElement;
-    expect(component.practicePaused()).toBe(true);
-    expect(root.querySelector('[role="alert"]')?.textContent).toContain(
-      'Choose at least one calculation type.',
-    );
-    expect(root.querySelector<HTMLInputElement>('#formula-answer')?.disabled).toBe(true);
+    expect(component.level()).toBe(2);
 
-    component.setPracticeOperation('division', true);
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.reset-level-button')
+      ?.click();
     fixture.detectChanges();
 
-    expect(component.practicePaused()).toBe(false);
-    expect(component.problem().prompt).toMatch(/^\d+ \/ \d+$/);
-    expect(root.querySelector<HTMLInputElement>('#formula-answer')?.disabled).toBe(false);
+    expect(component.score()).toBe(0);
+    expect(component.experience()).toBe(0);
+    expect(component.level()).toBe(1);
+    expect(component.xp()).toBe(0);
+    expect(component.streak()).toBe(0);
+    expect(component.gameOver()).toBe(false);
+    expect(component.runStarted()).toBe(true);
   });
 
   function startHardcoreRun(): void {

@@ -16,19 +16,6 @@
   align-items: center;
 }
 
-.practice-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.practice-options label {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-}
-
 .frenzy-surface {
   position: relative;
   display: grid;
@@ -65,18 +52,6 @@
   gap: var(--space-1);
 }
 
-.hud-mode {
-  justify-self: center;
-  text-align: center;
-}
-
-.hud-streak {
-  display: grid;
-  gap: var(--space-1);
-  justify-self: end;
-  text-align: right;
-}
-
 .hud-score strong,
 .hud-level strong {
   color: var(--text-strong);
@@ -99,7 +74,6 @@
 
 .hud-level > span,
 .hud-score > span,
-.hud-streak > span:first-child,
 .score-meta,
 .run-meta {
   font-size: var(--fs-sm);
@@ -187,13 +161,6 @@
   font-size: clamp(2.5rem, 8vw, 5rem);
   font-weight: var(--weight-black);
   line-height: 1;
-  text-align: center;
-}
-
-.practice-warning {
-  margin: 0;
-  color: var(--error);
-  font-weight: var(--weight-bold);
   text-align: center;
 }
 
@@ -285,8 +252,4 @@ input {
     grid-row: 2;
   }
 
-  .hud-mode {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
 }

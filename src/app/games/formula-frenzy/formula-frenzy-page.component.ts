@@ -27,12 +27,9 @@ import { GameFrameComponent } from '../../shared/game-frame/game-frame.component
 import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-lobby.component';
 import { ToastService } from '../../shared/toast/toast.service';
 import {
-  FORMULA_OPERATION_OPTIONS,
   FORMULA_LEVELS,
-  createFormulaPracticeProblem,
   createFormulaProblem,
   createFormulaProblemForLevel,
-  FormulaOperation,
   FormulaProblem,
   formulaProgress,
   scoreFormulaAnswer,
@@ -82,13 +79,6 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
       !this.gameOver() &&
       this.hintsRemaining() > 0 &&
       this.currentHint() === null,
-  );
-  readonly operationOptions = FORMULA_OPERATION_OPTIONS;
-  readonly practiceOperations = signal<readonly FormulaOperation[]>(
-    FORMULA_OPERATION_OPTIONS.map((option) => option.operation),
-  );
-  readonly practicePaused = computed(
-    () => this.gameMode() === 'free-practice' && this.practiceOperations().length === 0,
   );
   readonly score = signal(0);
   readonly experience = signal(0);
@@ -168,7 +158,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
 
   submitAnswer(event?: SubmitEvent): void {
     event?.preventDefault();
-    if (this.gameOver() || this.practicePaused() || this.timedModePaused()) return;
+    if (this.gameOver() || this.timedModePaused()) return;
 
     const answer = Number(this.answerControl.value);
     if (Number.isNaN(answer)) {
@@ -182,40 +172,27 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     }
 
     const solveTimeMs = Date.now() - this.problemStartedAt;
-    if (this.gameMode() === 'free-practice') {
-      const nextStreak = this.streak() + 1;
-      this.totalSolveTimeMs.update((total) => total + solveTimeMs);
-      this.totalCorrect.update((total) => total + 1);
-      this.score.update((score) => score + 1);
-      this.pulseScore();
-      this.streak.set(nextStreak);
-      this.pulseMultiplier();
-      this.bestStreak.update((best) => Math.max(best, nextStreak));
-      this.answerRejected.set(false);
-      this.answerRejectionCount.set(0);
-      this.answerControl.setValue('');
-      this.problem.set(this.nextProblem());
-      this.playSound('right-answer.wav');
-      return;
-    }
-
     const previousLevel = this.level();
     const nextStreak = this.streak() + 1;
     const nextExperience = this.experience() + 1;
     const progress = formulaProgress(nextExperience);
     this.totalSolveTimeMs.update((total) => total + solveTimeMs);
     this.totalCorrect.update((total) => total + 1);
-    this.score.update(
-      (score) =>
-        score +
-        scoreFormulaAnswer(
-          nextStreak,
-          solveTimeMs,
-          this.problem().deadlineMs,
-          this.problem().level,
-          this.currentHint() !== null,
-        ),
-    );
+    if (this.gameMode() === 'free-practice') {
+      this.score.update((score) => score + 1);
+    } else {
+      this.score.update(
+        (score) =>
+          score +
+          scoreFormulaAnswer(
+            nextStreak,
+            solveTimeMs,
+            this.problem().deadlineMs,
+            this.problem().level,
+            this.currentHint() !== null,
+          ),
+      );
+    }
     this.pulseScore();
     this.experience.set(nextExperience);
     this.level.set(progress.level);
@@ -238,9 +215,10 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.currentHint.set(null);
     this.problem.set(this.nextProblem());
     if (this.timedMode()) this.startProblemTimer();
+    else this.problemStartedAt = Date.now();
     this.playSound('right-answer.wav');
     if (this.hearts() > previousHearts) this.playSound('heart-up.wav');
-    if (this.timedMode() && this.level() > previousLevel) {
+    if (this.level() > previousLevel) {
       this.playSound('level-up.wav');
     }
   }
@@ -275,6 +253,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.clearTimers();
     this.clearPulseTimers();
     this.timeRemainingMs.set(this.timedMode() ? this.problem().deadlineMs : 0);
+    this.problemStartedAt = Date.now();
     this.syncAnswerControl();
   }
 
@@ -322,21 +301,6 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   selectFreePractice(): void {
     this.gameMode.set('free-practice');
     this.restart();
-  }
-
-  setPracticeOperation(operation: FormulaOperation, enabled: boolean): void {
-    const operations = this.practiceOperations();
-    const nextOperations = enabled
-      ? [...operations, operation]
-      : operations.filter((current) => current !== operation);
-    this.practiceOperations.set([...new Set(nextOperations)]);
-    this.answerRejected.set(false);
-    this.answerRejectionCount.set(0);
-    this.answerControl.setValue('');
-    if (this.gameMode() === 'free-practice' && nextOperations.length > 0) {
-      this.problem.set(this.nextProblem());
-    }
-    this.syncAnswerControl();
   }
 
   enterMultiplayer(state: MultiplayerMatchState): void {
@@ -544,14 +508,11 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   }
 
   private nextProblem(): FormulaProblem {
-    if (this.gameMode() === 'free-practice' && this.practiceOperations().length > 0) {
-      return createFormulaPracticeProblem(this.practiceOperations());
-    }
     return createFormulaProblem(this.experience());
   }
 
   private syncAnswerControl(): void {
-    if (this.gameOver() || this.practicePaused() || this.timedModePaused()) {
+    if (this.gameOver() || this.timedModePaused()) {
       this.answerControl.disable({ emitEvent: false });
     } else {
       this.answerControl.enable({ emitEvent: false });
