@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
@@ -26,7 +26,6 @@ import {
   resolveFormulaFrenzyAnswer,
   resolveShot,
   RoomJoinCommand,
-  sanitizeFormulaFrenzyState,
   startFormulaFrenzyMatch,
   VersionedCommand,
 } from '@math-war/game-engine';
@@ -66,13 +65,35 @@ import {
 import { InstrumentedMatchRepository } from './observability/repository.js';
 import { MatchRepository } from './repository.js';
 import { SocketAdapterHandle } from './redis-adapter.js';
+import {
+  canonicalOrigin,
+  createFixedWindowLimiter,
+  createRobotsTxt,
+  createSitemapXml,
+  cspConnectSrc,
+  isMetricsRequestAuthorized,
+  isUniqueConstraintViolation,
+  socketAddress,
+} from './server/http-utils.js';
+import { publicState, roomName, setPlayerConnected, stateGameId, userRoomName } from './server/public-state.js';
+import {
+  createRoomCode,
+  isFormulaAnswerCommand,
+  isFormulaHintCommand,
+  isFormulaTypingCommand,
+  isVersionedCommand,
+  normalizeRoomCode,
+  parseBoundedInteger,
+  parseNullableBoundedInteger,
+  parsePositiveInteger,
+  requestedGameId,
+} from './server/validation.js';
 
 interface AuthenticatedSocket extends Socket {
   data: { user: AuthenticatedUser; matchId?: string };
 }
 
 type Ack<T = undefined> = (response: CommandAck<T>) => void;
-const ROOM_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const HTTP_BODY_LIMIT_BYTES = 512 * 1024;
 const GUEST_AUTH_RATE_LIMIT_MAX = 10;
 const GUEST_AUTH_RATE_LIMIT_WINDOW = '1 minute';
@@ -115,124 +136,6 @@ export interface MultiplayerServerOptions {
   ) => Promise<{ token: string; expiresAt: string; user: AuthenticatedUser }>;
 }
 
-interface RateBucket {
-  count: number;
-  resetAt: number;
-}
-
-function roomName(matchId: string): string {
-  return `match:${matchId}`;
-}
-function userRoomName(userId: string): string {
-  return `user:${userId}`;
-}
-function stateGameId(state: MultiplayerMatchState): GameId {
-  return state.gameId ?? 'equation-artillery';
-}
-function publicState<T extends MultiplayerMatchState>(state: T): T {
-  return (
-    stateGameId(state) === 'formula-frenzy'
-      ? sanitizeFormulaFrenzyState(state as FormulaFrenzyMatchState)
-      : state
-  ) as T;
-}
-function setPlayerConnected(
-  state: MultiplayerMatchState,
-  userId: string,
-  connected: boolean,
-): MultiplayerMatchState {
-  const players = state.players.map((player) =>
-    player.userId === userId ? { ...player, connected } : player,
-  );
-  if (stateGameId(state) !== 'formula-frenzy') return { ...state, players };
-  return {
-    ...(state as FormulaFrenzyMatchState),
-    players,
-    formulaPlayers: (state as FormulaFrenzyMatchState).formulaPlayers.map((player) =>
-      player.userId === userId ? { ...player, connected } : player,
-    ),
-  };
-}
-function createRoomCode(): string {
-  const bytes = randomBytes(8);
-  const characters = [...bytes].map((byte) => ROOM_CODE_ALPHABET[byte % ROOM_CODE_ALPHABET.length]);
-  return `${characters.slice(0, 4).join('')}-${characters.slice(4).join('')}`;
-}
-function normalizeRoomCode(value: string): string {
-  const compact = value
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, '');
-  if (/^[A-Z0-9]{8}$/.test(compact)) return `${compact.slice(0, 4)}-${compact.slice(4)}`;
-  return value.trim().toUpperCase();
-}
-function socketAddress(socket: Socket): string {
-  return socket.handshake.address || socket.conn.remoteAddress || 'unknown';
-}
-function createFixedWindowLimiter(windowMs: number) {
-  const buckets = new Map<string, RateBucket>();
-  return (key: string, limit: number): boolean => {
-    const now = Date.now();
-    const bucket = buckets.get(key);
-    if (!bucket || bucket.resetAt <= now) {
-      buckets.set(key, { count: 1, resetAt: now + windowMs });
-      return true;
-    }
-    bucket.count += 1;
-    if (bucket.count > limit) return false;
-    if (buckets.size > 10_000) {
-      for (const [bucketKey, value] of buckets) {
-        if (value.resetAt <= now) buckets.delete(bucketKey);
-      }
-    }
-    return true;
-  };
-}
-function timingSafeStringEqual(left: string, right: string): boolean {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  if (leftBuffer.length !== rightBuffer.length) return false;
-  return timingSafeEqual(leftBuffer, rightBuffer);
-}
-function isUniqueConstraintViolation(error: unknown): boolean {
-  return (
-    !!error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as { code?: unknown }).code === '23505'
-  );
-}
-function isMetricsRequestAuthorized(authorization: string | undefined): boolean {
-  const token = process.env['METRICS_TOKEN'];
-  const requiresToken = process.env['NODE_ENV'] === 'production' || !!token;
-  if (!requiresToken) return true;
-  if (!token || !authorization?.startsWith('Bearer ')) return false;
-  return timingSafeStringEqual(authorization.slice('Bearer '.length), token);
-}
-function parsePositiveInteger(value: unknown, fallback: number, min: number, max: number): number {
-  if (value === undefined) return fallback;
-  const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-    throw new Error(`Expected an integer from ${min} to ${max}.`);
-  }
-  return parsed;
-}
-function parseBoundedInteger(value: unknown, label: string, min: number, max: number): number {
-  const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-    throw new Error(`${label} must be an integer from ${min} to ${max}.`);
-  }
-  return parsed;
-}
-function parseNullableBoundedInteger(
-  value: unknown,
-  label: string,
-  min: number,
-  max: number,
-): number | null {
-  if (value === null) return null;
-  return parseBoundedInteger(value, label, min, max);
-}
 function accountAvatarUrl(account: AccountRecord): string | null {
   if (!account.avatarMimeType || !account.avatarUpdatedAt) return null;
   return `/api/account/avatar/${account.id}?v=${encodeURIComponent(account.avatarUpdatedAt)}`;
@@ -254,79 +157,6 @@ function refreshCookieOptions(secure: boolean, expires: Date) {
     expires,
   };
 }
-function cspConnectSrc(allowedOrigin: string): string[] {
-  if (allowedOrigin === '*') return ["'self'", 'http:', 'https:', 'ws:', 'wss:'];
-  const sources = new Set(["'self'", allowedOrigin]);
-  try {
-    const origin = new URL(allowedOrigin);
-    sources.add(`${origin.protocol === 'https:' ? 'wss:' : 'ws:'}//${origin.host}`);
-  } catch {}
-  return [...sources];
-}
-function canonicalOrigin(origin: string): string {
-  return origin.replace(/\/+$/, '');
-}
-function xmlEscape(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
-}
-function seoPublicPaths(): readonly string[] {
-  return [
-    '/',
-    '/about',
-    '/games/equation-artillery',
-    '/games/formula-frenzy',
-    '/leaderboard/formula-frenzy',
-  ];
-}
-function createRobotsTxt(siteOrigin: string): string {
-  return [
-    'User-agent: *',
-    'Allow: /',
-    'Disallow: /api/',
-    'Disallow: /socket.io/',
-    `Sitemap: ${siteOrigin}/sitemap.xml`,
-    '',
-  ].join('\n');
-}
-function createSitemapXml(siteOrigin: string): string {
-  const urls = seoPublicPaths()
-    .map((path) => {
-      const loc = path === '/' ? siteOrigin : `${siteOrigin}${path}`;
-      return `  <url>\n    <loc>${xmlEscape(loc)}</loc>\n  </url>`;
-    })
-    .join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
-}
-function isVersionedCommand(value: unknown): value is VersionedCommand {
-  if (!value || typeof value !== 'object') return false;
-  const command = value as Partial<VersionedCommand>;
-  return (
-    typeof command.commandId === 'string' &&
-    /^[0-9a-f-]{36}$/i.test(command.commandId) &&
-    Number.isInteger(command.expectedVersion) &&
-    (command.expectedVersion ?? -1) >= 0
-  );
-}
-function requestedGameId(command: Pick<VersionedCommand, 'gameId'>): GameId {
-  return command.gameId ?? 'equation-artillery';
-}
-function isFormulaAnswerCommand(value: unknown): value is FormulaFrenzyAnswerCommand {
-  if (!isVersionedCommand(value)) return false;
-  return typeof (value as Partial<FormulaFrenzyAnswerCommand>).answer === 'number';
-}
-function isFormulaHintCommand(value: unknown): value is FormulaFrenzyHintCommand {
-  return isVersionedCommand(value);
-}
-function isFormulaTypingCommand(value: unknown): value is FormulaFrenzyTypingCommand {
-  if (!value || typeof value !== 'object') return false;
-  return typeof (value as FormulaFrenzyTypingCommand).input === 'string';
-}
-
 export async function createMultiplayerServer(options: MultiplayerServerOptions) {
   const fastify = Fastify({
     bodyLimit: HTTP_BODY_LIMIT_BYTES,
