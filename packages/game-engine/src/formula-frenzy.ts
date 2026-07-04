@@ -460,29 +460,89 @@ function problemForLevel(
   config: FormulaLevelConfig,
   random: () => number,
 ): Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'> {
-  const operation =
-    config.allowedOperations[Math.floor(random() * config.allowedOperations.length)];
+  const operation = primaryOperationForLevel(config, random);
   const first = problemForOperation(operation, random, config.level);
-  if (config.level < 6 || operation === 'power' || operation === 'root') return first;
+  if (config.level < 6) return first;
+
+  if (!config.allowParentheses) {
+    return flatCompoundProblem(first, config, random);
+  }
 
   const secondOperation = random() < 0.5 ? 'addition' : 'subtraction';
-  const second = problemForOperation(secondOperation, random, config.level);
+  const second = nonZeroProblemForOperation(secondOperation, random, config.level);
+  const operationSign =
+    !config.allowNegativeResults &&
+    secondOperation === 'subtraction' &&
+    first.answer! < second.answer!
+      ? '+'
+      : secondOperation === 'addition'
+        ? '+'
+        : '-';
   const secondPrompt = groupCompoundPrompt(second.prompt);
-  const prompt =
-    config.level >= 15 && random() < 0.5
-      ? `(${first.prompt}) ${secondOperation === 'addition' ? '+' : '-'} ${secondPrompt}`
-      : `${first.prompt} ${secondOperation === 'addition' ? '+' : '-'} ${secondPrompt}`;
+  const groupFirst = random() < 0.5;
   return {
-    prompt,
-    answer:
-      secondOperation === 'addition'
-        ? first.answer! + second.answer!
-        : first.answer! - second.answer!,
+    prompt: `${groupFirst ? `(${first.prompt})` : first.prompt} ${operationSign} ${secondPrompt}`,
+    answer: operationSign === '+' ? first.answer! + second.answer! : first.answer! - second.answer!,
     hint:
-      secondOperation === 'addition'
+      operationSign === '+'
         ? `${hintForProblem(first)} + ${hintForProblem(second)}`
         : `${hintForProblem(first)} - ${groupCompoundPrompt(hintForProblem(second))}`,
   };
+}
+
+function primaryOperationForLevel(
+  config: FormulaLevelConfig,
+  random: () => number,
+): FormulaOperation {
+  const operation =
+    config.allowedOperations[Math.floor(random() * config.allowedOperations.length)];
+  if (!config.requirePrecedence) return operation;
+
+  const precedenceOperations: FormulaOperation[] = config.allowedOperations.filter(
+    (candidate) =>
+      candidate === 'multiplication' ||
+      candidate === 'division' ||
+      candidate === 'power' ||
+      candidate === 'root',
+  );
+  if (precedenceOperations.length === 0 || precedenceOperations.includes(operation)) {
+    return operation;
+  }
+  return precedenceOperations[Math.floor(random() * precedenceOperations.length)];
+}
+
+function flatCompoundProblem(
+  first: Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'>,
+  config: FormulaLevelConfig,
+  random: () => number,
+): Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'> {
+  const min = minimumOperandForLevel(config.level);
+  const max = Math.min(20 + config.level * 2, 80);
+  const wantsSubtraction = random() >= 0.5;
+  const canSubtract = config.allowNegativeResults || first.answer! > 1;
+  const operationSign = wantsSubtraction && canSubtract ? '-' : '+';
+  const upperBound =
+    operationSign === '-' && !config.allowNegativeResults ? Math.min(max, first.answer!) : max;
+  const operand = randomInt(random, Math.min(min, upperBound), Math.max(min, upperBound));
+  return {
+    prompt: `${first.prompt} ${operationSign} ${operand}`,
+    answer: operationSign === '+' ? first.answer! + operand : first.answer! - operand,
+    hint: `${hintForProblem(first)} ${operationSign} ${hintForAnswer(operand)}`,
+  };
+}
+
+function nonZeroProblemForOperation(
+  operation: FormulaOperation,
+  random: () => number,
+  levelNumber: number,
+): Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const problem = problemForOperation(operation, random, levelNumber);
+    if (problem.answer !== 0) return problem;
+  }
+  return operation === 'subtraction'
+    ? { prompt: '2 - 1', answer: 1, hint: '1' }
+    : { prompt: '1 + 1', answer: 2, hint: '2' };
 }
 
 function groupCompoundPrompt(prompt: string): string {
@@ -494,16 +554,17 @@ function problemForOperation(
   random: () => number,
   levelNumber: number,
 ): Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'> {
+  const min = minimumOperandForLevel(levelNumber);
   const max = Math.min(20 + levelNumber * 2, 80);
   if (operation === 'subtraction') {
-    const left = randomInt(random, 2, max);
+    const left = randomInt(random, Math.max(2, min), max);
     const right = randomInt(random, 1, Math.min(left, max));
     const answer = left - right;
     return { prompt: `${left} - ${right}`, answer, hint: hintForAnswer(answer) };
   }
   if (operation === 'multiplication') {
-    const left = randomInt(random, 2, Math.min(12 + Math.floor(levelNumber / 2), 24));
-    const right = randomInt(random, 2, Math.min(12 + Math.floor(levelNumber / 3), 20));
+    const left = randomInt(random, min, Math.min(12 + Math.floor(levelNumber / 2), 24));
+    const right = randomInt(random, min, Math.min(12 + Math.floor(levelNumber / 3), 20));
     return {
       prompt: `${left} * ${right}`,
       answer: left * right,
@@ -511,8 +572,12 @@ function problemForOperation(
     };
   }
   if (operation === 'division') {
-    const divisor = randomInt(random, 2, Math.min(12 + Math.floor(levelNumber / 3), 20));
-    const answer = randomInt(random, 1, Math.min(12 + Math.floor(levelNumber / 2), 24));
+    const divisor = randomInt(random, min, Math.min(12 + Math.floor(levelNumber / 3), 20));
+    const answer = randomInt(
+      random,
+      levelNumber >= 8 ? min : 1,
+      Math.min(12 + Math.floor(levelNumber / 2), 24),
+    );
     return {
       prompt: `${answer * divisor} / ${divisor}`,
       answer,
@@ -521,14 +586,14 @@ function problemForOperation(
   }
   if (operation === 'power') {
     const exponent = levelNumber >= 18 && random() < 0.35 ? 3 : 2;
-    const base = randomInt(random, 2, exponent === 3 ? 6 : 12);
+    const base = randomInt(random, min, exponent === 3 ? 6 : 12);
     const prompt = `${base}${exponent === 3 ? '³' : '²'}`;
     const hint = exponent === 3 ? `${base} * ${base} * ${base}` : `${base} * ${base}`;
     return { prompt, answer: base ** exponent, hint };
   }
   if (operation === 'root') {
     const cube = levelNumber >= 20 && random() < 0.35;
-    const answer = randomInt(random, 2, cube ? 6 : 12);
+    const answer = randomInt(random, min, cube ? 6 : 12);
     return cube
       ? { prompt: `∛${answer ** 3}`, answer, hint: `${answer} * ${answer} * ${answer}` }
       : { prompt: `√${answer ** 2}`, answer, hint: `${answer} * ${answer}` };
@@ -538,6 +603,12 @@ function problemForOperation(
   const right = randomInt(random, 1, max);
   const answer = left + right;
   return { prompt: `${left} + ${right}`, answer, hint: hintForAnswer(answer) };
+}
+
+function minimumOperandForLevel(levelNumber: number): number {
+  if (levelNumber >= 8) return 4;
+  if (levelNumber >= 6) return 3;
+  return 2;
 }
 
 function hintForProblem(problem: Pick<FormulaProblem, 'prompt' | 'answer' | 'hint'>): string {
