@@ -153,8 +153,8 @@
             <span>{{ hintsRemaining() }}</span>
             <span id="formula-hint-tooltip" class="info-tooltip" role="tooltip">
               Press H or click the lightbulb to reveal a simpler expression. Each run starts with
-              three hints. Every 10-answer streak restores one hint, up to three, and a hinted answer
-              earns half score.
+              three hints. Every 10-answer streak restores one hint, up to three, and a hinted
+              answer earns half score.
             </span>
           </button>
           <div
@@ -176,9 +176,9 @@
 
     <div class="problem-panel">
       @if (timedMode() && !runStarted() && !gameOver()) {
-        <p class="problem-prompt">?? + ??</p>
+        <p class="problem-prompt"><app-formula-prompt prompt="?? + ??" /></p>
       } @else {
-        <p class="problem-prompt">{{ problem().prompt }}</p>
+        <p class="problem-prompt"><app-formula-prompt [prompt]="problem().prompt" /></p>
         @if (currentHint()) {
           <p class="problem-hint">hint: {{ currentHint() }}</p>
         }

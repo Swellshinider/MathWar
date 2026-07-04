@@ -112,7 +112,9 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(root.textContent).toContain('Progression');
     expect(root.textContent).toContain('Hardcore');
     expect(root.textContent).toContain('Free Practice');
-    expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe('?? + ??');
+    expect(root.querySelector('.problem-prompt .formula-prompt')?.getAttribute('aria-label')).toBe(
+      '?? + ??',
+    );
     expect(root.querySelector('#formula-answer')?.getAttribute('type')).toBe('text');
     expect(root.querySelector('#formula-answer')?.getAttribute('inputmode')).toBe('none');
     expect(root.querySelector('.answer-keypad__send')?.textContent).toContain('Send');
@@ -196,10 +198,29 @@ describe('FormulaFrenzyPageComponent', () => {
     fixture.detectChanges();
 
     expect(component.runStarted()).toBe(true);
-    expect(root.querySelector('.problem-prompt')?.textContent?.trim()).toBe(
+    expect(root.querySelector('.problem-prompt .formula-prompt')?.getAttribute('aria-label')).toBe(
       component.problem().prompt,
     );
     expect(document.activeElement).toBe(root.querySelector<HTMLInputElement>('#formula-answer'));
+  });
+
+  it('renders division as a fraction and multiplication with a multiplication sign', () => {
+    component.selectFreePractice();
+    component.problem.set({ ...component.problem(), prompt: '10 / 2' });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('.formula-fraction__numerator')?.textContent?.trim()).toBe('10');
+    expect(root.querySelector('.formula-fraction__denominator')?.textContent?.trim()).toBe('2');
+    expect(root.querySelector('.problem-prompt .formula-prompt')?.getAttribute('aria-label')).toBe(
+      '10 / 2',
+    );
+
+    component.problem.set({ ...component.problem(), prompt: '2 * 3' });
+    fixture.detectChanges();
+
+    expect(root.querySelector('.problem-prompt')?.textContent).toContain('×');
+    expect(root.querySelector('.problem-prompt')?.textContent).not.toContain('*');
   });
 
   it('prevents browser navigation when submitting with Enter', () => {

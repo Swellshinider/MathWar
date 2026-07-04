@@ -249,6 +249,42 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
     vi.useRealTimers();
   });
 
+  it('renders local and opponent operators with math formatting', () => {
+    const state = activeState({
+      formulaPlayers: [
+        {
+          ...activeState().formulaPlayers[0],
+          currentProblem: {
+            ...activeState().formulaPlayers[0].currentProblem,
+            prompt: '10 / 2',
+          },
+        },
+        {
+          ...activeState().formulaPlayers[1],
+          currentProblem: {
+            ...activeState().formulaPlayers[1].currentProblem,
+            prompt: '2 * 3',
+          },
+        },
+      ],
+    });
+    handlers.state(state);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const prompts = root.querySelectorAll<HTMLElement>('.problem-prompt');
+
+    expect(prompts[0].querySelector('.formula-fraction__numerator')?.textContent?.trim()).toBe(
+      '10',
+    );
+    expect(prompts[0].querySelector('.formula-fraction__denominator')?.textContent?.trim()).toBe(
+      '2',
+    );
+    expect(prompts[0].querySelector('.formula-prompt')?.getAttribute('aria-label')).toBe('10 / 2');
+    expect(prompts[1].textContent).toContain('×');
+    expect(prompts[1].textContent).not.toContain('*');
+    expect(prompts[1].querySelector('.formula-prompt')?.getAttribute('aria-label')).toBe('2 * 3');
+  });
+
   it('sends the keypad answer through the existing form submit', async () => {
     const next = activeState({ version: 3 });
     socket.answerFormula.mockResolvedValue({ ok: true, data: next });
