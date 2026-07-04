@@ -26,6 +26,7 @@ import { preventBackspaceNavigation } from '../../shared/dom/prevent-backspace-n
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-lobby.component';
 import { ToastService } from '../../shared/toast/toast.service';
+import { FormulaPromptComponent } from './formula-prompt/formula-prompt.component';
 import {
   FORMULA_LEVELS,
   createFormulaProblem,
@@ -48,6 +49,7 @@ const HARDCORE_WARNING_STORAGE_KEY = 'math-war.formula-frenzy.hide-hardcore-warn
     RouterLink,
     LucideHeart,
     LucideLightbulb,
+    FormulaPromptComponent,
   ],
   templateUrl: './formula-frenzy-page.component.html',
   styleUrl: './formula-frenzy-page.component.scss',

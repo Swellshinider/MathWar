@@ -29,6 +29,7 @@ import { MultiplayerLobbyComponent } from '../../../shared/multiplayer/multiplay
 import { MultiplayerSocketService } from '../../../shared/multiplayer/multiplayer-socket.service';
 import { formatRoomCode } from '../../../shared/multiplayer/room-code';
 import { ToastService } from '../../../shared/toast/toast.service';
+import { FormulaPromptComponent } from '../formula-prompt/formula-prompt.component';
 
 @Component({
   selector: 'app-formula-frenzy-multiplayer-page',
@@ -38,6 +39,7 @@ import { ToastService } from '../../../shared/toast/toast.service';
     ReactiveFormsModule,
     LucideHeart,
     LucideLightbulb,
+    FormulaPromptComponent,
   ],
   templateUrl: './formula-frenzy-multiplayer-page.component.html',
   styleUrl: './formula-frenzy-multiplayer-page.component.scss',
@@ -113,12 +115,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
   readonly canRequestHint = computed(() => {
     const state = this.state();
     const me = this.me();
-    return (
-      state?.status === 'active' &&
-      !!me &&
-      me.hintsRemaining > 0 &&
-      me.currentHint === null
-    );
+    return state?.status === 'active' && !!me && me.hintsRemaining > 0 && me.currentHint === null;
   });
 
   constructor() {
