@@ -17,6 +17,10 @@ import { LucideHeart, LucideLightbulb } from '@lucide/angular';
 import { MultiplayerMatchState } from '@math-war/game-engine';
 import { AccountAuthService } from '../../account/account-auth.service';
 import {
+  AccountProgressService,
+  FormulaFrenzyProgressRun,
+} from '../../account/account-progress.service';
+import {
   LeaderboardDifficulty,
   LeaderboardRun,
   LeaderboardService,
@@ -58,6 +62,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private readonly auth = inject(AccountAuthService);
   private readonly audio = inject(AudioSettingsService);
   private readonly leaderboard = inject(LeaderboardService);
+  private readonly progress = inject(AccountProgressService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
@@ -129,10 +134,16 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private multiplierPulseId: ReturnType<typeof setTimeout> | null = null;
   private nextTickAtMs = 0;
   private pendingAutoSaveHandled = false;
+  private pendingProgressSaveHandled = false;
+  private currentRunId = createProgressRunId();
+  private savedProgressRunId: string | null = null;
 
   constructor() {
     effect(() => {
-      if (this.auth.ready()) void this.savePendingLeaderboardRun();
+      if (this.auth.ready()) {
+        void this.savePendingLeaderboardRun();
+        void this.savePendingProgressRun();
+      }
     });
   }
 
@@ -252,6 +263,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.answerRejectionCount.set(0);
     this.answerControl.setValue('');
     this.problem.set(this.nextProblem());
+    this.currentRunId = createProgressRunId();
+    this.savedProgressRunId = null;
     this.clearTimers();
     this.clearPulseTimers();
     this.timeRemainingMs.set(this.timedMode() ? this.problem().deadlineMs : 0);
@@ -353,6 +366,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     const run = this.currentLeaderboardRun();
     if (!this.auth.user()) {
       this.leaderboard.storePendingRun('formula-frenzy', run);
+      this.progress.storePendingFormulaFrenzyRun(this.currentProgressRun());
       this.leaderboardAuthPrompt.set(true);
       return;
     }
@@ -367,6 +381,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.syncAnswerControl();
     this.syncResultDialog();
     this.playSound('game-over.wav');
+    void this.saveCurrentRunProgress();
   }
 
   private rejectAnswer(): void {
@@ -467,6 +482,13 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     };
   }
 
+  private currentProgressRun(): FormulaFrenzyProgressRun {
+    return {
+      runId: this.currentRunId,
+      ...this.currentLeaderboardRun(),
+    };
+  }
+
   private leaderboardDifficulty(): LeaderboardDifficulty {
     return this.hardcoreMode() ? 'hardcore' : 'normal';
   }
@@ -488,6 +510,21 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     }
   }
 
+  private async saveCurrentRunProgress(): Promise<void> {
+    if (!this.auth.user() || this.gameMode() === 'free-practice') return;
+    const run = this.currentProgressRun();
+    if (this.savedProgressRunId === run.runId) return;
+    this.savedProgressRunId = run.runId;
+    try {
+      const result = await this.progress.saveFormulaFrenzyRun(run);
+      for (const achievement of result.newlyUnlocked) {
+        this.toast.show(`Achievement unlocked: ${achievementTitle(achievement.id)}`);
+      }
+    } catch {
+      this.savedProgressRunId = null;
+    }
+  }
+
   private async savePendingLeaderboardRun(): Promise<void> {
     if (this.pendingAutoSaveHandled || !this.auth.ready()) return;
     if (this.route.snapshot.queryParamMap.get('saveLeaderboard') !== '1') return;
@@ -501,6 +538,21 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
       replaceUrl: true,
     });
     if (run) await this.saveRunToLeaderboard(run);
+  }
+
+  private async savePendingProgressRun(): Promise<void> {
+    if (this.pendingProgressSaveHandled || !this.auth.ready()) return;
+    if (this.route.snapshot.queryParamMap.get('saveLeaderboard') !== '1') return;
+    if (!this.auth.user()) return;
+    this.pendingProgressSaveHandled = true;
+    const run = this.progress.takePendingFormulaFrenzyRun(this.pendingLeaderboardDifficulty());
+    if (!run) return;
+    try {
+      const result = await this.progress.saveFormulaFrenzyRun(run);
+      for (const achievement of result.newlyUnlocked) {
+        this.toast.show(`Achievement unlocked: ${achievementTitle(achievement.id)}`);
+      }
+    } catch {}
   }
 
   private pendingLeaderboardDifficulty(): LeaderboardDifficulty {
@@ -589,4 +641,17 @@ function sanitizeFormulaAnswerInput(value: string): string {
   const negative = value.trimStart().startsWith('-');
   const digits = value.replace(/\D/g, '');
   return `${negative ? '-' : ''}${digits}`;
+}
+
+function createProgressRunId(): string {
+  const randomUUID = globalThis.crypto?.randomUUID?.bind(globalThis.crypto);
+  if (randomUUID) return randomUUID();
+  return `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function achievementTitle(id: string): string {
+  return id
+    .split('_')
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
 }

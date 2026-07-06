@@ -1,6 +1,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertProductionAccountSecrets, createAccountTokenVerifier } from './account-auth.js';
+import { PostgresAccountProgressRepository } from './account-progress-repository.js';
 import { PostgresAccountRepository } from './account-repository.js';
 import {
   RedisUsernameAvailabilityCache,
@@ -65,6 +66,7 @@ const server = await createMultiplayerServer({
     ),
   },
   leaderboardRepository: new PostgresLeaderboardRepository(databaseUrl),
+  progressRepository: new PostgresAccountProgressRepository(databaseUrl),
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
   allowedOrigin,
   configureSocketAdapter: redisAdapterOptions

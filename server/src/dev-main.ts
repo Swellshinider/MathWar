@@ -1,4 +1,5 @@
 import { createAccountTokenVerifier } from './account-auth.js';
+import { InMemoryAccountProgressRepository } from './account-progress-repository.js';
 import { InMemoryAccountRepository } from './account-repository.js';
 import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
 import { InMemoryLeaderboardRepository } from './leaderboard-repository.js';
@@ -34,6 +35,7 @@ const server = await createMultiplayerServer({
     refreshCookieSecure: false,
   },
   leaderboardRepository: new InMemoryLeaderboardRepository(),
+  progressRepository: new InMemoryAccountProgressRepository(),
   issueGuestSession: createGuestTokenIssuer(sessionSecret),
   allowedOrigin,
   configureSocketAdapter: redisAdapterOptions

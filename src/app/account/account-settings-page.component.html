@@ -136,6 +136,43 @@
           </div>
         </form>
       </section>
+
+      <section class="account-panel glass account-panel--wide">
+        <header class="achievements-header">
+          <div>
+            <p class="eyebrow">Formula Frenzy</p>
+            <h2>Achievements</h2>
+          </div>
+          <span class="achievement-counter">{{ achievementCounter() }}</span>
+        </header>
+
+        @if (progressLoading()) {
+          <p class="loading">Loading achievements…</p>
+        } @else if (progressError()) {
+          <p class="error" role="alert">{{ progressError() }}</p>
+        } @else if (!progress()?.achievements?.length) {
+          <p class="loading">Finish timed Formula Frenzy runs to unlock achievements.</p>
+        } @else {
+          <div class="achievement-list">
+            @for (achievement of progress()?.achievements; track achievement.id) {
+              <span
+                class="achievement"
+                tabindex="0"
+                [attr.aria-describedby]="achievementTooltipId(achievement)"
+              >
+                {{ achievementLabel(achievement) }}
+                <span
+                  [id]="achievementTooltipId(achievement)"
+                  class="achievement-tooltip"
+                  role="tooltip"
+                >
+                  {{ achievementDescription(achievement) }}
+                </span>
+              </span>
+            }
+          </div>
+        }
+      </section>
     </div>
   }
 </section>

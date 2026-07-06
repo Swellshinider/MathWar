@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-05
+
+- Added account-based Formula Frenzy progress tracking with private run history, aggregate stats,
+  and achievement unlocks for signed-in players.
+- Added more Formula Frenzy achievements for score, level, streak, total-correct, and Hardcore
+  milestones.
+- Added account achievement unlock tooltips and an unlocked-achievement counter.
+
+### Changed - 2026-07-05
+
+- Removed the Recent runs section from the account progress panel.
+- Changed the account progress panel to show only Formula Frenzy achievements.
+
 ### Changed - 2026-07-04
 
 - Rendered Formula Frenzy division prompts as fractions and multiplication prompts with the
