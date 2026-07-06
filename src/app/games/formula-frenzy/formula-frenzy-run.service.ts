@@ -62,7 +62,10 @@ export class FormulaFrenzyRunService {
   }
 
   private async request(path: string, init: RequestInit): Promise<FormulaRunState> {
-    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    const headers: Record<string, string> = {};
+    // Only claim a JSON body when there is one; hint/finish POST with no body,
+    // and Fastify rejects an empty body paired with a json content-type.
+    if (init.body) headers['content-type'] = 'application/json';
     if (this.auth.token() || (await this.auth.refresh())) {
       headers['authorization'] = `Bearer ${this.auth.token()}`;
     }
