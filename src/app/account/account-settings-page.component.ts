@@ -93,7 +93,19 @@ export class AccountSettingsPageComponent {
   }
 
   achievementLabel(achievement: AccountAchievement): string {
-    return ACHIEVEMENT_LABELS[achievement.id];
+    return ACHIEVEMENTS[achievement.id].label;
+  }
+
+  achievementDescription(achievement: AccountAchievement): string {
+    return ACHIEVEMENTS[achievement.id].description;
+  }
+
+  achievementTooltipId(achievement: AccountAchievement): string {
+    return `achievement-tooltip-${achievement.id}`;
+  }
+
+  achievementCounter(): string {
+    return `${this.progress()?.achievements.length ?? 0}/${ACHIEVEMENT_COUNT}`;
   }
 
   private async loadProgress(): Promise<void> {
@@ -109,21 +121,65 @@ export class AccountSettingsPageComponent {
   }
 }
 
-const ACHIEVEMENT_LABELS: Record<AchievementId, string> = {
-  first_run: 'First run',
-  level_5: 'Level 5',
-  level_10: 'Level 10',
-  legend_level: 'MathWar Legend',
-  score_1000: '1,000 score',
-  score_5000: '5,000 score',
-  streak_10: '10 streak',
-  streak_25: '25 streak',
-  twenty_correct: '20 correct',
-  quick_solver: 'Quick solver',
-  hardcore_debut: 'Hardcore debut',
-  hardcore_level_5: 'Hardcore level 5',
-  hardcore_level_10: 'Hardcore level 10',
+const ACHIEVEMENTS: Record<
+  AchievementId,
+  { readonly label: string; readonly description: string }
+> = {
+  first_run: {
+    label: 'First run',
+    description: 'Finish one timed Formula Frenzy run.',
+  },
+  level_5: {
+    label: 'Level 5',
+    description: 'Reach level 5 in a timed Formula Frenzy run.',
+  },
+  level_10: {
+    label: 'Level 10',
+    description: 'Reach level 10 in a timed Formula Frenzy run.',
+  },
+  legend_level: {
+    label: 'MathWar Legend',
+    description: 'Reach level 25 in a timed Formula Frenzy run.',
+  },
+  score_1000: {
+    label: '1,000 score',
+    description: 'Score at least 1,000 points in one timed run.',
+  },
+  score_5000: {
+    label: '5,000 score',
+    description: 'Score at least 5,000 points in one timed run.',
+  },
+  streak_10: {
+    label: '10 streak',
+    description: 'Reach a best streak of 10 in one timed run.',
+  },
+  streak_25: {
+    label: '25 streak',
+    description: 'Reach a best streak of 25 in one timed run.',
+  },
+  twenty_correct: {
+    label: '20 correct',
+    description: 'Solve at least 20 formulas in one timed run.',
+  },
+  quick_solver: {
+    label: 'Quick solver',
+    description: 'Average 3.0 seconds or faster with at least 10 correct answers.',
+  },
+  hardcore_debut: {
+    label: 'Hardcore debut',
+    description: 'Finish one Hardcore Formula Frenzy run.',
+  },
+  hardcore_level_5: {
+    label: 'Hardcore level 5',
+    description: 'Reach level 5 in a Hardcore run.',
+  },
+  hardcore_level_10: {
+    label: 'Hardcore level 10',
+    description: 'Reach level 10 in a Hardcore run.',
+  },
 };
+
+const ACHIEVEMENT_COUNT = Object.keys(ACHIEVEMENTS).length;
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

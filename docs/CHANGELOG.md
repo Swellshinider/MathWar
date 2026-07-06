@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and achievement unlocks for signed-in players.
 - Added more Formula Frenzy achievements for score, level, streak, total-correct, and Hardcore
   milestones.
+- Added account achievement unlock tooltips and an unlocked-achievement counter.
 
 ### Changed - 2026-07-05
 

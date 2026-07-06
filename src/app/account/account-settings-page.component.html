@@ -138,9 +138,12 @@
       </section>
 
       <section class="account-panel glass account-panel--wide">
-        <header>
-          <p class="eyebrow">Formula Frenzy</p>
-          <h2>Achievements</h2>
+        <header class="achievements-header">
+          <div>
+            <p class="eyebrow">Formula Frenzy</p>
+            <h2>Achievements</h2>
+          </div>
+          <span class="achievement-counter">{{ achievementCounter() }}</span>
         </header>
 
         @if (progressLoading()) {
@@ -152,7 +155,20 @@
         } @else {
           <div class="achievement-list">
             @for (achievement of progress()?.achievements; track achievement.id) {
-              <span class="achievement">{{ achievementLabel(achievement) }}</span>
+              <span
+                class="achievement"
+                tabindex="0"
+                [attr.aria-describedby]="achievementTooltipId(achievement)"
+              >
+                {{ achievementLabel(achievement) }}
+                <span
+                  [id]="achievementTooltipId(achievement)"
+                  class="achievement-tooltip"
+                  role="tooltip"
+                >
+                  {{ achievementDescription(achievement) }}
+                </span>
+              </span>
             }
           </div>
         }
