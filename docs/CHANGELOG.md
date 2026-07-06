@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed - 2026-07-05
 
 - Removed the Recent runs section from the account progress panel.
+- Changed the account progress panel to show only Formula Frenzy achievements.
 
 ### Changed - 2026-07-04
 

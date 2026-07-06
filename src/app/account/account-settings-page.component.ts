@@ -4,7 +4,6 @@ import { Router, RouterLink } from '@angular/router';
 import { AccountAuthService } from './account-auth.service';
 import {
   AccountAchievement,
-  AccountGameStats,
   AccountProgress,
   AccountProgressService,
   AchievementId,
@@ -91,14 +90,6 @@ export class AccountSettingsPageComponent {
   async logout(): Promise<void> {
     await this.auth.logout();
     await this.router.navigateByUrl('/');
-  }
-
-  formatDifficulty(value: AccountGameStats['difficulty']): string {
-    return value === 'hardcore' ? 'Hardcore' : 'Normal';
-  }
-
-  formatAverage(value: number | null): string {
-    return value === null ? '0.0s' : `${(value / 1000).toFixed(1)}s`;
   }
 
   achievementLabel(achievement: AccountAchievement): string {
