@@ -65,6 +65,7 @@ describe('EquationArtilleryPageComponent', () => {
   it('records only equations that successfully start a shot', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;
+    component.selectFreePractice();
 
     component.fire('sin(x)');
     expect(component.equationHistory().map((entry) => entry.equation)).toEqual(['sin(x)']);
@@ -96,6 +97,7 @@ describe('EquationArtilleryPageComponent', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
+    component.selectFreePractice();
 
     component.fire('x+(');
     expect(scrollIntoView).not.toHaveBeenCalled();
@@ -121,6 +123,7 @@ describe('EquationArtilleryPageComponent', () => {
   it('retains history across new rounds', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;
+    component.selectFreePractice();
 
     component.fire('x^2');
     component.newRound();
@@ -133,85 +136,24 @@ describe('EquationArtilleryPageComponent', () => {
   it('plays fire and starts generated audio for a valid shot', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;
+    component.selectFreePractice();
 
     component.fire('0');
 
     expect(audio.playFire).toHaveBeenCalledOnce();
-    expect(audio.startEquationSound).toHaveBeenCalledWith(component.player().position);
+    expect(audio.startEquationSound).toHaveBeenCalledWith(component.playerForBoard().position);
   });
 
-  it('plays target and win sounds when the last target is destroyed', () => {
-    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
-    const component = fixture.componentInstance;
-    component.targets.set([{ id: 1, center: { x: -1, y: 3 }, width: 1, height: 1 }]);
-    component.walls.set([]);
-    component.player.set({ position: { x: -2, y: 3 }, radius: 0.3 });
-
-    component.fire('0');
-    for (let index = 0; index < 10; index += 1) {
-      if (advanceShot?.(1) === false) break;
-    }
-
-    expect(audio.playEnemyHit).toHaveBeenCalledOnce();
-    expect(audio.playWin).toHaveBeenCalledOnce();
-  });
-
-  it('shortens close target-practice shot animations instead of using the full duration', () => {
-    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
-    const component = fixture.componentInstance;
-    component.targets.set([{ id: 1, center: { x: -1, y: 3 }, width: 1, height: 1 }]);
-    component.walls.set([]);
-    component.player.set({ position: { x: -2, y: 3 }, radius: 0.3 });
-
-    component.fire('0');
-
-    expect(animation.startTimeline).toHaveBeenCalledWith(expect.any(Function), expect.any(Number));
-    expect(animation.startTimeline.mock.calls.at(-1)?.[1]).toBeLessThan(3000);
-  });
-
-  it('plays the wall hit sound and stops generated audio when a shot hits a wall', () => {
-    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
-    const component = fixture.componentInstance;
-    component.targets.set([{ id: 1, center: { x: 5, y: 5 }, width: 1, height: 1 }]);
-    component.walls.set([
-      {
-        id: 1,
-        shape: 'vertical',
-        pieces: [{ id: 1, center: { x: -1, y: 3 }, size: 0.5 }],
-      },
-    ]);
-    component.player.set({ position: { x: -2, y: 3 }, radius: 0.3 });
-
-    component.fire('0');
-    for (let index = 0; index < 10; index += 1) {
-      if (advanceShot?.(1) === false) break;
-    }
-
-    expect(audio.stopEquationSound).toHaveBeenCalled();
-    expect(audio.playWallHit).toHaveBeenCalledOnce();
-  });
-
-  it('shows CPU setup only after selecting CPU vs. without starting a match', () => {
+  it('shows CPU setup by default without starting a match', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
-
-    expect(fixture.nativeElement.querySelector('.difficulty-control')).toBeNull();
-    expect(fixture.nativeElement.textContent).not.toContain('Single Player');
-    expect(fixture.nativeElement.textContent).not.toContain('Start CPU vs.');
-
-    const modeTabs = Array.from(
-      fixture.nativeElement.querySelectorAll('.mode-tab'),
-    ) as HTMLButtonElement[];
-    const singlePlayerTab = modeTabs.find((button) => button.textContent?.includes('CPU vs.'))!;
-    singlePlayerTab.click();
-    fixture.detectChanges();
 
     expect(component.gameMode()).toBe('single-player');
     expect(component.singlePlayerState()).toBeNull();
     expect(fixture.nativeElement.querySelector('.difficulty-control')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Start CPU vs.');
     expect(fixture.nativeElement.textContent).not.toContain('Single Player');
+    expect(fixture.nativeElement.textContent).toContain('Start CPU vs.');
 
     const startButton = fixture.nativeElement.querySelector(
       '.difficulty-control .btn',
@@ -221,6 +163,21 @@ describe('EquationArtilleryPageComponent', () => {
 
     expect(component.singlePlayerState()).not.toBeNull();
     expect(component.status()).toBe('Your turn.');
+  });
+
+  it('orders offline modes as CPU vs. then Free Practice without the removed mode', () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    fixture.detectChanges();
+
+    const modeTabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.mode-tab'),
+    ) as HTMLButtonElement[];
+
+    expect(modeTabs.map((button) => button.textContent?.trim())).toEqual([
+      'CPU vs.',
+      'Free Practice',
+    ]);
+    expect(fixture.nativeElement.textContent).not.toContain('Target' + ' Practice');
   });
 
   it('shows a selectable free practice mode without targets, walls, or CPU setup', () => {
@@ -258,7 +215,7 @@ describe('EquationArtilleryPageComponent', () => {
       fixture.nativeElement.querySelector('app-equation-controls app-function-preview'),
     ).toBeNull();
 
-    component.selectTargetPractice();
+    component.selectSinglePlayerMode();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.sandbox-tools')).toBeNull();
@@ -292,16 +249,14 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.trail().at(-1)?.x).toBeLessThan(4);
   });
 
-  it('moves only the free practice player from board clicks', () => {
+  it('moves the free practice player from board clicks', () => {
     const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
     const component = fixture.componentInstance;
-    const targetPracticePlayer = component.player();
     component.selectFreePractice();
 
     component.moveFreePracticePlayer({ x: 4, y: -2 });
 
     expect(component.playerForBoard().position).toEqual({ x: 4, y: -2 });
-    expect(component.player()).toBe(targetPracticePlayer);
   });
 
   it('routes free practice board clicks through Move, Enemy, Wall, and Delete tools', () => {
@@ -366,21 +321,6 @@ describe('EquationArtilleryPageComponent', () => {
     expect(component.previewTrail().length).toBeGreaterThan(1);
     expect(component.freePracticeTargets()).toBe(targets);
     expect(fixture.nativeElement.querySelector('app-board')).not.toBeNull();
-  });
-
-  it('preserves target practice entities after visiting free practice', () => {
-    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
-    const component = fixture.componentInstance;
-    const targetPracticeTargets = component.targets();
-    const targetPracticeWalls = component.walls();
-
-    component.selectFreePractice();
-    component.moveFreePracticePlayer({ x: 1, y: 1 });
-    component.selectTargetPractice();
-
-    expect(component.targetsForBoard()).toBe(targetPracticeTargets);
-    expect(component.wallsForBoard()).toBe(targetPracticeWalls);
-    expect(component.playerForBoard()).toBe(component.player());
   });
 
   it('free practice shots collide with manually placed enemies and walls', () => {

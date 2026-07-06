@@ -444,6 +444,43 @@ describe('FormulaFrenzyPageComponent', () => {
       totalCorrect: 1,
     });
     expect(toast.show).toHaveBeenCalledWith('Score saved to leaderboard.');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLDialogElement>('dialog.game-over')
+        ?.open,
+    ).toBe(false);
+    fixture.detectChanges();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLDialogElement>('dialog.game-over')
+        ?.open,
+    ).toBe(false);
+  });
+
+  it('retries account progress when saving a leaderboard run after autosave fails', async () => {
+    progress.saveFormulaFrenzyRun
+      .mockRejectedValueOnce(new Error('Progress unavailable.'))
+      .mockResolvedValueOnce({
+        stats: [],
+        recentRuns: [],
+        achievements: [{ id: 'score_1000', unlockedAt: '2026-07-06T00:00:00.000Z' }],
+        newlyUnlocked: [{ id: 'score_1000', unlockedAt: '2026-07-06T00:00:00.000Z' }],
+      });
+    component.startRun();
+    vi.advanceTimersByTime(2500);
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    component.hearts.set(1);
+    vi.advanceTimersByTime(component.problem().deadlineMs);
+    await fixture.whenStable();
+
+    expect(progress.saveFormulaFrenzyRun).toHaveBeenCalledTimes(1);
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.save-leaderboard-button')
+      ?.click();
+    await fixture.whenStable();
+
+    expect(progress.saveFormulaFrenzyRun).toHaveBeenCalledTimes(2);
+    expect(toast.show).toHaveBeenCalledWith('Achievement unlocked: Score 1000');
   });
 
   it('auto-saves finished timed runs to account progress for signed-in users', async () => {

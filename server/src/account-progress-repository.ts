@@ -317,7 +317,7 @@ export class PostgresAccountProgressRepository implements AccountProgressReposit
             best_average_time_ms,
             last_played_at
           )
-          VALUES ($1, 'formula-frenzy', $2, 1, $3, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, 'formula-frenzy', $2, 1, $3::bigint, $3::integer, $4, $5, $6, $7, $8)
           ON CONFLICT (account_id, game_id, difficulty) DO UPDATE
           SET
             runs_count = account_game_stats.runs_count + 1,

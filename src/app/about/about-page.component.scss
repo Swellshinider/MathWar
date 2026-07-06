@@ -38,21 +38,36 @@ header > p:last-child {
   line-height: var(--lh-base);
 }
 
-.about-grid {
+.about-list {
   display: grid;
   margin-top: var(--space-7);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  padding: 0;
+  gap: 0;
+  list-style: none;
+}
+
+.about-list li {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
   gap: var(--space-4);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--border-2);
+}
+
+.about-list li:last-child {
+  border-bottom: 1px solid var(--border-2);
+}
+
+.about-list li::before {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-black);
+  content: counter(list-item, decimal-leading-zero);
 }
 
 article {
-  padding: var(--space-5);
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-md);
-  background: var(--surface-3);
-  box-shadow:
-    var(--shadow-2),
-    inset 0 1px 0 var(--surface-hairline);
+  min-width: 0;
 }
 
 h2 {
@@ -81,6 +96,15 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
-.about-home {
+.about-actions {
+  display: flex;
+  justify-content: center;
   margin-top: var(--space-6);
+}
+
+@media (max-width: 40rem) {
+  .about-list li {
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: var(--space-3);
+  }
 }

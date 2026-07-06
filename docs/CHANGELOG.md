@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2026-07-06
+
+- Changed the About page to a list layout with a centered return action.
+- Removed Equation Artillery Target Practice and ordered offline modes as CPU vs. followed by Free
+  Practice.
+
+### Fixed - 2026-07-06
+
+- Saved Formula Frenzy leaderboard runs now close the result dialog and keep account achievements in
+  sync, including backfilling progress from existing leaderboard entries.
+
 ### Added - 2026-07-05
 
 - Added account-based Formula Frenzy progress tracking with private run history, aggregate stats,

@@ -55,6 +55,10 @@ export interface LeaderboardSaveResult {
 export interface LeaderboardRepository {
   initialize(): Promise<void>;
   saveBest(input: LeaderboardScoreInput): Promise<LeaderboardSaveResult>;
+  listAccountEntries(input: {
+    readonly gameId: LeaderboardGameId;
+    readonly accountId: string;
+  }): Promise<readonly LeaderboardEntry[]>;
   list(input: {
     readonly gameId: LeaderboardGameId;
     readonly difficulty: LeaderboardDifficulty;
@@ -175,6 +179,16 @@ export class InMemoryLeaderboardRepository implements LeaderboardRepository {
       status: existing ? 'updated' : 'created',
       entry: this.rankEntry(entry),
     };
+  }
+
+  async listAccountEntries(input: {
+    readonly gameId: LeaderboardGameId;
+    readonly accountId: string;
+  }): Promise<readonly LeaderboardEntry[]> {
+    return [...this.entries.values()]
+      .filter((entry) => entry.gameId === input.gameId && entry.accountId === input.accountId)
+      .sort((left, right) => left.difficulty.localeCompare(right.difficulty))
+      .map((entry) => structuredClone(entry));
   }
 
   async list(input: {
@@ -330,6 +344,21 @@ export class PostgresLeaderboardRepository implements LeaderboardRepository {
     } finally {
       client.release();
     }
+  }
+
+  async listAccountEntries(input: {
+    readonly gameId: LeaderboardGameId;
+    readonly accountId: string;
+  }): Promise<readonly LeaderboardEntry[]> {
+    const result = await this.pool.query(
+      `SELECT entry.*, account.username
+      FROM leaderboard_entries entry
+      JOIN accounts account ON account.id = entry.account_id
+      WHERE entry.game_id = $1 AND entry.account_id = $2
+      ORDER BY entry.difficulty ASC`,
+      [input.gameId, input.accountId],
+    );
+    return result.rows.map(mapLeaderboardEntry);
   }
 
   async list(input: {

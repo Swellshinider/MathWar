@@ -525,6 +525,84 @@ describe('multiplayer socket server', () => {
     ).toEqual(['first_run', 'level_5', 'streak_10', 'quick_solver']);
   });
 
+  it('backfills missing Formula Frenzy progress from leaderboard entries', async () => {
+    const repository = new InMemoryMatchRepository();
+    const accountRepository = new InMemoryAccountRepository();
+    const leaderboardRepository = new InMemoryLeaderboardRepository();
+    const progressRepository = new InMemoryAccountProgressRepository();
+    const accountAccessSecret = 'account-access-secret-with-enough-length';
+    const server = await createMultiplayerServer({
+      repository,
+      verifyToken: createAccountTokenVerifier(accountAccessSecret),
+      accounts: {
+        repository: accountRepository,
+        accessTokenSecret: accountAccessSecret,
+        refreshTokenSecret: 'account-refresh-secret-with-enough-length',
+        refreshCookieSecure: false,
+      },
+      leaderboardRepository,
+      progressRepository,
+      allowedOrigin: '*',
+      sweepIntervalMs: 10,
+    });
+    harnesses.push({ repository, server, url: '', clients: [] });
+
+    const created = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/register',
+      payload: {
+        username: 'Tester',
+        password: 'password123',
+        displayName: 'Tester',
+      },
+    });
+    const token = created.json().accessToken;
+    const saved = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/leaderboards/formula-frenzy/entries',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        score: 5311,
+        level: 6,
+        averageTimeMs: 2600,
+        bestStreak: 10,
+        totalCorrect: 10,
+      },
+    });
+    expect(saved.statusCode).toBe(200);
+
+    const progress = await server.fastify.inject({
+      method: 'GET',
+      url: '/api/account/progress',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(progress.statusCode).toBe(200);
+    expect(
+      progress.json().achievements.map((achievement: { id: string }) => achievement.id),
+    ).toEqual(['first_run', 'level_5', 'score_1000', 'score_5000', 'streak_10', 'quick_solver']);
+    expect(progress.json().stats).toEqual([
+      expect.objectContaining({
+        gameId: 'formula-frenzy',
+        difficulty: 'normal',
+        runsCount: 1,
+        bestScore: 5311,
+        bestLevel: 6,
+        bestStreak: 10,
+      }),
+    ]);
+
+    const repeatedProgress = await server.fastify.inject({
+      method: 'GET',
+      url: '/api/account/progress',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(repeatedProgress.statusCode).toBe(200);
+    expect(repeatedProgress.json().stats).toEqual([
+      expect.objectContaining({ runsCount: 1, bestScore: 5311 }),
+    ]);
+  });
+
   it('rate limits repeated guest session attempts', async () => {
     const harness = await createHarness();
     const responses = [];

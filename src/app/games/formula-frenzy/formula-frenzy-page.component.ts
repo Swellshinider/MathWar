@@ -104,6 +104,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   readonly highestLevelName = computed(() => FORMULA_LEVELS[this.highestLevel() - 1].name);
   readonly totalCorrect = signal(0);
   readonly gameOver = signal(false);
+  readonly resultDialogDismissed = signal(false);
   readonly leaderboardAuthPrompt = signal(false);
   readonly savingLeaderboard = signal(false);
   readonly hideHardcoreWarning = signal(false);
@@ -134,15 +135,13 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private multiplierPulseId: ReturnType<typeof setTimeout> | null = null;
   private nextTickAtMs = 0;
   private pendingAutoSaveHandled = false;
-  private pendingProgressSaveHandled = false;
   private currentRunId = createProgressRunId();
   private savedProgressRunId: string | null = null;
 
   constructor() {
     effect(() => {
       if (this.auth.ready()) {
-        void this.savePendingLeaderboardRun();
-        void this.savePendingProgressRun();
+        void this.savePendingRuns();
       }
     });
   }
@@ -255,6 +254,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.totalCorrect.set(0);
     this.totalSolveTimeMs.set(0);
     this.gameOver.set(false);
+    this.resultDialogDismissed.set(false);
     this.leaderboardAuthPrompt.set(false);
     this.savingLeaderboard.set(false);
     this.hideHardcoreWarning.set(false);
@@ -370,11 +370,16 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
       this.leaderboardAuthPrompt.set(true);
       return;
     }
-    await this.saveRunToLeaderboard(run);
+    const saved = await this.saveRunToLeaderboard(run);
+    if (saved) {
+      await this.saveCurrentRunProgress();
+      this.closeResultDialog(true);
+    }
   }
 
   private lose(): void {
     this.gameOver.set(true);
+    this.resultDialogDismissed.set(false);
     this.leaderboardAuthPrompt.set(false);
     this.runStarted.set(false);
     this.clearTimers();
@@ -493,7 +498,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     return this.hardcoreMode() ? 'hardcore' : 'normal';
   }
 
-  private async saveRunToLeaderboard(run: LeaderboardRun): Promise<void> {
+  private async saveRunToLeaderboard(run: LeaderboardRun): Promise<boolean> {
     this.savingLeaderboard.set(true);
     try {
       const result = await this.leaderboard.save('formula-frenzy', run);
@@ -503,8 +508,10 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
         this.toast.show('Score saved to leaderboard.');
       }
       this.leaderboardAuthPrompt.set(false);
+      return true;
     } catch (error) {
       this.toast.show(error instanceof Error ? error.message : 'Could not save leaderboard score.');
+      return false;
     } finally {
       this.savingLeaderboard.set(false);
     }
@@ -514,41 +521,32 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     if (!this.auth.user() || this.gameMode() === 'free-practice') return;
     const run = this.currentProgressRun();
     if (this.savedProgressRunId === run.runId) return;
-    this.savedProgressRunId = run.runId;
     try {
       const result = await this.progress.saveFormulaFrenzyRun(run);
+      this.savedProgressRunId = run.runId;
       for (const achievement of result.newlyUnlocked) {
         this.toast.show(`Achievement unlocked: ${achievementTitle(achievement.id)}`);
       }
-    } catch {
-      this.savedProgressRunId = null;
-    }
+    } catch {}
   }
 
-  private async savePendingLeaderboardRun(): Promise<void> {
+  private async savePendingRuns(): Promise<void> {
     if (this.pendingAutoSaveHandled || !this.auth.ready()) return;
     if (this.route.snapshot.queryParamMap.get('saveLeaderboard') !== '1') return;
     if (!this.auth.user()) return;
     this.pendingAutoSaveHandled = true;
     const difficulty = this.pendingLeaderboardDifficulty();
-    const run = this.leaderboard.takePendingRun('formula-frenzy', difficulty);
+    const leaderboardRun = this.leaderboard.takePendingRun('formula-frenzy', difficulty);
+    const progressRun = this.progress.takePendingFormulaFrenzyRun(difficulty);
     await this.router.navigate([], {
       queryParams: { saveLeaderboard: null, difficulty: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
-    if (run) await this.saveRunToLeaderboard(run);
-  }
-
-  private async savePendingProgressRun(): Promise<void> {
-    if (this.pendingProgressSaveHandled || !this.auth.ready()) return;
-    if (this.route.snapshot.queryParamMap.get('saveLeaderboard') !== '1') return;
-    if (!this.auth.user()) return;
-    this.pendingProgressSaveHandled = true;
-    const run = this.progress.takePendingFormulaFrenzyRun(this.pendingLeaderboardDifficulty());
-    if (!run) return;
+    if (leaderboardRun) await this.saveRunToLeaderboard(leaderboardRun);
+    if (!progressRun) return;
     try {
-      const result = await this.progress.saveFormulaFrenzyRun(run);
+      const result = await this.progress.saveFormulaFrenzyRun(progressRun);
       for (const achievement of result.newlyUnlocked) {
         this.toast.show(`Achievement unlocked: ${achievementTitle(achievement.id)}`);
       }
@@ -580,7 +578,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private syncResultDialog(): void {
     const dialog = this.resultDialog?.nativeElement;
     if (!dialog) return;
-    if (this.gameOver() && !dialog.open) {
+    if (this.gameOver() && !this.resultDialogDismissed() && !dialog.open) {
       try {
         if (typeof dialog.showModal === 'function') dialog.showModal();
         else dialog.setAttribute('open', '');
@@ -588,13 +586,14 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
       } catch {
         dialog.setAttribute('open', '');
       }
-    } else if (!this.gameOver() && dialog.open) {
+    } else if ((!this.gameOver() || this.resultDialogDismissed()) && dialog.open) {
       dialog.close?.();
       dialog.removeAttribute('open');
     }
   }
 
-  private closeResultDialog(): void {
+  private closeResultDialog(dismiss = false): void {
+    if (dismiss) this.resultDialogDismissed.set(true);
     const dialog = this.resultDialog?.nativeElement;
     if (!dialog?.open) return;
     dialog.close?.();
