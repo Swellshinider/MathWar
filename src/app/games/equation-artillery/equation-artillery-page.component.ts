@@ -591,9 +591,10 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   private async saveCpuWinProgress(): Promise<void> {
     if (!this.auth.user()) return;
     try {
-      const result = await this.progress.saveEquationArtilleryCpuWin({
-        cpuLevel: this.activeCpuMatchLevel,
-      });
+      const proof = await this.progress.createEquationArtilleryCpuWinProof(
+        this.activeCpuMatchLevel,
+      );
+      const result = await this.progress.saveEquationArtilleryCpuWin(proof);
       for (const achievement of result.newlyUnlocked) {
         this.toast.show(`Achievement unlocked: ${achievementTitle(achievement.id)}`);
       }

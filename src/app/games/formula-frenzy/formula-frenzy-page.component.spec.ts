@@ -8,6 +8,7 @@ import { MultiplayerAuthService } from '../../shared/multiplayer/multiplayer-aut
 import { MultiplayerSocketService } from '../../shared/multiplayer/multiplayer-socket.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { FormulaFrenzyPageComponent } from './formula-frenzy-page.component';
+import { FormulaFrenzyRunService } from './formula-frenzy-run.service';
 
 describe('FormulaFrenzyPageComponent', () => {
   let fixture: ComponentFixture<FormulaFrenzyPageComponent>;
@@ -32,6 +33,12 @@ describe('FormulaFrenzyPageComponent', () => {
     saveFormulaFrenzyRun: vi.fn(),
     storePendingFormulaFrenzyRun: vi.fn(),
     takePendingFormulaFrenzyRun: vi.fn(() => null),
+  };
+  const runService = {
+    start: vi.fn(),
+    answer: vi.fn(),
+    hint: vi.fn(),
+    finish: vi.fn(),
   };
   const toast = {
     show: vi.fn(),
@@ -92,6 +99,12 @@ describe('FormulaFrenzyPageComponent', () => {
       newlyUnlocked: [],
     });
     progress.takePendingFormulaFrenzyRun.mockReturnValue(null);
+    runService.start.mockResolvedValue(mockRunState());
+    runService.answer.mockResolvedValue(mockRunState());
+    runService.hint.mockResolvedValue(mockRunState());
+    runService.finish.mockResolvedValue(
+      mockRunState({ status: 'ended', completionToken: 'completion-token' }),
+    );
 
     await TestBed.configureTestingModule({
       imports: [FormulaFrenzyPageComponent],
@@ -100,6 +113,7 @@ describe('FormulaFrenzyPageComponent', () => {
         { provide: AccountProgressService, useValue: progress },
         { provide: AudioSettingsService, useValue: audio },
         { provide: LeaderboardService, useValue: leaderboard },
+        { provide: FormulaFrenzyRunService, useValue: runService },
         { provide: MultiplayerAuthService, useValue: auth },
         { provide: MultiplayerSocketService, useValue: socket },
         { provide: ToastService, useValue: toast },
@@ -435,14 +449,7 @@ describe('FormulaFrenzyPageComponent', () => {
       ?.click();
     await fixture.whenStable();
 
-    expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', {
-      difficulty: 'normal',
-      score: 193,
-      level: 1,
-      averageTimeMs: 2500,
-      bestStreak: 1,
-      totalCorrect: 1,
-    });
+    expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', 'completion-token');
     expect(toast.show).toHaveBeenCalledWith('Score saved to leaderboard.');
     expect(
       (fixture.nativeElement as HTMLElement).querySelector<HTMLDialogElement>('dialog.game-over')
@@ -470,7 +477,7 @@ describe('FormulaFrenzyPageComponent', () => {
     component.submitAnswer();
     component.hearts.set(1);
     vi.advanceTimersByTime(component.problem().deadlineMs);
-    await Promise.resolve();
+    await fixture.whenStable();
 
     expect(progress.saveFormulaFrenzyRun).toHaveBeenCalledTimes(1);
 
@@ -489,41 +496,32 @@ describe('FormulaFrenzyPageComponent', () => {
     vi.advanceTimersByTime(component.problem().deadlineMs);
     await fixture.whenStable();
 
-    expect(progress.saveFormulaFrenzyRun).toHaveBeenCalledWith({
-      runId: expect.any(String),
-      difficulty: 'normal',
-      score: 193,
-      level: 1,
-      averageTimeMs: 2500,
-      bestStreak: 1,
-      totalCorrect: 1,
-    });
+    expect(progress.saveFormulaFrenzyRun).toHaveBeenCalledWith('completion-token');
   });
 
-  it('prompts guests to sign in before saving a leaderboard score', () => {
+  it('prompts guests to sign in before saving a leaderboard score', async () => {
     account.user.mockReturnValue(null);
     component.startRun();
     component.hearts.set(1);
     vi.advanceTimersByTime(component.problem().deadlineMs);
+    await Promise.resolve();
+    await Promise.resolve();
     fixture.detectChanges();
 
     (fixture.nativeElement as HTMLElement)
       .querySelector<HTMLButtonElement>('.save-leaderboard-button')
       ?.click();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(leaderboard.storePendingRun).toHaveBeenCalledWith(
       'formula-frenzy',
-      expect.objectContaining({ difficulty: 'normal', score: 0, level: 1, averageTimeMs: null }),
+      'normal',
+      'completion-token',
     );
     expect(progress.storePendingFormulaFrenzyRun).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runId: expect.any(String),
-        difficulty: 'normal',
-        score: 0,
-        level: 1,
-        averageTimeMs: null,
-      }),
+      'normal',
+      'completion-token',
     );
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Sign in or create an account',
@@ -669,14 +667,7 @@ describe('FormulaFrenzyPageComponent', () => {
       ?.click();
     await fixture.whenStable();
 
-    expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', {
-      difficulty: 'hardcore',
-      score: 193,
-      level: 1,
-      averageTimeMs: 2500,
-      bestStreak: 1,
-      totalCorrect: 1,
-    });
+    expect(leaderboard.save).toHaveBeenCalledWith('formula-frenzy', 'completion-token');
   });
 
   it('advances through progression levels in free practice without speed scoring', () => {
@@ -784,5 +775,36 @@ function createMemoryStorage(): Storage {
     key: (index) => [...store.keys()][index] ?? null,
     removeItem: (key) => store.delete(key),
     setItem: (key, value) => store.set(key, String(value)),
+  };
+}
+
+function mockRunState(overrides: Record<string, unknown> = {}) {
+  return {
+    runId: 'server-run',
+    difficulty: 'normal',
+    status: 'active',
+    score: 0,
+    experience: 0,
+    level: 1,
+    xp: 0,
+    xpRequired: 2,
+    streak: 0,
+    bestStreak: 0,
+    hearts: 3,
+    hintsRemaining: 3,
+    currentHint: null,
+    highestLevel: 1,
+    totalCorrect: 0,
+    totalSolveTimeMs: 0,
+    currentProblem: {
+      prompt: '2 + 2',
+      answer: 4,
+      level: 1,
+      levelName: 'Number Scout',
+      deadlineMs: 10000,
+      startedAt: new Date().toISOString(),
+      hint: '4',
+    },
+    ...overrides,
   };
 }

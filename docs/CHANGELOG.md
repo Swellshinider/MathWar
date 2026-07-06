@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed - 2026-07-06
 
+- Fixed account refresh-token rotation so one refresh cookie can only mint one successor session.
+- Fixed Redis multiplayer cleanup so stale match deletion cannot erase a newer active-user index.
+- Fixed Formula Frenzy leaderboard and account-progress writes to require server-issued completion
+  tokens instead of client-supplied score metrics.
+- Fixed Equation Artillery CPU win progress writes to require a server-issued completion token.
 - Saved Formula Frenzy leaderboard runs now close the result dialog and keep account achievements in
   sync, including backfilling progress from existing leaderboard entries.
 

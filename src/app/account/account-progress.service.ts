@@ -37,7 +37,11 @@ export interface FormulaFrenzyProgressRun {
 }
 
 export interface EquationArtilleryCpuWin {
-  readonly cpuLevel: number;
+  readonly completionToken: string;
+}
+
+export interface EquationArtilleryCpuWinProof {
+  readonly completionToken: string;
 }
 
 export interface AccountGameRun extends FormulaFrenzyProgressRun {
@@ -84,10 +88,10 @@ export class AccountProgressService {
     return this.authorizedJson<AccountProgress>('/api/account/progress', { method: 'GET' });
   }
 
-  async saveFormulaFrenzyRun(run: FormulaFrenzyProgressRun): Promise<SaveProgressResult> {
+  async saveFormulaFrenzyRun(completionToken: string): Promise<SaveProgressResult> {
     return this.authorizedJson<SaveProgressResult>('/api/account/progress/formula-frenzy/runs', {
       method: 'POST',
-      body: JSON.stringify(run),
+      body: JSON.stringify({ completionToken }),
     });
   }
 
@@ -101,42 +105,28 @@ export class AccountProgressService {
     );
   }
 
-  storePendingFormulaFrenzyRun(run: FormulaFrenzyProgressRun): void {
-    sessionStorage.setItem(this.pendingRunKey(run.difficulty), JSON.stringify(run));
+  async createEquationArtilleryCpuWinProof(
+    cpuLevel: number,
+  ): Promise<EquationArtilleryCpuWinProof> {
+    return this.authorizedJson<EquationArtilleryCpuWinProof>(
+      '/api/runs/equation-artillery/cpu-wins',
+      {
+        method: 'POST',
+        body: JSON.stringify({ cpuLevel }),
+      },
+    );
   }
 
-  takePendingFormulaFrenzyRun(
-    difficulty: ProgressDifficulty = 'normal',
-  ): FormulaFrenzyProgressRun | null {
+  storePendingFormulaFrenzyRun(difficulty: ProgressDifficulty, completionToken: string): void {
+    sessionStorage.setItem(this.pendingRunKey(difficulty), completionToken);
+  }
+
+  takePendingFormulaFrenzyRun(difficulty: ProgressDifficulty = 'normal'): string | null {
     const key = this.pendingRunKey(difficulty);
     const value = sessionStorage.getItem(key);
     if (!value) return null;
     sessionStorage.removeItem(key);
-    try {
-      const parsed = JSON.parse(value) as Partial<FormulaFrenzyProgressRun>;
-      if (
-        typeof parsed.runId !== 'string' ||
-        (parsed.difficulty !== 'normal' && parsed.difficulty !== 'hardcore') ||
-        typeof parsed.score !== 'number' ||
-        typeof parsed.level !== 'number' ||
-        typeof parsed.bestStreak !== 'number' ||
-        typeof parsed.totalCorrect !== 'number' ||
-        (parsed.averageTimeMs !== null && typeof parsed.averageTimeMs !== 'number')
-      ) {
-        return null;
-      }
-      return {
-        runId: parsed.runId,
-        difficulty: parsed.difficulty,
-        score: parsed.score,
-        level: parsed.level,
-        averageTimeMs: parsed.averageTimeMs,
-        bestStreak: parsed.bestStreak,
-        totalCorrect: parsed.totalCorrect,
-      };
-    } catch {
-      return null;
-    }
+    return value;
   }
 
   private pendingRunKey(difficulty: ProgressDifficulty): string {

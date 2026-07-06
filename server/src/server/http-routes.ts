@@ -1,9 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
-import { AuthenticatedUser } from '@math-war/game-engine';
+import {
+  AuthenticatedUser,
+  createFormulaProblem,
+  formulaProgress,
+  scoreFormulaAnswer,
+} from '@math-war/game-engine';
 import { FastifyInstance } from 'fastify';
 import {
   AccountPublicUser,
@@ -23,7 +29,6 @@ import {
   AccountProgress,
   AccountProgressRepository,
   FormulaFrenzyRunInput,
-  isProgressDifficulty,
   validateProgressRunId,
 } from '../account-progress-repository.js';
 import { AccountRecord, AccountRepository } from '../account-repository.js';
@@ -34,9 +39,14 @@ import {
   isLeaderboardSort,
   LeaderboardEntry,
   LeaderboardRepository,
-  LeaderboardScoreInput,
 } from '../leaderboard-repository.js';
 import { MathWarMetrics, nowSeconds, routeMetricLabel } from '../observability/metrics.js';
+import {
+  FormulaFrenzyCompletionProof,
+  issueRunCompletionToken,
+  leaderboardInputFromProof,
+  verifyRunCompletionToken,
+} from '../run-proof.js';
 import {
   canonicalOrigin,
   createRobotsTxt,
@@ -45,11 +55,7 @@ import {
   isMetricsRequestAuthorized,
   isUniqueConstraintViolation,
 } from './http-utils.js';
-import {
-  parseBoundedInteger,
-  parseNullableBoundedInteger,
-  parsePositiveInteger,
-} from './validation.js';
+import { parseBoundedInteger, parsePositiveInteger } from './validation.js';
 
 const GUEST_AUTH_RATE_LIMIT_MAX = 10;
 const GUEST_AUTH_RATE_LIMIT_WINDOW = '1 minute';
@@ -61,6 +67,10 @@ const LEADERBOARD_SAVE_RATE_LIMIT_MAX = 30;
 const LEADERBOARD_SAVE_RATE_LIMIT_WINDOW = '1 minute';
 const PROGRESS_SAVE_RATE_LIMIT_MAX = 60;
 const PROGRESS_SAVE_RATE_LIMIT_WINDOW = '1 minute';
+const SOLO_RUN_RATE_LIMIT_MAX = 120;
+const SOLO_RUN_RATE_LIMIT_WINDOW = '1 minute';
+const FORMULA_MAX_HEARTS = 3;
+const FORMULA_INITIAL_HINTS = 3;
 
 interface RegisterHttpRoutesOptions {
   readonly fastify: FastifyInstance;
@@ -108,6 +118,60 @@ function refreshCookieOptions(secure: boolean, expires: Date) {
     expires,
   };
 }
+
+interface FormulaSoloRun {
+  readonly id: string;
+  readonly accountId: string | null;
+  readonly difficulty: 'normal' | 'hardcore';
+  readonly startedAt: string;
+  readonly seed: string;
+  readonly score: number;
+  readonly experience: number;
+  readonly level: number;
+  readonly xp: number;
+  readonly xpRequired: number;
+  readonly streak: number;
+  readonly bestStreak: number;
+  readonly hearts: number;
+  readonly hintsRemaining: number;
+  readonly currentHint: string | null;
+  readonly highestLevel: number;
+  readonly totalCorrect: number;
+  readonly totalSolveTimeMs: number;
+  readonly currentProblem: ReturnType<typeof createFormulaProblem> & { readonly startedAt: string };
+  readonly status: 'active' | 'ended';
+  readonly completionToken?: string;
+}
+
+function publicFormulaRun(run: FormulaSoloRun) {
+  return {
+    runId: run.id,
+    difficulty: run.difficulty,
+    status: run.status,
+    score: run.score,
+    experience: run.experience,
+    level: run.level,
+    xp: run.xp,
+    xpRequired: run.xpRequired,
+    streak: run.streak,
+    bestStreak: run.bestStreak,
+    hearts: run.hearts,
+    hintsRemaining: run.hintsRemaining,
+    currentHint: run.currentHint,
+    highestLevel: run.highestLevel,
+    totalCorrect: run.totalCorrect,
+    totalSolveTimeMs: run.totalSolveTimeMs,
+    currentProblem: {
+      prompt: run.currentProblem.prompt,
+      level: run.currentProblem.level,
+      levelName: run.currentProblem.levelName,
+      deadlineMs: run.currentProblem.deadlineMs,
+      startedAt: run.currentProblem.startedAt,
+      hint: run.currentHint,
+    },
+    completionToken: run.completionToken,
+  };
+}
 export async function registerHttpRoutes({
   fastify,
   metrics,
@@ -125,6 +189,7 @@ export async function registerHttpRoutes({
   const refreshCookieSecure =
     accountOptions?.refreshCookieSecure ?? process.env['NODE_ENV'] === 'production';
   const requestStarts = new WeakMap<object, number>();
+  const formulaSoloRuns = new Map<string, FormulaSoloRun>();
 
   fastify.addHook('onRequest', async (request) => {
     requestStarts.set(request, nowSeconds());
@@ -203,6 +268,99 @@ export async function registerHttpRoutes({
     const account = await accountRepository.findAccountById(user.id);
     if (!account) throw new Error('Account authentication is required.');
     return account;
+  }
+
+  async function optionalAccount(request: {
+    headers: { authorization?: string };
+  }): Promise<AccountRecord | null> {
+    if (!accountRepository || !accountTokenVerifier) return null;
+    const authorization = request.headers.authorization;
+    if (!authorization?.startsWith('Bearer ')) return null;
+    try {
+      const user = await accountTokenVerifier(authorization.slice('Bearer '.length));
+      return accountRepository.findAccountById(user.id);
+    } catch {
+      return null;
+    }
+  }
+
+  function requireCompletionToken(body: unknown): string {
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      !('completionToken' in body) ||
+      typeof body.completionToken !== 'string'
+    ) {
+      throw new Error('Completion token is required.');
+    }
+    return body.completionToken;
+  }
+
+  function assertProofAccount(
+    proof: { readonly accountId: string | null },
+    account: AccountRecord,
+  ): void {
+    if (proof.accountId !== null && proof.accountId !== account.id) {
+      throw new Error('Completion token does not belong to this account.');
+    }
+  }
+
+  function createSoloRun(
+    difficulty: 'normal' | 'hardcore',
+    account: AccountRecord | null,
+  ): FormulaSoloRun {
+    const startedAt = new Date().toISOString();
+    const problem = createFormulaProblem(0);
+    return {
+      id: randomUUID(),
+      accountId: account?.id ?? null,
+      difficulty,
+      seed: randomUUID(),
+      startedAt,
+      score: 0,
+      experience: 0,
+      level: 1,
+      xp: 0,
+      xpRequired: 2,
+      streak: 0,
+      bestStreak: 0,
+      hearts: difficulty === 'hardcore' ? 0 : FORMULA_MAX_HEARTS,
+      hintsRemaining: difficulty === 'hardcore' ? 0 : FORMULA_INITIAL_HINTS,
+      currentHint: null,
+      highestLevel: 1,
+      totalCorrect: 0,
+      totalSolveTimeMs: 0,
+      currentProblem: { ...problem, startedAt },
+      status: 'active',
+    };
+  }
+
+  async function finishSoloRun(run: FormulaSoloRun): Promise<FormulaSoloRun> {
+    if (run.completionToken) return run;
+    if (!accountOptions) throw new Error('Account system is not configured.');
+    const proof: FormulaFrenzyCompletionProof = {
+      kind: 'formula-frenzy',
+      accountId: run.accountId,
+      runId: run.id,
+      difficulty: run.difficulty,
+      score: run.score,
+      level: run.highestLevel,
+      averageTimeMs:
+        run.totalCorrect === 0 ? null : Math.round(run.totalSolveTimeMs / run.totalCorrect),
+      bestStreak: run.bestStreak,
+      totalCorrect: run.totalCorrect,
+    };
+    const completed = {
+      ...run,
+      status: 'ended' as const,
+      completionToken: await issueRunCompletionToken(accountOptions.refreshTokenSecret, proof),
+    };
+    formulaSoloRuns.set(run.id, completed);
+    return completed;
+  }
+
+  function nextSoloProblem(experience: number): FormulaSoloRun['currentProblem'] {
+    return { ...createFormulaProblem(experience), startedAt: new Date().toISOString() };
   }
 
   async function createAccountSession(account: AccountRecord) {
@@ -360,33 +518,30 @@ export async function registerHttpRoutes({
       const token = request.cookies[ACCOUNT_REFRESH_COOKIE];
       if (!token) return reply.code(401).send({ message: 'Account refresh token is required.' });
       const tokenHash = hashRefreshToken(token, accountOptions.refreshTokenSecret);
-      const current = await accountRepository.findRefreshToken(tokenHash);
-      if (!current) {
+      const refresh = createRefreshToken(accountOptions.refreshTokenSecret);
+      const rotation = await accountRepository.rotateRefreshToken({
+        tokenHash,
+        nextTokenHash: refresh.hash,
+        nextExpiresAt: refresh.expiresAt,
+      });
+      if (rotation.status === 'missing') {
         reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
         return reply.code(401).send({ message: 'Account refresh token is invalid.' });
       }
-      if (current.revokedAt) {
-        await accountRepository.revokeAccountRefreshTokens(current.accountId);
+      if (rotation.status === 'already_revoked') {
+        await accountRepository.revokeAccountRefreshTokens(rotation.accountId);
         reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
         return reply.code(401).send({ message: 'Account refresh token was already used.' });
       }
-      if (new Date(current.expiresAt).getTime() <= Date.now()) {
-        await accountRepository.revokeRefreshToken(current.id);
+      if (rotation.status === 'expired') {
         reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
         return reply.code(401).send({ message: 'Account refresh token expired.' });
       }
-      const account = await accountRepository.findAccountById(current.accountId);
+      const account = await accountRepository.findAccountById(rotation.token.accountId);
       if (!account) {
         reply.clearCookie(ACCOUNT_REFRESH_COOKIE, { path: '/api/account' });
         return reply.code(401).send({ message: 'Account no longer exists.' });
       }
-      const refresh = createRefreshToken(accountOptions.refreshTokenSecret);
-      const created = await accountRepository.createRefreshToken({
-        accountId: account.id,
-        tokenHash: refresh.hash,
-        expiresAt: refresh.expiresAt,
-      });
-      await accountRepository.revokeRefreshToken(current.id, created.id);
       const access = await issueAccountAccessToken(accountOptions.accessTokenSecret, account);
       reply.setCookie(
         ACCOUNT_REFRESH_COOKIE,
@@ -523,6 +678,159 @@ export async function registerHttpRoutes({
         .send(avatar.bytes);
     });
 
+    fastify.post<{ Body?: { difficulty?: unknown } }>(
+      '/api/runs/formula-frenzy/start',
+      {
+        config: {
+          rateLimit: {
+            max: SOLO_RUN_RATE_LIMIT_MAX,
+            timeWindow: SOLO_RUN_RATE_LIMIT_WINDOW,
+          },
+        },
+      },
+      async (request, reply) => {
+        const difficulty =
+          typeof request.body?.difficulty === 'string' ? request.body.difficulty : 'normal';
+        if (!isLeaderboardDifficulty(difficulty)) {
+          return reply.code(400).send({ message: 'Run difficulty is invalid.' });
+        }
+        const account = await optionalAccount(request);
+        const run = createSoloRun(difficulty, account);
+        formulaSoloRuns.set(run.id, run);
+        return publicFormulaRun(run);
+      },
+    );
+
+    fastify.post<{ Params: { runId: string }; Body?: { answer?: unknown } }>(
+      '/api/runs/formula-frenzy/:runId/answers',
+      {
+        config: {
+          rateLimit: {
+            max: SOLO_RUN_RATE_LIMIT_MAX,
+            timeWindow: SOLO_RUN_RATE_LIMIT_WINDOW,
+          },
+        },
+      },
+      async (request, reply) => {
+        const run = formulaSoloRuns.get(request.params.runId);
+        if (!run) return reply.code(404).send({ message: 'Run not found.' });
+        if (run.status === 'ended') return publicFormulaRun(run);
+        if (typeof request.body?.answer !== 'number' || !Number.isFinite(request.body.answer)) {
+          return reply.code(400).send({ message: 'Answer is required.' });
+        }
+        if (
+          Date.now() >
+          new Date(run.currentProblem.startedAt).getTime() + run.currentProblem.deadlineMs
+        ) {
+          return publicFormulaRun(await finishSoloRun(run));
+        }
+        if (request.body.answer !== run.currentProblem.answer) {
+          const hearts = run.difficulty === 'hardcore' ? 0 : Math.max(0, run.hearts - 1);
+          const missed = { ...run, hearts, streak: 0, currentHint: null };
+          const next = hearts === 0 ? await finishSoloRun(missed) : missed;
+          formulaSoloRuns.set(run.id, next);
+          return publicFormulaRun(next);
+        }
+
+        const solveTimeMs = Math.max(
+          0,
+          Date.now() - new Date(run.currentProblem.startedAt).getTime(),
+        );
+        const streak = run.streak + 1;
+        const experience = run.experience + 1;
+        const progress = formulaProgress(experience);
+        const next = {
+          ...run,
+          score:
+            run.score +
+            scoreFormulaAnswer(
+              streak,
+              solveTimeMs,
+              run.currentProblem.deadlineMs,
+              run.currentProblem.level,
+              run.currentHint !== null,
+            ),
+          experience,
+          level: progress.level,
+          xp: progress.xp,
+          xpRequired: progress.xpRequired,
+          streak,
+          bestStreak: Math.max(run.bestStreak, streak),
+          hearts:
+            run.difficulty === 'normal' && streak % 5 === 0
+              ? Math.min(FORMULA_MAX_HEARTS, run.hearts + 1)
+              : run.hearts,
+          hintsRemaining:
+            run.difficulty === 'normal' && streak % 10 === 0
+              ? Math.min(FORMULA_INITIAL_HINTS, run.hintsRemaining + 1)
+              : run.hintsRemaining,
+          currentHint: null,
+          highestLevel: Math.max(run.highestLevel, progress.level),
+          totalCorrect: run.totalCorrect + 1,
+          totalSolveTimeMs: run.totalSolveTimeMs + solveTimeMs,
+          currentProblem: nextSoloProblem(experience),
+        };
+        formulaSoloRuns.set(run.id, next);
+        return publicFormulaRun(next);
+      },
+    );
+
+    fastify.post<{ Params: { runId: string } }>(
+      '/api/runs/formula-frenzy/:runId/hints',
+      async (request, reply) => {
+        const run = formulaSoloRuns.get(request.params.runId);
+        if (!run) return reply.code(404).send({ message: 'Run not found.' });
+        if (
+          run.status === 'ended' ||
+          run.difficulty !== 'normal' ||
+          run.hintsRemaining <= 0 ||
+          run.currentHint !== null ||
+          !run.currentProblem.hint
+        ) {
+          return reply.code(400).send({ message: 'Hint is not available.' });
+        }
+        const next = {
+          ...run,
+          hintsRemaining: run.hintsRemaining - 1,
+          currentHint: run.currentProblem.hint,
+        };
+        formulaSoloRuns.set(run.id, next);
+        return publicFormulaRun(next);
+      },
+    );
+
+    fastify.post<{ Params: { runId: string } }>(
+      '/api/runs/formula-frenzy/:runId/finish',
+      async (request, reply) => {
+        const run = formulaSoloRuns.get(request.params.runId);
+        if (!run) return reply.code(404).send({ message: 'Run not found.' });
+        return publicFormulaRun(await finishSoloRun(run));
+      },
+    );
+
+    fastify.post<{ Body?: { cpuLevel?: unknown } }>(
+      '/api/runs/equation-artillery/cpu-wins',
+      async (request, reply) => {
+        try {
+          if (!accountOptions) throw new Error('Account system is not configured.');
+          const account = await optionalAccount(request);
+          const cpuLevel = parseBoundedInteger(request.body?.cpuLevel, 'CPU level', 0, 10);
+          return {
+            completionToken: await issueRunCompletionToken(accountOptions.refreshTokenSecret, {
+              kind: 'equation-artillery-cpu-win',
+              accountId: account?.id ?? null,
+              runId: randomUUID(),
+              cpuLevel,
+            }),
+          };
+        } catch (error) {
+          return reply.code(400).send({
+            message: error instanceof Error ? error.message : 'Could not create completion token.',
+          });
+        }
+      },
+    );
+
     if (progressRepository) {
       fastify.get('/api/account/progress', async (request, reply) => {
         let account: AccountRecord;
@@ -549,13 +857,7 @@ export async function registerHttpRoutes({
 
       fastify.post<{
         Body?: {
-          runId?: unknown;
-          difficulty?: unknown;
-          score?: unknown;
-          level?: unknown;
-          averageTimeMs?: unknown;
-          bestStreak?: unknown;
-          totalCorrect?: unknown;
+          completionToken?: unknown;
         };
       }>(
         '/api/account/progress/formula-frenzy/runs',
@@ -578,35 +880,21 @@ export async function registerHttpRoutes({
             });
           }
           try {
-            const difficulty =
-              typeof request.body?.difficulty === 'string' ? request.body.difficulty : 'normal';
-            if (!isProgressDifficulty(difficulty)) {
-              return reply.code(400).send({ message: 'Progress difficulty is invalid.' });
+            const token = requireCompletionToken(request.body);
+            const proof = await verifyRunCompletionToken(accountOptions.refreshTokenSecret, token);
+            if (proof.kind !== 'formula-frenzy') {
+              return reply.code(400).send({ message: 'Completion token is invalid.' });
             }
+            assertProofAccount(proof, account);
             const run: FormulaFrenzyRunInput = {
               accountId: account.id,
-              runId: validateProgressRunId(request.body?.runId),
-              difficulty,
-              score: parseBoundedInteger(request.body?.score, 'Score', 0, 1_000_000_000),
-              level: parseBoundedInteger(request.body?.level, 'Level', 1, 1_000),
-              averageTimeMs: parseNullableBoundedInteger(
-                request.body?.averageTimeMs,
-                'Average time',
-                0,
-                60 * 60 * 1000,
-              ),
-              bestStreak: parseBoundedInteger(
-                request.body?.bestStreak,
-                'Best streak',
-                0,
-                1_000_000,
-              ),
-              totalCorrect: parseBoundedInteger(
-                request.body?.totalCorrect,
-                'Total correct',
-                0,
-                1_000_000,
-              ),
+              runId: validateProgressRunId(proof.runId),
+              difficulty: proof.difficulty,
+              score: proof.score,
+              level: proof.level,
+              averageTimeMs: proof.averageTimeMs,
+              bestStreak: proof.bestStreak,
+              totalCorrect: proof.totalCorrect,
             };
             return progressRepository.saveFormulaFrenzyRun(run);
           } catch (error) {
@@ -619,7 +907,7 @@ export async function registerHttpRoutes({
 
       fastify.post<{
         Body?: {
-          cpuLevel?: unknown;
+          completionToken?: unknown;
         };
       }>(
         '/api/account/progress/equation-artillery/cpu-wins',
@@ -642,9 +930,17 @@ export async function registerHttpRoutes({
             });
           }
           try {
+            const proof = await verifyRunCompletionToken(
+              accountOptions.refreshTokenSecret,
+              requireCompletionToken(request.body),
+            );
+            if (proof.kind !== 'equation-artillery-cpu-win') {
+              return reply.code(400).send({ message: 'Completion token is invalid.' });
+            }
+            assertProofAccount(proof, account);
             return progressRepository.saveEquationArtilleryCpuWin({
               accountId: account.id,
-              cpuLevel: parseBoundedInteger(request.body?.cpuLevel, 'CPU level', 0, 10),
+              cpuLevel: proof.cpuLevel,
             });
           } catch (error) {
             return reply.code(400).send({
@@ -705,12 +1001,7 @@ export async function registerHttpRoutes({
     fastify.post<{
       Params: { gameId: string };
       Body?: {
-        score?: unknown;
-        difficulty?: unknown;
-        level?: unknown;
-        averageTimeMs?: unknown;
-        bestStreak?: unknown;
-        totalCorrect?: unknown;
+        completionToken?: unknown;
       };
     }>(
       '/api/leaderboards/:gameId/entries',
@@ -735,43 +1026,17 @@ export async function registerHttpRoutes({
           });
         }
         try {
-          const score = parseBoundedInteger(request.body?.score, 'Score', 0, 1_000_000_000);
-          const level = parseBoundedInteger(request.body?.level, 'Level', 1, 1_000);
-          const averageTimeMs = parseNullableBoundedInteger(
-            request.body?.averageTimeMs,
-            'Average time',
-            0,
-            60 * 60 * 1000,
+          const proof = await verifyRunCompletionToken(
+            accountOptions!.refreshTokenSecret,
+            requireCompletionToken(request.body),
           );
-          const bestStreak = parseBoundedInteger(
-            request.body?.bestStreak,
-            'Best streak',
-            0,
-            1_000_000,
-          );
-          const totalCorrect = parseBoundedInteger(
-            request.body?.totalCorrect,
-            'Total correct',
-            0,
-            1_000_000,
-          );
-          const difficulty =
-            typeof request.body?.difficulty === 'string' ? request.body.difficulty : 'normal';
-          if (!isLeaderboardDifficulty(difficulty)) {
-            return reply.code(400).send({ message: 'Leaderboard difficulty is invalid.' });
+          if (proof.kind !== 'formula-frenzy') {
+            return reply.code(400).send({ message: 'Completion token is invalid.' });
           }
-          const entry: LeaderboardScoreInput = {
-            gameId: request.params.gameId,
-            difficulty,
-            accountId: account.id,
-            username: account.username,
-            score,
-            level,
-            averageTimeMs,
-            bestStreak,
-            totalCorrect,
-          };
-          return leaderboardRepository.saveBest(entry);
+          assertProofAccount(proof, account);
+          return leaderboardRepository.saveBest(
+            leaderboardInputFromProof(proof, account.id, account.username),
+          );
         } catch (error) {
           return reply.code(400).send({
             message: error instanceof Error ? error.message : 'Could not save leaderboard score.',
