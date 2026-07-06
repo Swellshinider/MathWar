@@ -26,6 +26,12 @@ export interface RefreshTokenRecord {
   readonly revokedAt: string | null;
 }
 
+export type RefreshTokenRotationResult =
+  | { readonly status: 'rotated'; readonly token: RefreshTokenRecord }
+  | { readonly status: 'missing' }
+  | { readonly status: 'already_revoked'; readonly accountId: string }
+  | { readonly status: 'expired'; readonly tokenId: string };
+
 export interface CreateAccountInput {
   readonly username: string;
   readonly passwordHash: string;
@@ -47,6 +53,11 @@ export interface AccountRepository {
     expiresAt: Date;
   }): Promise<RefreshTokenRecord>;
   findRefreshToken(tokenHash: string): Promise<RefreshTokenRecord | null>;
+  rotateRefreshToken(input: {
+    tokenHash: string;
+    nextTokenHash: string;
+    nextExpiresAt: Date;
+  }): Promise<RefreshTokenRotationResult>;
   revokeRefreshToken(id: string, replacedByTokenId?: string): Promise<void>;
   revokeAccountRefreshTokens(accountId: string): Promise<void>;
   close(): Promise<void>;
@@ -181,6 +192,32 @@ export class InMemoryAccountRepository implements AccountRepository {
     const id = this.refreshTokenIdsByHash.get(tokenHash);
     const record = id ? this.refreshTokens.get(id) : null;
     return record ? structuredClone(record) : null;
+  }
+
+  async rotateRefreshToken(input: {
+    tokenHash: string;
+    nextTokenHash: string;
+    nextExpiresAt: Date;
+  }): Promise<RefreshTokenRotationResult> {
+    const current = await this.findRefreshToken(input.tokenHash);
+    if (!current) return { status: 'missing' };
+    if (current.revokedAt) return { status: 'already_revoked', accountId: current.accountId };
+    if (new Date(current.expiresAt).getTime() <= Date.now()) {
+      await this.revokeRefreshToken(current.id);
+      return { status: 'expired', tokenId: current.id };
+    }
+    const next: RefreshTokenRecord = {
+      id: randomUUID(),
+      accountId: current.accountId,
+      tokenHash: input.nextTokenHash,
+      expiresAt: input.nextExpiresAt.toISOString(),
+      revokedAt: null,
+    };
+    const now = new Date().toISOString();
+    this.refreshTokens.set(current.id, { ...current, revokedAt: now });
+    this.refreshTokens.set(next.id, next);
+    this.refreshTokenIdsByHash.set(next.tokenHash, next.id);
+    return { status: 'rotated', token: structuredClone(next) };
   }
 
   async revokeRefreshToken(id: string): Promise<void> {
@@ -321,6 +358,68 @@ export class PostgresAccountRepository implements AccountRepository {
       tokenHash,
     ]);
     return result.rowCount ? mapRefreshToken(result.rows[0]) : null;
+  }
+
+  async rotateRefreshToken(input: {
+    tokenHash: string;
+    nextTokenHash: string;
+    nextExpiresAt: Date;
+  }): Promise<RefreshTokenRotationResult> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const currentResult = await client.query(
+        `SELECT *
+        FROM refresh_tokens
+        WHERE token_hash = $1
+        FOR UPDATE`,
+        [input.tokenHash],
+      );
+      if (!currentResult.rowCount) {
+        await client.query('COMMIT');
+        return { status: 'missing' };
+      }
+      const current = mapRefreshToken(currentResult.rows[0]);
+      if (current.revokedAt) {
+        await client.query('COMMIT');
+        return { status: 'already_revoked', accountId: current.accountId };
+      }
+      if (new Date(current.expiresAt).getTime() <= Date.now()) {
+        await client.query(
+          `UPDATE refresh_tokens
+          SET revoked_at = COALESCE(revoked_at, now())
+          WHERE id = $1`,
+          [current.id],
+        );
+        await client.query('COMMIT');
+        return { status: 'expired', tokenId: current.id };
+      }
+
+      const nextId = randomUUID();
+      const inserted = await client.query(
+        `INSERT INTO refresh_tokens (id, account_id, token_hash, expires_at)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *`,
+        [nextId, current.accountId, input.nextTokenHash, input.nextExpiresAt],
+      );
+      const consumed = await client.query(
+        `UPDATE refresh_tokens
+        SET revoked_at = now(), replaced_by_token_id = $2
+        WHERE id = $1 AND revoked_at IS NULL`,
+        [current.id, nextId],
+      );
+      if (!consumed.rowCount) {
+        await client.query('ROLLBACK');
+        return { status: 'already_revoked', accountId: current.accountId };
+      }
+      await client.query('COMMIT');
+      return { status: 'rotated', token: mapRefreshToken(inserted.rows[0]) };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async revokeRefreshToken(id: string, replacedByTokenId?: string): Promise<void> {

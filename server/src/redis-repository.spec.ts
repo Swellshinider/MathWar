@@ -42,6 +42,11 @@ class FakeRedis {
     return deleted;
   }
 
+  async eval(_script: string, _numberOfKeys: number, key: string, value: string): Promise<number> {
+    if (this.strings.get(key) !== value) return 0;
+    return this.del(key);
+  }
+
   async sadd(key: string, ...members: string[]): Promise<number> {
     const set = this.sets.get(key) ?? new Set<string>();
     this.sets.set(key, set);
@@ -81,6 +86,13 @@ class FakeMulti {
 
   del(...keys: string[]): this {
     this.operations.push(() => void this.redis.del(...keys));
+    return this;
+  }
+
+  eval(script: string, numberOfKeys: number, ...args: (string | number)[]): this {
+    this.operations.push(
+      () => void this.redis.eval(script, numberOfKeys, String(args[0]), String(args[1])),
+    );
     return this;
   }
 
@@ -166,10 +178,12 @@ describe('RedisMatchRepository', () => {
     }));
 
     expect(updated).toMatchObject({ ok: true, state: { version: state.version + 1 } });
-    await expect(repository.update(state.id, state.version, commandId, (current) => current))
-      .resolves.toEqual({ ok: false, reason: 'duplicate' });
-    await expect(repository.update(state.id, state.version, randomUUID(), (current) => current))
-      .resolves.toEqual({ ok: false, reason: 'stale' });
+    await expect(
+      repository.update(state.id, state.version, commandId, (current) => current),
+    ).resolves.toEqual({ ok: false, reason: 'duplicate' });
+    await expect(
+      repository.update(state.id, state.version, randomUUID(), (current) => current),
+    ).resolves.toEqual({ ok: false, reason: 'stale' });
   });
 
   it('lists expired reconnects and deletes empty or finished matches', async () => {
@@ -186,11 +200,13 @@ describe('RedisMatchRepository', () => {
     }));
     expect(paused.ok).toBe(true);
 
-    await expect(repository.listExpiredReconnects(new Date('2026-07-02T12:01:00.000Z')))
-      .resolves.toHaveLength(1);
+    await expect(
+      repository.listExpiredReconnects(new Date('2026-07-02T12:01:00.000Z')),
+    ).resolves.toHaveLength(1);
     await repository.markRoomEmpty(state.id, new Date('2026-07-02T12:02:00.000Z'));
-    await expect(repository.deleteEmptyBefore(new Date('2026-07-02T12:03:00.000Z')))
-      .resolves.toBe(1);
+    await expect(repository.deleteEmptyBefore(new Date('2026-07-02T12:03:00.000Z'))).resolves.toBe(
+      1,
+    );
     await expect(repository.findById(state.id)).resolves.toBeNull();
 
     const finished = createState('ROOM-0002');
@@ -209,8 +225,20 @@ describe('RedisMatchRepository', () => {
       }),
     );
     expect(ended.ok).toBe(true);
-    await expect(repository.deleteFinishedBefore(new Date('2026-07-03T12:00:00.000Z')))
-      .resolves.toBe(1);
+    await expect(
+      repository.deleteFinishedBefore(new Date('2026-07-03T12:00:00.000Z')),
+    ).resolves.toBe(1);
     await expect(repository.findById(finished.id)).resolves.toBeNull();
+  });
+
+  it('does not delete a newer active-user index while cleaning an old match', async () => {
+    const repository = new RedisMatchRepository(new FakeRedis() as never);
+    const first = createState('ROOM-0001');
+    const second = { ...createState('ROOM-0002'), players: first.players };
+    await repository.create(first, randomUUID());
+    await repository.create(second, randomUUID());
+
+    await expect(repository.delete(first.id)).resolves.toBe(true);
+    await expect(repository.findActiveByUser('host')).resolves.toEqual(second);
   });
 });

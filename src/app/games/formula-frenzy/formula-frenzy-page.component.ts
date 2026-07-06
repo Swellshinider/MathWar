@@ -16,10 +16,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideHeart, LucideLightbulb } from '@lucide/angular';
 import { MultiplayerMatchState } from '@math-war/game-engine';
 import { AccountAuthService } from '../../account/account-auth.service';
-import {
-  AccountProgressService,
-  FormulaFrenzyProgressRun,
-} from '../../account/account-progress.service';
+import { AccountProgressService } from '../../account/account-progress.service';
 import {
   LeaderboardDifficulty,
   LeaderboardRun,
@@ -38,7 +35,9 @@ import {
   FormulaProblem,
   formulaProgress,
   scoreFormulaAnswer,
+  soloFormulaProblemRandom,
 } from './game/problem-generator';
+import { FormulaFrenzyRunService, FormulaRunState } from './formula-frenzy-run.service';
 
 type FormulaFrenzyMode = 'progression' | 'hardcore' | 'free-practice';
 
@@ -63,6 +62,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private readonly audio = inject(AudioSettingsService);
   private readonly leaderboard = inject(LeaderboardService);
   private readonly progress = inject(AccountProgressService);
+  private readonly runService = inject(FormulaFrenzyRunService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
@@ -137,6 +137,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private pendingAutoSaveHandled = false;
   private currentRunId = createProgressRunId();
   private savedProgressRunId: string | null = null;
+  private currentCompletionToken: string | null = null;
+  private runSeed: string | null = null;
 
   constructor() {
     effect(() => {
@@ -168,7 +170,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     preventBackspaceNavigation(event);
   }
 
-  submitAnswer(event?: SubmitEvent): void {
+  async submitAnswer(event?: SubmitEvent): Promise<void> {
     event?.preventDefault();
     if (this.gameOver() || this.timedModePaused()) return;
 
@@ -182,6 +184,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
       this.missAnswer();
       return;
     }
+
+    if (this.timedMode()) void this.syncServerAnswer(answer);
 
     const solveTimeMs = Date.now() - this.problemStartedAt;
     const previousLevel = this.level();
@@ -265,6 +269,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.problem.set(this.nextProblem());
     this.currentRunId = createProgressRunId();
     this.savedProgressRunId = null;
+    this.currentCompletionToken = null;
+    this.runSeed = null;
     this.clearTimers();
     this.clearPulseTimers();
     this.timeRemainingMs.set(this.timedMode() ? this.problem().deadlineMs : 0);
@@ -272,31 +278,43 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.syncAnswerControl();
   }
 
-  startRun(): void {
+  async startRun(): Promise<void> {
     if (!this.timedMode() || this.runStarted()) return;
     if (this.hardcoreMode() && !this.hardcoreWarningDismissed()) {
       this.openHardcoreWarningDialog();
       return;
     }
-    this.beginRun();
+    await this.beginRun();
   }
 
-  continueHardcoreRun(): void {
+  async continueHardcoreRun(): Promise<void> {
     if (!this.hardcoreMode() || this.runStarted()) return;
     if (this.hideHardcoreWarning()) this.dismissHardcoreWarning();
     this.closeHardcoreWarningDialog();
-    this.beginRun();
+    await this.beginRun();
   }
 
   setHideHardcoreWarning(value: boolean): void {
     this.hideHardcoreWarning.set(value);
   }
 
-  private beginRun(): void {
+  private async beginRun(): Promise<void> {
     this.runStarted.set(true);
     this.syncAnswerControl();
     this.startProblemTimer();
     this.answerInput?.nativeElement.focus();
+    try {
+      const state = await this.runService.start(this.leaderboardDifficulty());
+      this.currentRunId = state.runId;
+      this.currentCompletionToken = state.completionToken ?? null;
+      // Re-derive problems from the server seed so client and server agree on
+      // every answer; otherwise the server credits none and the run saves as 0.
+      this.runSeed = state.seed ?? null;
+      this.problem.set(this.nextProblem());
+      this.startProblemTimer();
+    } catch (error) {
+      this.toast.show(error instanceof Error ? error.message : 'Could not start run.');
+    }
   }
 
   selectSprint(): void {
@@ -356,6 +374,9 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     if (!this.canRequestHint()) return false;
     const hint = this.problem().hint;
     if (!hint) return false;
+    if (this.timedMode()) {
+      void this.runService.hint(this.currentRunId).catch(() => undefined);
+    }
     this.hintsRemaining.update((remaining) => remaining - 1);
     this.currentHint.set(hint);
     return true;
@@ -364,13 +385,18 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   async saveCurrentRunToLeaderboard(): Promise<void> {
     if (!this.gameOver() || this.savingLeaderboard()) return;
     const run = this.currentLeaderboardRun();
+    const completionToken = await this.ensureCompletionToken();
+    if (!completionToken) {
+      this.toast.show('Could not save this run.');
+      return;
+    }
     if (!this.auth.user()) {
-      this.leaderboard.storePendingRun('formula-frenzy', run);
-      this.progress.storePendingFormulaFrenzyRun(this.currentProgressRun());
+      this.leaderboard.storePendingRun('formula-frenzy', run.difficulty, completionToken);
+      this.progress.storePendingFormulaFrenzyRun(run.difficulty, completionToken);
       this.leaderboardAuthPrompt.set(true);
       return;
     }
-    const saved = await this.saveRunToLeaderboard(run);
+    const saved = await this.saveRunToLeaderboard(completionToken);
     if (saved) {
       await this.saveCurrentRunProgress();
       this.closeResultDialog(true);
@@ -386,7 +412,8 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.syncAnswerControl();
     this.syncResultDialog();
     this.playSound('game-over.wav');
-    void this.saveCurrentRunProgress();
+    if (this.timedMode())
+      void this.finishCurrentServerRun().then(() => this.saveCurrentRunProgress());
   }
 
   private rejectAnswer(): void {
@@ -487,21 +514,14 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     };
   }
 
-  private currentProgressRun(): FormulaFrenzyProgressRun {
-    return {
-      runId: this.currentRunId,
-      ...this.currentLeaderboardRun(),
-    };
-  }
-
   private leaderboardDifficulty(): LeaderboardDifficulty {
     return this.hardcoreMode() ? 'hardcore' : 'normal';
   }
 
-  private async saveRunToLeaderboard(run: LeaderboardRun): Promise<boolean> {
+  private async saveRunToLeaderboard(completionToken: string): Promise<boolean> {
     this.savingLeaderboard.set(true);
     try {
-      const result = await this.leaderboard.save('formula-frenzy', run);
+      const result = await this.leaderboard.save('formula-frenzy', completionToken);
       if (result.status === 'not_improved') {
         this.toast.show('That run is lower than your saved leaderboard score.');
       } else {
@@ -519,11 +539,11 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
 
   private async saveCurrentRunProgress(): Promise<void> {
     if (!this.auth.user() || this.gameMode() === 'free-practice') return;
-    const run = this.currentProgressRun();
-    if (this.savedProgressRunId === run.runId) return;
+    const completionToken = await this.ensureCompletionToken();
+    if (!completionToken || this.savedProgressRunId === this.currentRunId) return;
     try {
-      const result = await this.progress.saveFormulaFrenzyRun(run);
-      this.savedProgressRunId = run.runId;
+      const result = await this.progress.saveFormulaFrenzyRun(completionToken);
+      this.savedProgressRunId = this.currentRunId;
       for (const achievement of result.newlyUnlocked) {
         this.toast.show(`Achievement unlocked: ${achievementTitle(achievement.id)}`);
       }
@@ -553,6 +573,68 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     } catch {}
   }
 
+  private async requestServerHint(): Promise<void> {
+    try {
+      this.applyServerRun(await this.runService.hint(this.currentRunId));
+    } catch (error) {
+      this.toast.show(error instanceof Error ? error.message : 'Could not request hint.');
+    }
+  }
+
+  private async syncServerAnswer(answer: number): Promise<void> {
+    try {
+      const state = await this.runService.answer(this.currentRunId, answer);
+      this.currentRunId = state.runId;
+      this.currentCompletionToken = state.completionToken ?? null;
+    } catch {}
+  }
+
+  private async finishCurrentServerRun(): Promise<void> {
+    if (!this.timedMode() || this.currentCompletionToken) return;
+    try {
+      this.applyServerRun(await this.runService.finish(this.currentRunId));
+    } catch {}
+  }
+
+  private async ensureCompletionToken(): Promise<string | null> {
+    if (this.currentCompletionToken) return this.currentCompletionToken;
+    await this.finishCurrentServerRun();
+    return this.currentCompletionToken;
+  }
+
+  private applyServerRun(state: FormulaRunState): void {
+    this.currentRunId = state.runId;
+    this.currentCompletionToken = state.completionToken ?? null;
+    this.score.set(state.score);
+    this.experience.set(state.experience);
+    this.level.set(state.level);
+    this.xp.set(state.xp);
+    this.xpRequired.set(state.xpRequired);
+    this.streak.set(state.streak);
+    this.bestStreak.set(state.bestStreak);
+    this.hearts.set(state.hearts);
+    this.hintsRemaining.set(state.hintsRemaining);
+    this.currentHint.set(state.currentHint);
+    this.highestLevel.set(state.highestLevel);
+    this.totalCorrect.set(state.totalCorrect);
+    this.totalSolveTimeMs.set(state.totalSolveTimeMs);
+    this.problem.set({
+      prompt: state.currentProblem.prompt,
+      level: state.currentProblem.level,
+      levelName: state.currentProblem.levelName,
+      deadlineMs: state.currentProblem.deadlineMs,
+      hint: state.currentProblem.hint ?? undefined,
+    });
+    this.problemStartedAt = Date.parse(state.currentProblem.startedAt);
+    this.gameOver.set(state.status === 'ended');
+    this.runStarted.set(state.status === 'active');
+    this.syncAnswerControl();
+    if (state.status === 'ended') {
+      this.clearTimers();
+      this.syncResultDialog();
+    }
+  }
+
   private pendingLeaderboardDifficulty(): LeaderboardDifficulty {
     return this.route.snapshot.queryParamMap.get('difficulty') === 'hardcore'
       ? 'hardcore'
@@ -560,7 +642,10 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   }
 
   private nextProblem(): FormulaProblem {
-    return createFormulaProblem(this.experience());
+    const experience = this.experience();
+    return this.runSeed
+      ? createFormulaProblem(experience, soloFormulaProblemRandom(this.runSeed, experience))
+      : createFormulaProblem(experience);
   }
 
   private syncAnswerControl(): void {

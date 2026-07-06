@@ -70,48 +70,30 @@ export class LeaderboardService {
     return payload as LeaderboardPage;
   }
 
-  async save(gameId: LeaderboardGameId, run: LeaderboardRun): Promise<LeaderboardSaveResult> {
+  async save(gameId: LeaderboardGameId, completionToken: string): Promise<LeaderboardSaveResult> {
     return this.authorizedJson<LeaderboardSaveResult>(`/api/leaderboards/${gameId}/entries`, {
       method: 'POST',
-      body: JSON.stringify(run),
+      body: JSON.stringify({ completionToken }),
     });
   }
 
-  storePendingRun(gameId: LeaderboardGameId, run: LeaderboardRun): void {
-    sessionStorage.setItem(this.pendingRunKey(gameId, run.difficulty), JSON.stringify(run));
+  storePendingRun(
+    gameId: LeaderboardGameId,
+    difficulty: LeaderboardDifficulty,
+    completionToken: string,
+  ): void {
+    sessionStorage.setItem(this.pendingRunKey(gameId, difficulty), completionToken);
   }
 
   takePendingRun(
     gameId: LeaderboardGameId,
     difficulty: LeaderboardDifficulty = 'normal',
-  ): LeaderboardRun | null {
+  ): string | null {
     const key = this.pendingRunKey(gameId, difficulty);
     const value = sessionStorage.getItem(key);
     if (!value) return null;
     sessionStorage.removeItem(key);
-    try {
-      const parsed = JSON.parse(value) as Partial<LeaderboardRun>;
-      if (
-        (parsed.difficulty !== 'normal' && parsed.difficulty !== 'hardcore') ||
-        typeof parsed.score !== 'number' ||
-        typeof parsed.level !== 'number' ||
-        typeof parsed.bestStreak !== 'number' ||
-        typeof parsed.totalCorrect !== 'number' ||
-        (parsed.averageTimeMs !== null && typeof parsed.averageTimeMs !== 'number')
-      ) {
-        return null;
-      }
-      return {
-        difficulty: parsed.difficulty,
-        score: parsed.score,
-        level: parsed.level,
-        averageTimeMs: parsed.averageTimeMs,
-        bestStreak: parsed.bestStreak,
-        totalCorrect: parsed.totalCorrect,
-      };
-    } catch {
-      return null;
-    }
+    return value;
   }
 
   private pendingRunKey(gameId: LeaderboardGameId, difficulty: LeaderboardDifficulty): string {

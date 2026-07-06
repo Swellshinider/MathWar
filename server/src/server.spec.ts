@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveShot } from '@math-war/game-engine';
+import { createFormulaProblem, resolveShot, soloFormulaProblemRandom } from '@math-war/game-engine';
 import { Server as SocketServer } from 'socket.io';
 import { io as createClient, Socket } from 'socket.io-client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +13,7 @@ import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
 import { InMemoryLeaderboardRepository } from './leaderboard-repository.js';
 import { InMemoryMatchRepository } from './repository.js';
+import { issueRunCompletionToken, verifyRunCompletionToken } from './run-proof.js';
 import { createMultiplayerServer } from './server.js';
 
 interface Harness {
@@ -38,6 +39,32 @@ class InMemoryUsernameAvailabilityCache implements UsernameAvailabilityCache {
   }
 
   async close(): Promise<void> {}
+}
+
+async function formulaCompletionToken(
+  secret: string,
+  accountId: string | null,
+  input: {
+    readonly runId?: string;
+    readonly difficulty?: 'normal' | 'hardcore';
+    readonly score: number;
+    readonly level: number;
+    readonly averageTimeMs: number | null;
+    readonly bestStreak: number;
+    readonly totalCorrect: number;
+  },
+): Promise<string> {
+  return issueRunCompletionToken(secret, {
+    kind: 'formula-frenzy',
+    accountId,
+    runId: input.runId ?? randomUUID(),
+    difficulty: input.difficulty ?? 'normal',
+    score: input.score,
+    level: input.level,
+    averageTimeMs: input.averageTimeMs,
+    bestStreak: input.bestStreak,
+    totalCorrect: input.totalCorrect,
+  });
 }
 
 async function createHarness(
@@ -297,6 +324,21 @@ describe('multiplayer socket server', () => {
         displayName: 'Player One',
       },
     });
+    const successorRefreshCookie = String(refreshed.headers['set-cookie']).split(';')[0];
+
+    const reused = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/refresh',
+      headers: { cookie: refreshCookie },
+    });
+    expect(reused.statusCode).toBe(401);
+
+    const revokedSuccessor = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/refresh',
+      headers: { cookie: successorRefreshCookie },
+    });
+    expect(revokedSuccessor.statusCode).toBe(401);
 
     const profile = await server.fastify.inject({
       method: 'PATCH',
@@ -309,6 +351,55 @@ describe('multiplayer socket server', () => {
 
     const socket = await connect(harness, refreshed.json().accessToken);
     expect(socket.connected).toBe(true);
+  });
+
+  it('credits a correct answer and bakes the real score into a Formula Frenzy run token', async () => {
+    const repository = new InMemoryMatchRepository();
+    const server = await createMultiplayerServer({
+      repository,
+      verifyToken: createAccountTokenVerifier('account-access-secret-with-enough-length'),
+      accounts: {
+        repository: new InMemoryAccountRepository(),
+        accessTokenSecret: 'account-access-secret-with-enough-length',
+        refreshTokenSecret: 'account-refresh-secret-with-enough-length',
+        refreshCookieSecure: false,
+      },
+      allowedOrigin: '*',
+      sweepIntervalMs: 10,
+    });
+    harnesses.push({ repository, server, url: '', clients: [] });
+    const refreshSecret = 'account-refresh-secret-with-enough-length';
+
+    const started = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/runs/formula-frenzy/start',
+      payload: { difficulty: 'normal' },
+    });
+    expect(started.statusCode).toBe(200);
+    const { runId, seed } = started.json();
+    // The client regenerates the same problem from the seed to know the answer.
+    const answer = createFormulaProblem(0, soloFormulaProblemRandom(seed, 0)).answer;
+
+    const answered = await server.fastify.inject({
+      method: 'POST',
+      url: `/api/runs/formula-frenzy/${runId}/answers`,
+      payload: { answer },
+    });
+    expect(answered.statusCode).toBe(200);
+    expect(answered.json().score).toBeGreaterThan(0);
+    expect(answered.json().totalCorrect).toBe(1);
+
+    const finished = await server.fastify.inject({
+      method: 'POST',
+      url: `/api/runs/formula-frenzy/${runId}/finish`,
+    });
+    expect(finished.statusCode).toBe(200);
+    const proof = await verifyRunCompletionToken(refreshSecret, finished.json().completionToken);
+    expect(proof.kind).toBe('formula-frenzy');
+    if (proof.kind === 'formula-frenzy') {
+      expect(proof.score).toBeGreaterThan(0);
+      expect(proof.totalCorrect).toBe(1);
+    }
   });
 
   it('saves and lists Formula Frenzy leaderboard scores', async () => {
@@ -341,6 +432,8 @@ describe('multiplayer socket server', () => {
       },
     });
     const token = created.json().accessToken;
+    const accountId = created.json().user.id;
+    const refreshSecret = 'account-refresh-secret-with-enough-length';
     const unauthorized = await server.fastify.inject({
       method: 'POST',
       url: '/api/leaderboards/formula-frenzy/entries',
@@ -348,11 +441,34 @@ describe('multiplayer socket server', () => {
     });
     expect(unauthorized.statusCode).toBe(401);
 
-    const saved = await server.fastify.inject({
+    const legacyMetrics = await server.fastify.inject({
       method: 'POST',
       url: '/api/leaderboards/formula-frenzy/entries',
       headers: { authorization: `Bearer ${token}` },
       payload: { score: 100, level: 3, averageTimeMs: 1200, bestStreak: 4, totalCorrect: 8 },
+    });
+    expect(legacyMetrics.statusCode).toBe(400);
+
+    const completionToken = await formulaCompletionToken(refreshSecret, accountId, {
+      score: 100,
+      level: 3,
+      averageTimeMs: 1200,
+      bestStreak: 4,
+      totalCorrect: 8,
+    });
+    const tampered = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/leaderboards/formula-frenzy/entries',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { completionToken: `invalid.${completionToken}` },
+    });
+    expect(tampered.statusCode).toBe(400);
+
+    const saved = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/leaderboards/formula-frenzy/entries',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { completionToken },
     });
     expect(saved.statusCode).toBe(200);
     expect(saved.json()).toMatchObject({
@@ -364,7 +480,15 @@ describe('multiplayer socket server', () => {
       method: 'POST',
       url: '/api/leaderboards/formula-frenzy/entries',
       headers: { authorization: `Bearer ${token}` },
-      payload: { score: 90, level: 20, averageTimeMs: 10, bestStreak: 99, totalCorrect: 8 },
+      payload: {
+        completionToken: await formulaCompletionToken(refreshSecret, accountId, {
+          score: 90,
+          level: 20,
+          averageTimeMs: 10,
+          bestStreak: 99,
+          totalCorrect: 8,
+        }),
+      },
     });
     expect(lower.statusCode).toBe(200);
     expect(lower.json()).toMatchObject({
@@ -377,12 +501,14 @@ describe('multiplayer socket server', () => {
       url: '/api/leaderboards/formula-frenzy/entries',
       headers: { authorization: `Bearer ${token}` },
       payload: {
-        difficulty: 'hardcore',
-        score: 50,
-        level: 2,
-        averageTimeMs: 1000,
-        bestStreak: 3,
-        totalCorrect: 4,
+        completionToken: await formulaCompletionToken(refreshSecret, accountId, {
+          difficulty: 'hardcore',
+          score: 50,
+          level: 2,
+          averageTimeMs: 1000,
+          bestStreak: 3,
+          totalCorrect: 4,
+        }),
       },
     });
     expect(hardcore.statusCode).toBe(200);
@@ -390,6 +516,23 @@ describe('multiplayer socket server', () => {
       status: 'created',
       entry: { username: 'player_one', difficulty: 'hardcore', rank: 1, score: 50 },
     });
+
+    const other = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/register',
+      payload: {
+        username: 'Other_Player',
+        password: 'password123',
+        displayName: 'Other',
+      },
+    });
+    const wrongAccount = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/leaderboards/formula-frenzy/entries',
+      headers: { authorization: `Bearer ${other.json().accessToken}` },
+      payload: { completionToken },
+    });
+    expect(wrongAccount.statusCode).toBe(400);
 
     const page = await server.fastify.inject({
       method: 'GET',
@@ -444,6 +587,8 @@ describe('multiplayer socket server', () => {
       },
     });
     const token = created.json().accessToken;
+    const accountId = created.json().user.id;
+    const refreshSecret = 'account-refresh-secret-with-enough-length';
     const unauthorized = await server.fastify.inject({
       method: 'GET',
       url: '/api/account/progress',
@@ -455,13 +600,15 @@ describe('multiplayer socket server', () => {
       url: '/api/account/progress/formula-frenzy/runs',
       headers: { authorization: `Bearer ${token}` },
       payload: {
-        runId: 'run-0001',
-        difficulty: 'normal',
-        score: 500,
-        level: 5,
-        averageTimeMs: 2500,
-        bestStreak: 10,
-        totalCorrect: 10,
+        completionToken: await formulaCompletionToken(refreshSecret, accountId, {
+          runId: 'run-0001',
+          difficulty: 'normal',
+          score: 500,
+          level: 5,
+          averageTimeMs: 2500,
+          bestStreak: 10,
+          totalCorrect: 10,
+        }),
       },
     });
     expect(saved.statusCode).toBe(200);
@@ -490,13 +637,15 @@ describe('multiplayer socket server', () => {
       url: '/api/account/progress/formula-frenzy/runs',
       headers: { authorization: `Bearer ${token}` },
       payload: {
-        runId: 'run-0001',
-        difficulty: 'normal',
-        score: 999,
-        level: 9,
-        averageTimeMs: 100,
-        bestStreak: 99,
-        totalCorrect: 99,
+        completionToken: await formulaCompletionToken(refreshSecret, accountId, {
+          runId: 'run-0001',
+          difficulty: 'normal',
+          score: 999,
+          level: 9,
+          averageTimeMs: 100,
+          bestStreak: 99,
+          totalCorrect: 99,
+        }),
       },
     });
     expect(duplicate.statusCode).toBe(200);
@@ -555,11 +704,27 @@ describe('multiplayer socket server', () => {
       },
     });
     const token = created.json().accessToken;
-    const saved = await server.fastify.inject({
+    const forged = await server.fastify.inject({
       method: 'POST',
       url: '/api/account/progress/equation-artillery/cpu-wins',
       headers: { authorization: `Bearer ${token}` },
       payload: { cpuLevel: 7 },
+    });
+    expect(forged.statusCode).toBe(400);
+
+    const proof = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/runs/equation-artillery/cpu-wins',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { cpuLevel: 7 },
+    });
+    expect(proof.statusCode).toBe(200);
+
+    const saved = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/progress/equation-artillery/cpu-wins',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { completionToken: proof.json().completionToken },
     });
 
     expect(saved.statusCode).toBe(200);
@@ -571,14 +736,14 @@ describe('multiplayer socket server', () => {
       method: 'POST',
       url: '/api/account/progress/equation-artillery/cpu-wins',
       headers: { authorization: `Bearer ${token}` },
-      payload: { cpuLevel: 7 },
+      payload: { completionToken: proof.json().completionToken },
     });
     expect(duplicate.statusCode).toBe(200);
     expect(duplicate.json().newlyUnlocked).toEqual([]);
 
     const invalid = await server.fastify.inject({
       method: 'POST',
-      url: '/api/account/progress/equation-artillery/cpu-wins',
+      url: '/api/runs/equation-artillery/cpu-wins',
       headers: { authorization: `Bearer ${token}` },
       payload: { cpuLevel: 11 },
     });
@@ -624,16 +789,23 @@ describe('multiplayer socket server', () => {
       },
     });
     const token = created.json().accessToken;
+    const accountId = created.json().user.id;
     const saved = await server.fastify.inject({
       method: 'POST',
       url: '/api/leaderboards/formula-frenzy/entries',
       headers: { authorization: `Bearer ${token}` },
       payload: {
-        score: 5311,
-        level: 6,
-        averageTimeMs: 2600,
-        bestStreak: 10,
-        totalCorrect: 10,
+        completionToken: await formulaCompletionToken(
+          'account-refresh-secret-with-enough-length',
+          accountId,
+          {
+            score: 5311,
+            level: 6,
+            averageTimeMs: 2600,
+            bestStreak: 10,
+            totalCorrect: 10,
+          },
+        ),
       },
     });
     expect(saved.statusCode).toBe(200);

@@ -10,6 +10,7 @@ type RedisClient = Pick<
   | 'mget'
   | 'multi'
   | 'quit'
+  | 'eval'
   | 'sadd'
   | 'sismember'
   | 'set'
@@ -20,6 +21,7 @@ type RedisClient = Pick<
 
 interface RedisMulti {
   del(...keys: string[]): RedisMulti;
+  eval(script: string, numberOfKeys: number, ...args: (string | number)[]): RedisMulti;
   sadd(key: string, ...members: string[]): RedisMulti;
   set(key: string, value: string): RedisMulti;
   zadd(key: string, score: number, member: string): RedisMulti;
@@ -80,7 +82,7 @@ export class RedisMatchRepository implements MatchRepository {
     if (!id) return null;
     const state = await this.findById(id);
     if (!state || state.status === 'ended') {
-      await this.redis.del(this.activeUserKey(userId));
+      await this.redis.eval(COMPARE_AND_DELETE_SCRIPT, 1, this.activeUserKey(userId), id);
       return null;
     }
     return state;
@@ -206,10 +208,14 @@ export class RedisMatchRepository implements MatchRepository {
 
   private removeIndexes(transaction: RedisMulti, state: MultiplayerMatchState): void {
     for (const player of state.players) {
-      transaction.del(this.activeUserKey(player.userId));
+      this.deleteIfValue(transaction, this.activeUserKey(player.userId), state.id);
     }
     transaction.zrem(this.finishedKey(), state.id);
     transaction.zrem(this.reconnectKey(), state.id);
+  }
+
+  private deleteIfValue(transaction: RedisMulti, key: string, value: string): void {
+    transaction.eval(COMPARE_AND_DELETE_SCRIPT, 1, key, value);
   }
 
   private deleteMatch(transaction: RedisMulti, state: MultiplayerMatchState): void {
@@ -250,6 +256,13 @@ export class RedisMatchRepository implements MatchRepository {
     return `${this.keyPrefix}:reconnect`;
   }
 }
+
+const COMPARE_AND_DELETE_SCRIPT = `
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+end
+return 0
+`;
 
 export function redisMatchRepositoryOptionsFromEnv(): RedisMatchRepositoryOptions {
   const baseKeyPrefix = process.env['REDIS_KEY_PREFIX'] ?? 'mathwar';

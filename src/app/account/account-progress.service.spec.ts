@@ -40,15 +40,7 @@ describe('AccountProgressService', () => {
     });
 
     const service = TestBed.inject(AccountProgressService);
-    const result = await service.saveFormulaFrenzyRun({
-      runId: 'run-0001',
-      difficulty: 'normal',
-      score: 100,
-      level: 2,
-      averageTimeMs: 2500,
-      bestStreak: 4,
-      totalCorrect: 5,
-    });
+    const result = await service.saveFormulaFrenzyRun('completion-token');
 
     expect(fetch).toHaveBeenCalledWith(
       new URL('http://localhost:3000/api/account/progress/formula-frenzy/runs'),
@@ -56,15 +48,7 @@ describe('AccountProgressService', () => {
         method: 'POST',
         credentials: 'include',
         headers: expect.objectContaining({ authorization: 'Bearer access-token' }),
-        body: JSON.stringify({
-          runId: 'run-0001',
-          difficulty: 'normal',
-          score: 100,
-          level: 2,
-          averageTimeMs: 2500,
-          bestStreak: 4,
-          totalCorrect: 5,
-        }),
+        body: JSON.stringify({ completionToken: 'completion-token' }),
       }),
     );
     expect(result.newlyUnlocked).toEqual([
@@ -95,7 +79,9 @@ describe('AccountProgressService', () => {
     });
 
     const service = TestBed.inject(AccountProgressService);
-    const result = await service.saveEquationArtilleryCpuWin({ cpuLevel: 7 });
+    const result = await service.saveEquationArtilleryCpuWin({
+      completionToken: 'completion-token',
+    });
 
     expect(fetch).toHaveBeenCalledWith(
       new URL('http://localhost:3000/api/account/progress/equation-artillery/cpu-wins'),
@@ -103,7 +89,7 @@ describe('AccountProgressService', () => {
         method: 'POST',
         credentials: 'include',
         headers: expect.objectContaining({ authorization: 'Bearer access-token' }),
-        body: JSON.stringify({ cpuLevel: 7 }),
+        body: JSON.stringify({ completionToken: 'completion-token' }),
       }),
     );
     expect(result.newlyUnlocked).toEqual([
@@ -120,26 +106,10 @@ describe('AccountProgressService', () => {
     });
     const service = TestBed.inject(AccountProgressService);
 
-    service.storePendingFormulaFrenzyRun({
-      runId: 'run-0001',
-      difficulty: 'hardcore',
-      score: 100,
-      level: 2,
-      averageTimeMs: null,
-      bestStreak: 4,
-      totalCorrect: 5,
-    });
+    service.storePendingFormulaFrenzyRun('hardcore', 'completion-token');
 
     expect(service.takePendingFormulaFrenzyRun('normal')).toBeNull();
-    expect(service.takePendingFormulaFrenzyRun('hardcore')).toEqual({
-      runId: 'run-0001',
-      difficulty: 'hardcore',
-      score: 100,
-      level: 2,
-      averageTimeMs: null,
-      bestStreak: 4,
-      totalCorrect: 5,
-    });
+    expect(service.takePendingFormulaFrenzyRun('hardcore')).toBe('completion-token');
     expect(service.takePendingFormulaFrenzyRun('hardcore')).toBeNull();
   });
 });

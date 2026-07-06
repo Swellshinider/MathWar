@@ -39,6 +39,7 @@ describe('EquationArtilleryPageComponent', () => {
     user: vi.fn((): { id: string; displayName: string } | null => null),
   };
   const progress = {
+    createEquationArtilleryCpuWinProof: vi.fn(),
     saveEquationArtilleryCpuWin: vi.fn(),
   };
   const toast = {
@@ -51,6 +52,9 @@ describe('EquationArtilleryPageComponent', () => {
     vi.clearAllMocks();
     account.token.mockReturnValue(null);
     account.user.mockReturnValue(null);
+    progress.createEquationArtilleryCpuWinProof.mockResolvedValue({
+      completionToken: 'completion-token',
+    });
     progress.saveEquationArtilleryCpuWin.mockResolvedValue({
       stats: [],
       recentRuns: [],
@@ -439,8 +443,12 @@ describe('EquationArtilleryPageComponent', () => {
       state: endedState,
     });
     await Promise.resolve();
+    await Promise.resolve();
 
-    expect(progress.saveEquationArtilleryCpuWin).toHaveBeenCalledWith({ cpuLevel: 7 });
+    expect(progress.createEquationArtilleryCpuWinProof).toHaveBeenCalledWith(7);
+    expect(progress.saveEquationArtilleryCpuWin).toHaveBeenCalledWith({
+      completionToken: 'completion-token',
+    });
     expect(toast.show).toHaveBeenCalledWith('Achievement unlocked: Equation Cpu Level 7');
   });
 
