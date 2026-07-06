@@ -65,7 +65,7 @@ import {
 import { mapEquationHistoryMessages } from './equation-history/equation-history-message';
 import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-lobby.component';
 
-type GameMode = 'target-practice' | 'free-practice' | 'single-player';
+type GameMode = 'free-practice' | 'single-player';
 
 const HUMAN_USER_ID = 'human';
 const CPU_USER_ID = 'cpu';
@@ -106,19 +106,15 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   private pendingCpuTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingSinglePlayerState: MatchState | null = null;
   private commandSequence = 0;
-  private wonRound = false;
-  readonly gameMode = signal<GameMode>('target-practice');
+  readonly gameMode = signal<GameMode>('single-player');
   readonly cpuDifficulty = signal(5);
   readonly singlePlayerState = signal<MatchState | null>(null);
-  readonly player = signal<Player>(this.initialRound.player);
   readonly freePracticePlayer = signal<Player>(this.initialRound.player);
   readonly freePracticeTargets = signal<readonly Target[]>([]);
   readonly freePracticeWalls = signal<readonly Wall[]>([]);
   readonly selectedSandboxTool = signal<SandboxTool>('move');
   readonly selectedWallShape = signal<WallShape>('vertical');
   readonly selectedWallSize = signal<SandboxWallSize>('small');
-  readonly targets = signal<readonly Target[]>(this.initialRound.targets);
-  readonly walls = signal<readonly Wall[]>(this.initialRound.walls);
   readonly bullet = signal<Bullet | null>(null);
   readonly trail = signal<readonly Point[]>([]);
   readonly visibleTrailPointCount = signal<number | null>(null);
@@ -131,7 +127,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly cpuOpponentMemory = signal<CpuOpponentMemory | null>(null);
   readonly error = signal<string | null>(null);
   readonly equation = signal('0.35x');
-  private readonly targetPracticeHistory = signal<readonly EquationHistoryMessage[]>([]);
+  private readonly localShotHistory = signal<readonly EquationHistoryMessage[]>([]);
   readonly boardCharacters = computed<readonly BoardCharacter[]>(() => {
     const state = this.singlePlayerState();
     if (!state || this.gameMode() !== 'single-player') return [];
@@ -157,14 +153,12 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       }));
   });
   readonly targetsForBoard = computed<readonly Target[]>(() => {
-    if (this.gameMode() === 'target-practice') return this.targets();
     if (this.gameMode() === 'free-practice') return this.freePracticeTargets();
     return [];
   });
   readonly wallsForBoard = computed<readonly Wall[]>(() => {
     if (this.gameMode() === 'single-player') return this.singlePlayerState()?.walls ?? [];
-    if (this.gameMode() === 'free-practice') return this.freePracticeWalls();
-    return this.walls();
+    return this.freePracticeWalls();
   });
   readonly movementEnabled = computed(
     () =>
@@ -200,7 +194,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   });
   readonly equationHistory = computed<readonly EquationHistoryMessage[]>(() => {
     const state = this.singlePlayerState();
-    if (this.gameMode() !== 'single-player' || !state) return this.targetPracticeHistory();
+    if (this.gameMode() !== 'single-player' || !state) return this.localShotHistory();
     return mapEquationHistoryMessages({
       entries: state.equationHistory,
       players: state.players,
@@ -213,8 +207,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
   readonly roundComplete = computed(() => {
     const state = this.singlePlayerState();
     if (this.gameMode() === 'single-player') return state?.status === 'ended';
-    if (this.gameMode() === 'free-practice') return false;
-    return this.targets().length === 0;
+    return false;
   });
   readonly status = computed(() => {
     const state = this.singlePlayerState();
@@ -231,10 +224,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       if (this.active()) return 'Shot in flight.';
       return 'Click the board to move or use sandbox tools. Fire any equation to test its path.';
     }
-    if (this.roundComplete()) return 'All targets destroyed.';
-    if (this.active())
-      return `${this.targets().length} target${this.targets().length === 1 ? '' : 's'} remaining. Shot in flight.`;
-    return `${this.targets().length} targets remaining. Ready to fire.`;
+    return 'Ready.';
   });
 
   fire(equation: string): void {
@@ -253,7 +243,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       );
       return;
     }
-    this.targetPracticeHistory.update((history) => [
+    this.localShotHistory.update((history) => [
       ...history,
       {
         id: `local-${history.length}`,
@@ -263,14 +253,9 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         mine: true,
       },
     ]);
-    const practiceMode = this.gameMode() === 'free-practice';
-    const shooter = practiceMode ? this.freePracticePlayer() : this.player();
-    const direction = practiceMode ? this.freePracticeDirection(shooter) : 1;
-    let shot = createShot(
-      shooter,
-      practiceMode ? this.freePracticeTargets() : this.targets(),
-      practiceMode ? this.freePracticeWalls() : this.walls(),
-    );
+    const shooter = this.freePracticePlayer();
+    const direction = this.freePracticeDirection(shooter);
+    let shot = createShot(shooter, this.freePracticeTargets(), this.freePracticeWalls());
     const shotFrames: ShotState[] = [shot];
     for (let index = 0; index < LOCAL_SHOT_MAX_FRAMES && shot.active; index += 1) {
       shot = advanceShot(shot, shooter, expression, WORLD_BOUNDS, LOCAL_SHOT_STEP, direction);
@@ -296,22 +281,13 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         shot = shotFrames[frameIndex];
         this.bullet.set(shot.bullet);
         this.visibleTrailPointCount.set(shot.trail.length);
-        if (practiceMode) {
-          this.freePracticeTargets.set(shot.targets);
-          this.freePracticeWalls.set(shot.walls);
-        } else {
-          this.targets.set(shot.targets);
-          this.walls.set(shot.walls);
-        }
+        this.freePracticeTargets.set(shot.targets);
+        this.freePracticeWalls.set(shot.walls);
         this.error.set(shot.error);
         this.active.set(shot.active);
         this.audio.updateEquationSound(shot.bullet.position);
         if (shot.targets.length < previousTargetCount) this.audio.playEnemyHit();
         previousTargetCount = shot.targets.length;
-        if (!practiceMode && shot.targets.length === 0 && !this.wonRound) {
-          this.wonRound = true;
-          this.audio.playWin();
-        }
         if (!shot.active || progress >= 1) {
           this.audio.stopEquationSound();
           if (shot.impact === 'wall') this.audio.playWallHit();
@@ -327,34 +303,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
       this.startCpuMatch();
       return;
     }
-    this.animation.cancel();
-    this.audio.stopEquationSound();
-    const round = spawnRound();
-    this.player.set(round.player);
-    this.targets.set(round.targets);
-    this.walls.set(round.walls);
-    this.bullet.set(null);
-    this.trail.set([]);
-    this.visibleTrailPointCount.set(null);
-    this.active.set(false);
-    this.error.set(null);
-    this.wonRound = false;
-  }
-
-  selectTargetPractice(): void {
-    this.cancelCpuTurn();
-    this.animation.cancel();
-    this.audio.stopEquationSound();
-    this.gameMode.set('target-practice');
-    this.singlePlayerState.set(null);
-    this.cpuOpponentMemory.set(null);
-    this.pendingSinglePlayerState = null;
-    this.activeShot.set(false);
-    this.cpuThinking.set(false);
-    this.bullet.set(null);
-    this.trail.set([]);
-    this.visibleTrailPointCount.set(null);
-    this.error.set(null);
+    this.selectFreePractice();
   }
 
   selectFreePractice(): void {
@@ -423,16 +372,14 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.trail.set([]);
     this.visibleTrailPointCount.set(null);
     this.error.set(null);
-    this.wonRound = false;
   }
 
   playerForBoard(): Player {
     if (this.gameMode() === 'free-practice') return this.freePracticePlayer();
-    if (this.gameMode() !== 'single-player') return this.player();
     const human = this.singlePlayerState()?.players.find(
       (player) => player.userId === HUMAN_USER_ID,
     );
-    return human ?? this.player();
+    return human ?? this.freePracticePlayer();
   }
 
   moveFreePracticePlayer(position: Point): void {

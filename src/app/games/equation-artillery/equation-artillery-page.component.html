@@ -8,10 +8,10 @@
       <button
         type="button"
         class="mode-tab"
-        [class.mode-tab--active]="gameMode() === 'target-practice'"
-        (click)="selectTargetPractice()"
+        [class.mode-tab--active]="gameMode() === 'single-player'"
+        (click)="selectSinglePlayerMode()"
       >
-        Target Practice
+        CPU vs.
       </button>
       <button
         type="button"
@@ -20,14 +20,6 @@
         (click)="selectFreePractice()"
       >
         Free Practice
-      </button>
-      <button
-        type="button"
-        class="mode-tab"
-        [class.mode-tab--active]="gameMode() === 'single-player'"
-        (click)="selectSinglePlayerMode()"
-      >
-        CPU vs.
       </button>
     </div>
     @if (gameMode() === 'single-player') {

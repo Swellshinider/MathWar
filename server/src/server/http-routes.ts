@@ -20,6 +20,7 @@ import {
   verifyPasswordHash,
 } from '../account-auth.js';
 import {
+  AccountProgress,
   AccountProgressRepository,
   FormulaFrenzyRunInput,
   isProgressDifficulty,
@@ -31,6 +32,7 @@ import {
   isLeaderboardDifficulty,
   isLeaderboardGameId,
   isLeaderboardSort,
+  LeaderboardEntry,
   LeaderboardRepository,
   LeaderboardScoreInput,
 } from '../leaderboard-repository.js';
@@ -532,7 +534,17 @@ export async function registerHttpRoutes({
           });
         }
         reply.header('cache-control', 'no-store');
-        return progressRepository.getProgress(account.id);
+        const progress = await progressRepository.getProgress(account.id);
+        if (leaderboardRepository) {
+          const synced = await syncLeaderboardProgress(
+            account.id,
+            progress,
+            leaderboardRepository,
+            progressRepository,
+          );
+          if (synced) return progressRepository.getProgress(account.id);
+        }
+        return progress;
       });
 
       fastify.post<{
@@ -805,4 +817,59 @@ export async function registerHttpRoutes({
       return reply.code(404).send({ message: 'Route not found.' });
     });
   }
+}
+
+async function syncLeaderboardProgress(
+  accountId: string,
+  progress: AccountProgress,
+  leaderboardRepository: LeaderboardRepository,
+  progressRepository: AccountProgressRepository,
+): Promise<boolean> {
+  const entries = await leaderboardRepository.listAccountEntries({
+    gameId: 'formula-frenzy',
+    accountId,
+  });
+  const missingEntries = entries.filter((entry) =>
+    leaderboardEntryIsAheadOfProgress(entry, progress),
+  );
+  await Promise.all(
+    missingEntries.map((entry) =>
+      progressRepository.saveFormulaFrenzyRun({
+        accountId,
+        runId: leaderboardProgressRunId(entry),
+        difficulty: entry.difficulty,
+        score: entry.score,
+        level: entry.level,
+        averageTimeMs: entry.averageTimeMs,
+        bestStreak: entry.bestStreak,
+        totalCorrect: entry.totalCorrect,
+      }),
+    ),
+  );
+  return missingEntries.length > 0;
+}
+
+function leaderboardProgressRunId(entry: LeaderboardEntry): string {
+  const updatedAt = Date.parse(entry.updatedAt);
+  const updatedAtToken = Number.isFinite(updatedAt) ? updatedAt.toString(36) : '0';
+  return `leaderboard-${entry.id}-${updatedAtToken}`;
+}
+
+function leaderboardEntryIsAheadOfProgress(
+  entry: LeaderboardEntry,
+  progress: AccountProgress,
+): boolean {
+  const stats = progress.stats.find(
+    (current) => current.gameId === entry.gameId && current.difficulty === entry.difficulty,
+  );
+  if (!stats) return true;
+  const entryAverage = entry.averageTimeMs ?? Number.POSITIVE_INFINITY;
+  const statsAverage = stats.bestAverageTimeMs ?? Number.POSITIVE_INFINITY;
+  return (
+    entry.score > stats.bestScore ||
+    entry.level > stats.bestLevel ||
+    entry.bestStreak > stats.bestStreak ||
+    entry.totalCorrect > stats.totalCorrect ||
+    entryAverage < statsAverage
+  );
 }
