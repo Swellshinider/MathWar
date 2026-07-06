@@ -1,21 +1,29 @@
 import { Pool } from 'pg';
 
-export type ProgressGameId = 'formula-frenzy';
+export type ProgressGameId = 'formula-frenzy' | 'equation-artillery';
 export type ProgressDifficulty = 'normal' | 'hardcore';
 export type AchievementId =
   | 'first_run'
   | 'level_5'
   | 'level_10'
+  | 'level_15'
+  | 'level_20'
   | 'legend_level'
   | 'score_1000'
   | 'score_5000'
+  | 'score_10000'
   | 'streak_10'
   | 'streak_25'
+  | 'streak_50'
   | 'twenty_correct'
+  | 'fifty_correct'
   | 'quick_solver'
   | 'hardcore_debut'
   | 'hardcore_level_5'
-  | 'hardcore_level_10';
+  | 'hardcore_level_10'
+  | 'hardcore_legend_level'
+  | `equation_cpu_level_${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`
+  | 'equation_cpu_sweep';
 
 export interface FormulaFrenzyRunInput {
   readonly accountId: string;
@@ -26,6 +34,11 @@ export interface FormulaFrenzyRunInput {
   readonly averageTimeMs: number | null;
   readonly bestStreak: number;
   readonly totalCorrect: number;
+}
+
+export interface EquationArtilleryCpuWinInput {
+  readonly accountId: string;
+  readonly cpuLevel: number;
 }
 
 export interface AccountGameRun {
@@ -71,6 +84,7 @@ export interface SaveProgressResult extends AccountProgress {
 export interface AccountProgressRepository {
   initialize(): Promise<void>;
   saveFormulaFrenzyRun(input: FormulaFrenzyRunInput): Promise<SaveProgressResult>;
+  saveEquationArtilleryCpuWin(input: EquationArtilleryCpuWinInput): Promise<SaveProgressResult>;
   getProgress(accountId: string): Promise<AccountProgress>;
   close(): Promise<void>;
 }
@@ -120,17 +134,40 @@ const ACHIEVEMENT_ORDER: readonly AchievementId[] = [
   'first_run',
   'level_5',
   'level_10',
+  'level_15',
+  'level_20',
   'legend_level',
   'score_1000',
   'score_5000',
+  'score_10000',
   'streak_10',
   'streak_25',
+  'streak_50',
   'twenty_correct',
+  'fifty_correct',
   'quick_solver',
   'hardcore_debut',
   'hardcore_level_5',
   'hardcore_level_10',
+  'hardcore_legend_level',
+  'equation_cpu_level_0',
+  'equation_cpu_level_1',
+  'equation_cpu_level_2',
+  'equation_cpu_level_3',
+  'equation_cpu_level_4',
+  'equation_cpu_level_5',
+  'equation_cpu_level_6',
+  'equation_cpu_level_7',
+  'equation_cpu_level_8',
+  'equation_cpu_level_9',
+  'equation_cpu_level_10',
+  'equation_cpu_sweep',
 ];
+
+const EQUATION_CPU_LEVEL_ACHIEVEMENTS = Array.from(
+  { length: 11 },
+  (_, level) => `equation_cpu_level_${level}` as AchievementId,
+);
 
 export function isProgressDifficulty(value: string): value is ProgressDifficulty {
   return value === 'normal' || value === 'hardcore';
@@ -147,12 +184,17 @@ function achievementsForRun(input: FormulaFrenzyRunInput): readonly AchievementI
   const achievements: AchievementId[] = ['first_run'];
   if (input.level >= 5) achievements.push('level_5');
   if (input.level >= 10) achievements.push('level_10');
+  if (input.level >= 15) achievements.push('level_15');
+  if (input.level >= 20) achievements.push('level_20');
   if (input.level >= 25) achievements.push('legend_level');
   if (input.score >= 1000) achievements.push('score_1000');
   if (input.score >= 5000) achievements.push('score_5000');
+  if (input.score >= 10000) achievements.push('score_10000');
   if (input.bestStreak >= 10) achievements.push('streak_10');
   if (input.bestStreak >= 25) achievements.push('streak_25');
+  if (input.bestStreak >= 50) achievements.push('streak_50');
   if (input.totalCorrect >= 20) achievements.push('twenty_correct');
+  if (input.totalCorrect >= 50) achievements.push('fifty_correct');
   if (input.averageTimeMs !== null && input.averageTimeMs <= 3000 && input.totalCorrect >= 10) {
     achievements.push('quick_solver');
   }
@@ -160,8 +202,13 @@ function achievementsForRun(input: FormulaFrenzyRunInput): readonly AchievementI
     achievements.push('hardcore_debut');
     if (input.level >= 5) achievements.push('hardcore_level_5');
     if (input.level >= 10) achievements.push('hardcore_level_10');
+    if (input.level >= 25) achievements.push('hardcore_legend_level');
   }
   return achievements;
+}
+
+function achievementForCpuLevel(cpuLevel: number): AchievementId {
+  return `equation_cpu_level_${cpuLevel}` as AchievementId;
 }
 
 export class InMemoryAccountProgressRepository implements AccountProgressRepository {
@@ -189,17 +236,31 @@ export class InMemoryAccountProgressRepository implements AccountProgressReposit
       };
       this.runs.set(runKey, run);
       this.updateStats(input, now);
-      for (const id of achievementsForRun(input)) {
-        const achievementKey = `${input.accountId}:${id}`;
-        if (!this.achievements.has(achievementKey)) {
-          const achievement = { id, unlockedAt: now };
-          this.achievements.set(achievementKey, achievement);
-          newlyUnlocked.push(achievement);
-        }
-      }
+      newlyUnlocked.push(
+        ...this.unlockAchievements(input.accountId, achievementsForRun(input), now),
+      );
     }
     const progress = await this.getProgress(input.accountId);
     return { ...progress, newlyUnlocked };
+  }
+
+  async saveEquationArtilleryCpuWin(
+    input: EquationArtilleryCpuWinInput,
+  ): Promise<SaveProgressResult> {
+    const now = new Date().toISOString();
+    const progress = await this.getProgress(input.accountId);
+    const alreadyUnlocked = new Set(progress.achievements.map((achievement) => achievement.id));
+    const cpuAchievement = achievementForCpuLevel(input.cpuLevel);
+    const achievements: AchievementId[] = [cpuAchievement];
+    if (
+      EQUATION_CPU_LEVEL_ACHIEVEMENTS.every(
+        (achievement) => achievement === cpuAchievement || alreadyUnlocked.has(achievement),
+      )
+    ) {
+      achievements.push('equation_cpu_sweep');
+    }
+    const newlyUnlocked = this.unlockAchievements(input.accountId, achievements, now);
+    return { ...(await this.getProgress(input.accountId)), newlyUnlocked };
   }
 
   async getProgress(accountId: string): Promise<AccountProgress> {
@@ -223,6 +284,23 @@ export class InMemoryAccountProgressRepository implements AccountProgressReposit
   }
 
   async close(): Promise<void> {}
+
+  private unlockAchievements(
+    accountId: string,
+    achievementIds: readonly AchievementId[],
+    now: string,
+  ): AccountAchievement[] {
+    const newlyUnlocked: AccountAchievement[] = [];
+    for (const id of achievementIds) {
+      const achievementKey = `${accountId}:${id}`;
+      if (!this.achievements.has(achievementKey)) {
+        const achievement = { id, unlockedAt: now };
+        this.achievements.set(achievementKey, achievement);
+        newlyUnlocked.push(achievement);
+      }
+    }
+    return newlyUnlocked;
+  }
 
   private updateStats(input: FormulaFrenzyRunInput, now: string): void {
     const key = `${input.accountId}:formula-frenzy:${input.difficulty}`;
@@ -343,17 +421,47 @@ export class PostgresAccountProgressRepository implements AccountProgressReposit
             playedAt,
           ],
         );
-        for (const id of achievementsForRun(input)) {
-          const achievement = await client.query(
-            `INSERT INTO account_achievements (account_id, achievement_id)
-            VALUES ($1, $2)
-            ON CONFLICT (account_id, achievement_id) DO NOTHING
-            RETURNING achievement_id, unlocked_at`,
-            [input.accountId, id],
-          );
-          if (achievement.rowCount) newlyUnlocked.push(mapAchievement(achievement.rows[0]));
-        }
+        newlyUnlocked.push(
+          ...(await insertAchievements(client, input.accountId, achievementsForRun(input))),
+        );
       }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    const progress = await this.getProgress(input.accountId);
+    return { ...progress, newlyUnlocked };
+  }
+
+  async saveEquationArtilleryCpuWin(
+    input: EquationArtilleryCpuWinInput,
+  ): Promise<SaveProgressResult> {
+    const client = await this.pool.connect();
+    const newlyUnlocked: AccountAchievement[] = [];
+    try {
+      await client.query('BEGIN');
+      const unlocked = await client.query(
+        `SELECT achievement_id
+        FROM account_achievements
+        WHERE account_id = $1`,
+        [input.accountId],
+      );
+      const alreadyUnlocked = new Set(
+        unlocked.rows.map((row) => row['achievement_id'] as AchievementId),
+      );
+      const cpuAchievement = achievementForCpuLevel(input.cpuLevel);
+      const achievements: AchievementId[] = [cpuAchievement];
+      if (
+        EQUATION_CPU_LEVEL_ACHIEVEMENTS.every(
+          (achievement) => achievement === cpuAchievement || alreadyUnlocked.has(achievement),
+        )
+      ) {
+        achievements.push('equation_cpu_sweep');
+      }
+      newlyUnlocked.push(...(await insertAchievements(client, input.accountId, achievements)));
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -451,4 +559,23 @@ function mapAchievement(row: Record<string, any>): AccountAchievement {
     id: row['achievement_id'],
     unlockedAt: row['unlocked_at'].toISOString(),
   };
+}
+
+async function insertAchievements(
+  client: Pick<Pool, 'query'>,
+  accountId: string,
+  achievementIds: readonly AchievementId[],
+): Promise<AccountAchievement[]> {
+  const newlyUnlocked: AccountAchievement[] = [];
+  for (const id of achievementIds) {
+    const achievement = await client.query(
+      `INSERT INTO account_achievements (account_id, achievement_id)
+      VALUES ($1, $2)
+      ON CONFLICT (account_id, achievement_id) DO NOTHING
+      RETURNING achievement_id, unlocked_at`,
+      [accountId, id],
+    );
+    if (achievement.rowCount) newlyUnlocked.push(mapAchievement(achievement.rows[0]));
+  }
+  return newlyUnlocked;
 }

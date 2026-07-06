@@ -27,6 +27,8 @@ import {
   ShotResolvedEvent,
 } from '@math-war/game-engine';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
+import { AccountAuthService } from '../../account/account-auth.service';
+import { AccountProgressService } from '../../account/account-progress.service';
 import { BoardComponent } from './board/board.component';
 import { EquationControlsComponent } from './equation-controls/equation-controls.component';
 import { AnimationService } from './game/animation.service';
@@ -64,6 +66,7 @@ import {
 } from './equation-history/equation-history.component';
 import { mapEquationHistoryMessages } from './equation-history/equation-history-message';
 import { MultiplayerLobbyComponent } from '../../shared/multiplayer/multiplayer-lobby.component';
+import { ToastService } from '../../shared/toast/toast.service';
 
 type GameMode = 'free-practice' | 'single-player';
 
@@ -99,12 +102,16 @@ const LOCAL_SHOT_MAX_FRAMES = 2000;
 })
 export class EquationArtilleryPageComponent implements OnDestroy {
   private readonly animation = inject(AnimationService);
+  private readonly auth = inject(AccountAuthService);
   private readonly audio = inject(EquationArtilleryAudioService);
+  private readonly progress = inject(AccountProgressService);
   private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
   @ViewChild('boardAnchor') private boardAnchor?: ElementRef<HTMLElement>;
   private readonly initialRound = spawnRound();
   private pendingCpuTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingSinglePlayerState: MatchState | null = null;
+  private activeCpuMatchLevel = 5;
   private commandSequence = 0;
   readonly gameMode = signal<GameMode>('single-player');
   readonly cpuDifficulty = signal(5);
@@ -350,6 +357,7 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.cancelCpuTurn();
     this.animation.cancel();
     this.audio.stopEquationSound();
+    this.activeCpuMatchLevel = this.cpuDifficulty();
     const seed = `local-cpu-${Date.now()}-${Math.random()}`;
     const state = createMatchState(
       `local-cpu-${Date.now()}`,
@@ -536,8 +544,12 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     if (event.impact === 'wall') this.audio.playWallHit();
     if (event.impact === 'opponent') this.audio.playEnemyHit();
     if (nextState.status === 'ended') {
-      if (nextState.winnerUserId === HUMAN_USER_ID) this.audio.playWin();
-      else this.audio.playLose();
+      if (nextState.winnerUserId === HUMAN_USER_ID) {
+        this.audio.playWin();
+        void this.saveCpuWinProgress();
+      } else {
+        this.audio.playLose();
+      }
       return;
     }
     if (nextState.turnUserId === CPU_USER_ID) this.scheduleCpuTurn();
@@ -576,6 +588,18 @@ export class EquationArtilleryPageComponent implements OnDestroy {
     this.boardAnchor?.nativeElement.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }
 
+  private async saveCpuWinProgress(): Promise<void> {
+    if (!this.auth.user()) return;
+    try {
+      const result = await this.progress.saveEquationArtilleryCpuWin({
+        cpuLevel: this.activeCpuMatchLevel,
+      });
+      for (const achievement of result.newlyUnlocked) {
+        this.toast.show(`Achievement unlocked: ${achievementTitle(achievement.id)}`);
+      }
+    } catch {}
+  }
+
   private charactersForState(state: MatchState): readonly CharacterState[] {
     return state.players.flatMap((player) =>
       state.characters
@@ -587,4 +611,11 @@ export class EquationArtilleryPageComponent implements OnDestroy {
         })),
     );
   }
+}
+
+function achievementTitle(id: string): string {
+  return id
+    .split('_')
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
 }

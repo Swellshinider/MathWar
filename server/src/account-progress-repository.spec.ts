@@ -34,6 +34,8 @@ describe('InMemoryAccountProgressRepository', () => {
       'first_run',
       'level_5',
       'level_10',
+      'level_15',
+      'level_20',
       'legend_level',
       'score_1000',
       'score_5000',
@@ -41,6 +43,42 @@ describe('InMemoryAccountProgressRepository', () => {
       'streak_25',
       'twenty_correct',
       'quick_solver',
+    ]);
+  });
+
+  it('unlocks expanded Formula Frenzy achievements at higher thresholds', async () => {
+    const repository = new InMemoryAccountProgressRepository();
+
+    const saved = await repository.saveFormulaFrenzyRun({
+      accountId: 'account-1',
+      runId: 'run-0001',
+      difficulty: 'hardcore',
+      score: 10_000,
+      level: 25,
+      averageTimeMs: 3500,
+      bestStreak: 50,
+      totalCorrect: 50,
+    });
+
+    expect(saved.newlyUnlocked.map((achievement) => achievement.id)).toEqual([
+      'first_run',
+      'level_5',
+      'level_10',
+      'level_15',
+      'level_20',
+      'legend_level',
+      'score_1000',
+      'score_5000',
+      'score_10000',
+      'streak_10',
+      'streak_25',
+      'streak_50',
+      'twenty_correct',
+      'fifty_correct',
+      'hardcore_debut',
+      'hardcore_level_5',
+      'hardcore_level_10',
+      'hardcore_legend_level',
     ]);
   });
 
@@ -92,6 +130,44 @@ describe('InMemoryAccountProgressRepository', () => {
       'hardcore_debut',
       'hardcore_level_5',
       'hardcore_level_10',
+    ]);
+  });
+
+  it('records Equation Artillery CPU level wins idempotently', async () => {
+    const repository = new InMemoryAccountProgressRepository();
+
+    const saved = await repository.saveEquationArtilleryCpuWin({
+      accountId: 'account-1',
+      cpuLevel: 7,
+    });
+    const duplicate = await repository.saveEquationArtilleryCpuWin({
+      accountId: 'account-1',
+      cpuLevel: 7,
+    });
+
+    expect(saved.newlyUnlocked.map((achievement) => achievement.id)).toEqual([
+      'equation_cpu_level_7',
+    ]);
+    expect(duplicate.newlyUnlocked).toEqual([]);
+    expect(duplicate.achievements.map((achievement) => achievement.id)).toEqual([
+      'equation_cpu_level_7',
+    ]);
+  });
+
+  it('unlocks an Equation Artillery CPU sweep after every CPU level is defeated', async () => {
+    const repository = new InMemoryAccountProgressRepository();
+
+    for (let level = 0; level < 10; level += 1) {
+      await repository.saveEquationArtilleryCpuWin({ accountId: 'account-1', cpuLevel: level });
+    }
+    const saved = await repository.saveEquationArtilleryCpuWin({
+      accountId: 'account-1',
+      cpuLevel: 10,
+    });
+
+    expect(saved.newlyUnlocked.map((achievement) => achievement.id)).toEqual([
+      'equation_cpu_level_10',
+      'equation_cpu_sweep',
     ]);
   });
 });

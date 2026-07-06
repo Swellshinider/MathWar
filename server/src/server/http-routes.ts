@@ -616,6 +616,43 @@ export async function registerHttpRoutes({
           }
         },
       );
+
+      fastify.post<{
+        Body?: {
+          cpuLevel?: unknown;
+        };
+      }>(
+        '/api/account/progress/equation-artillery/cpu-wins',
+        {
+          config: {
+            rateLimit: {
+              max: PROGRESS_SAVE_RATE_LIMIT_MAX,
+              timeWindow: PROGRESS_SAVE_RATE_LIMIT_WINDOW,
+            },
+          },
+        },
+        async (request, reply) => {
+          let account: AccountRecord;
+          try {
+            account = await requireAccount(request);
+          } catch (error) {
+            return reply.code(401).send({
+              message:
+                error instanceof Error ? error.message : 'Account authentication is required.',
+            });
+          }
+          try {
+            return progressRepository.saveEquationArtilleryCpuWin({
+              accountId: account.id,
+              cpuLevel: parseBoundedInteger(request.body?.cpuLevel, 'CPU level', 0, 10),
+            });
+          } catch (error) {
+            return reply.code(400).send({
+              message: error instanceof Error ? error.message : 'Could not save progress.',
+            });
+          }
+        },
+      );
     }
   }
 

@@ -1,4 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { AccountAuthService } from '../../account/account-auth.service';
+import { AccountProgressService } from '../../account/account-progress.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import { EquationArtilleryPageComponent } from './equation-artillery-page.component';
 import { AnimationService } from './game/animation.service';
 import { EquationArtilleryAudioService } from './game/audio.service';
@@ -31,11 +34,29 @@ describe('EquationArtilleryPageComponent', () => {
     setMuted: vi.fn(),
     setVolume: vi.fn(),
   };
+  const account = {
+    token: vi.fn(() => null),
+    user: vi.fn((): { id: string; displayName: string } | null => null),
+  };
+  const progress = {
+    saveEquationArtilleryCpuWin: vi.fn(),
+  };
+  const toast = {
+    show: vi.fn(),
+  };
   const scrollIntoView = vi.fn();
 
   beforeEach(async () => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
+    account.token.mockReturnValue(null);
+    account.user.mockReturnValue(null);
+    progress.saveEquationArtilleryCpuWin.mockResolvedValue({
+      stats: [],
+      recentRuns: [],
+      achievements: [],
+      newlyUnlocked: [],
+    });
     advanceShot = undefined;
     renderTimeline = undefined;
     vi.stubGlobal(
@@ -56,7 +77,12 @@ describe('EquationArtilleryPageComponent', () => {
     });
     await TestBed.configureTestingModule({
       imports: [EquationArtilleryPageComponent],
-      providers: [{ provide: EquationArtilleryAudioService, useValue: audio }],
+      providers: [
+        { provide: AccountAuthService, useValue: account },
+        { provide: AccountProgressService, useValue: progress },
+        { provide: EquationArtilleryAudioService, useValue: audio },
+        { provide: ToastService, useValue: toast },
+      ],
     }).compileComponents();
   });
 
@@ -385,6 +411,57 @@ describe('EquationArtilleryPageComponent', () => {
 
     expect(component.cpuOpponentMemory()).not.toBe(firstMemory);
     expect(component.cpuOpponentMemory()?.recentMisses.size).toBe(0);
+  });
+
+  it('saves account progress when a signed-in player defeats a CPU level', async () => {
+    account.user.mockReturnValue({ id: 'account-1', displayName: 'Tester' });
+    progress.saveEquationArtilleryCpuWin.mockResolvedValue({
+      stats: [],
+      recentRuns: [],
+      achievements: [{ id: 'equation_cpu_level_7', unlockedAt: '2026-07-06T00:00:00.000Z' }],
+      newlyUnlocked: [{ id: 'equation_cpu_level_7', unlockedAt: '2026-07-06T00:00:00.000Z' }],
+    });
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+
+    component.cpuDifficulty.set(7);
+    component.startCpuMatch();
+    const endedState = {
+      ...component.singlePlayerState()!,
+      status: 'ended' as const,
+      winnerUserId: 'human',
+      endReason: 'hit' as const,
+    };
+
+    (component as any).finishSinglePlayerShot({
+      trail: [],
+      impact: 'opponent',
+      state: endedState,
+    });
+    await Promise.resolve();
+
+    expect(progress.saveEquationArtilleryCpuWin).toHaveBeenCalledWith({ cpuLevel: 7 });
+    expect(toast.show).toHaveBeenCalledWith('Achievement unlocked: Equation Cpu Level 7');
+  });
+
+  it('does not save CPU progress for guests or losses', async () => {
+    const fixture = TestBed.createComponent(EquationArtilleryPageComponent);
+    const component = fixture.componentInstance;
+
+    component.startCpuMatch();
+    (component as any).finishSinglePlayerShot({
+      trail: [],
+      impact: 'opponent',
+      state: {
+        ...component.singlePlayerState()!,
+        status: 'ended' as const,
+        winnerUserId: 'cpu',
+        endReason: 'hit' as const,
+      },
+    });
+    await Promise.resolve();
+
+    expect(progress.saveEquationArtilleryCpuWin).not.toHaveBeenCalled();
   });
 
   it('records player soldier metadata in single player history', () => {
