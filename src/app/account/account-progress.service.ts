@@ -7,16 +7,24 @@ export type AchievementId =
   | 'first_run'
   | 'level_5'
   | 'level_10'
+  | 'level_15'
+  | 'level_20'
   | 'legend_level'
   | 'score_1000'
   | 'score_5000'
+  | 'score_10000'
   | 'streak_10'
   | 'streak_25'
+  | 'streak_50'
   | 'twenty_correct'
+  | 'fifty_correct'
   | 'quick_solver'
   | 'hardcore_debut'
   | 'hardcore_level_5'
-  | 'hardcore_level_10';
+  | 'hardcore_level_10'
+  | 'hardcore_legend_level'
+  | `equation_cpu_level_${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}`
+  | 'equation_cpu_sweep';
 
 export interface FormulaFrenzyProgressRun {
   readonly runId: string;
@@ -26,6 +34,10 @@ export interface FormulaFrenzyProgressRun {
   readonly averageTimeMs: number | null;
   readonly bestStreak: number;
   readonly totalCorrect: number;
+}
+
+export interface EquationArtilleryCpuWin {
+  readonly cpuLevel: number;
 }
 
 export interface AccountGameRun extends FormulaFrenzyProgressRun {
@@ -77,6 +89,16 @@ export class AccountProgressService {
       method: 'POST',
       body: JSON.stringify(run),
     });
+  }
+
+  async saveEquationArtilleryCpuWin(win: EquationArtilleryCpuWin): Promise<SaveProgressResult> {
+    return this.authorizedJson<SaveProgressResult>(
+      '/api/account/progress/equation-artillery/cpu-wins',
+      {
+        method: 'POST',
+        body: JSON.stringify(win),
+      },
+    );
   }
 
   storePendingFormulaFrenzyRun(run: FormulaFrenzyProgressRun): void {

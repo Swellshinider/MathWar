@@ -140,7 +140,7 @@
       <section class="account-panel glass account-panel--wide">
         <header class="achievements-header">
           <div>
-            <p class="eyebrow">Formula Frenzy</p>
+            <p class="eyebrow">MathWar</p>
             <h2>Achievements</h2>
           </div>
           <span class="achievement-counter">{{ achievementCounter() }}</span>
@@ -151,7 +151,7 @@
         } @else if (progressError()) {
           <p class="error" role="alert">{{ progressError() }}</p>
         } @else if (!progress()?.achievements?.length) {
-          <p class="loading">Finish timed Formula Frenzy runs to unlock achievements.</p>
+          <p class="loading">Finish timed runs or defeat CPU levels to unlock achievements.</p>
         } @else {
           <div class="achievement-list">
             @for (achievement of progress()?.achievements; track achievement.id) {

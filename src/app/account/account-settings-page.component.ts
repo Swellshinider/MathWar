@@ -137,6 +137,14 @@ const ACHIEVEMENTS: Record<
     label: 'Level 10',
     description: 'Reach level 10 in a timed Formula Frenzy run.',
   },
+  level_15: {
+    label: 'Level 15',
+    description: 'Reach level 15 in a timed Formula Frenzy run.',
+  },
+  level_20: {
+    label: 'Level 20',
+    description: 'Reach level 20 in a timed Formula Frenzy run.',
+  },
   legend_level: {
     label: 'MathWar Legend',
     description: 'Reach level 25 in a timed Formula Frenzy run.',
@@ -149,6 +157,10 @@ const ACHIEVEMENTS: Record<
     label: '5,000 score',
     description: 'Score at least 5,000 points in one timed run.',
   },
+  score_10000: {
+    label: '10,000 score',
+    description: 'Score at least 10,000 points in one timed run.',
+  },
   streak_10: {
     label: '10 streak',
     description: 'Reach a best streak of 10 in one timed run.',
@@ -157,9 +169,17 @@ const ACHIEVEMENTS: Record<
     label: '25 streak',
     description: 'Reach a best streak of 25 in one timed run.',
   },
+  streak_50: {
+    label: '50 streak',
+    description: 'Reach a best streak of 50 in one timed run.',
+  },
   twenty_correct: {
     label: '20 correct',
     description: 'Solve at least 20 formulas in one timed run.',
+  },
+  fifty_correct: {
+    label: '50 correct',
+    description: 'Solve at least 50 formulas in one timed run.',
   },
   quick_solver: {
     label: 'Quick solver',
@@ -176,6 +196,58 @@ const ACHIEVEMENTS: Record<
   hardcore_level_10: {
     label: 'Hardcore level 10',
     description: 'Reach level 10 in a Hardcore run.',
+  },
+  hardcore_legend_level: {
+    label: 'Hardcore legend',
+    description: 'Reach level 25 in a Hardcore run.',
+  },
+  equation_cpu_level_0: {
+    label: 'CPU level 0',
+    description: 'Defeat CPU level 0 in Equation Artillery.',
+  },
+  equation_cpu_level_1: {
+    label: 'CPU level 1',
+    description: 'Defeat CPU level 1 in Equation Artillery.',
+  },
+  equation_cpu_level_2: {
+    label: 'CPU level 2',
+    description: 'Defeat CPU level 2 in Equation Artillery.',
+  },
+  equation_cpu_level_3: {
+    label: 'CPU level 3',
+    description: 'Defeat CPU level 3 in Equation Artillery.',
+  },
+  equation_cpu_level_4: {
+    label: 'CPU level 4',
+    description: 'Defeat CPU level 4 in Equation Artillery.',
+  },
+  equation_cpu_level_5: {
+    label: 'CPU level 5',
+    description: 'Defeat CPU level 5 in Equation Artillery.',
+  },
+  equation_cpu_level_6: {
+    label: 'CPU level 6',
+    description: 'Defeat CPU level 6 in Equation Artillery.',
+  },
+  equation_cpu_level_7: {
+    label: 'CPU level 7',
+    description: 'Defeat CPU level 7 in Equation Artillery.',
+  },
+  equation_cpu_level_8: {
+    label: 'CPU level 8',
+    description: 'Defeat CPU level 8 in Equation Artillery.',
+  },
+  equation_cpu_level_9: {
+    label: 'CPU level 9',
+    description: 'Defeat CPU level 9 in Equation Artillery.',
+  },
+  equation_cpu_level_10: {
+    label: 'CPU level 10',
+    description: 'Defeat CPU level 10 in Equation Artillery.',
+  },
+  equation_cpu_sweep: {
+    label: 'CPU sweep',
+    description: 'Defeat every CPU level in Equation Artillery.',
   },
 };
 

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-06
+
+- Added more account achievements for Formula Frenzy milestones and Equation Artillery CPU level
+  wins.
+
 ### Changed - 2026-07-06
 
 - Changed the About page to a list layout with a centered return action.

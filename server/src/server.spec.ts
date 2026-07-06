@@ -525,6 +525,73 @@ describe('multiplayer socket server', () => {
     ).toEqual(['first_run', 'level_5', 'streak_10', 'quick_solver']);
   });
 
+  it('saves Equation Artillery CPU win achievements for authenticated accounts', async () => {
+    const repository = new InMemoryMatchRepository();
+    const accountRepository = new InMemoryAccountRepository();
+    const progressRepository = new InMemoryAccountProgressRepository();
+    const accountAccessSecret = 'account-access-secret-with-enough-length';
+    const server = await createMultiplayerServer({
+      repository,
+      verifyToken: createAccountTokenVerifier(accountAccessSecret),
+      accounts: {
+        repository: accountRepository,
+        accessTokenSecret: accountAccessSecret,
+        refreshTokenSecret: 'account-refresh-secret-with-enough-length',
+        refreshCookieSecure: false,
+      },
+      progressRepository,
+      allowedOrigin: '*',
+      sweepIntervalMs: 10,
+    });
+    harnesses.push({ repository, server, url: '', clients: [] });
+
+    const created = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/register',
+      payload: {
+        username: 'Tester',
+        password: 'password123',
+        displayName: 'Tester',
+      },
+    });
+    const token = created.json().accessToken;
+    const saved = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/progress/equation-artillery/cpu-wins',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { cpuLevel: 7 },
+    });
+
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().newlyUnlocked.map((achievement: { id: string }) => achievement.id)).toEqual(
+      ['equation_cpu_level_7'],
+    );
+
+    const duplicate = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/progress/equation-artillery/cpu-wins',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { cpuLevel: 7 },
+    });
+    expect(duplicate.statusCode).toBe(200);
+    expect(duplicate.json().newlyUnlocked).toEqual([]);
+
+    const invalid = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/progress/equation-artillery/cpu-wins',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { cpuLevel: 11 },
+    });
+    expect(invalid.statusCode).toBe(400);
+
+    const unauthorized = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/account/progress/equation-artillery/cpu-wins',
+      payload: { cpuLevel: 1 },
+    });
+    expect(unauthorized.statusCode).toBe(401);
+  });
+
   it('backfills missing Formula Frenzy progress from leaderboard entries', async () => {
     const repository = new InMemoryMatchRepository();
     const accountRepository = new InMemoryAccountRepository();
