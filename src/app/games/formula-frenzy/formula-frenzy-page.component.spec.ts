@@ -470,14 +470,11 @@ describe('FormulaFrenzyPageComponent', () => {
     component.submitAnswer();
     component.hearts.set(1);
     vi.advanceTimersByTime(component.problem().deadlineMs);
-    await fixture.whenStable();
+    await Promise.resolve();
 
     expect(progress.saveFormulaFrenzyRun).toHaveBeenCalledTimes(1);
 
-    (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.save-leaderboard-button')
-      ?.click();
-    await fixture.whenStable();
+    await component.saveCurrentRunToLeaderboard();
 
     expect(progress.saveFormulaFrenzyRun).toHaveBeenCalledTimes(2);
     expect(toast.show).toHaveBeenCalledWith('Achievement unlocked: Score 1000');
