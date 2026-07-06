@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AccountAuthService } from '../../account/account-auth.service';
+import { AccountProgressService } from '../../account/account-progress.service';
 import { LeaderboardService } from '../../leaderboard/leaderboard.service';
 import { AudioSettingsService } from '../../shared/audio/audio-settings.service';
 import { MultiplayerAuthService } from '../../shared/multiplayer/multiplayer-auth.service';
@@ -26,6 +27,11 @@ describe('FormulaFrenzyPageComponent', () => {
     save: vi.fn(),
     storePendingRun: vi.fn(),
     takePendingRun: vi.fn(() => null),
+  };
+  const progress = {
+    saveFormulaFrenzyRun: vi.fn(),
+    storePendingFormulaFrenzyRun: vi.fn(),
+    takePendingFormulaFrenzyRun: vi.fn(() => null),
   };
   const toast = {
     show: vi.fn(),
@@ -79,11 +85,19 @@ describe('FormulaFrenzyPageComponent', () => {
       },
     });
     leaderboard.takePendingRun.mockReturnValue(null);
+    progress.saveFormulaFrenzyRun.mockResolvedValue({
+      stats: [],
+      recentRuns: [],
+      achievements: [],
+      newlyUnlocked: [],
+    });
+    progress.takePendingFormulaFrenzyRun.mockReturnValue(null);
 
     await TestBed.configureTestingModule({
       imports: [FormulaFrenzyPageComponent],
       providers: [
         { provide: AccountAuthService, useValue: account },
+        { provide: AccountProgressService, useValue: progress },
         { provide: AudioSettingsService, useValue: audio },
         { provide: LeaderboardService, useValue: leaderboard },
         { provide: MultiplayerAuthService, useValue: auth },
@@ -432,6 +446,26 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(toast.show).toHaveBeenCalledWith('Score saved to leaderboard.');
   });
 
+  it('auto-saves finished timed runs to account progress for signed-in users', async () => {
+    component.startRun();
+    vi.advanceTimersByTime(2500);
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    component.hearts.set(1);
+    vi.advanceTimersByTime(component.problem().deadlineMs);
+    await fixture.whenStable();
+
+    expect(progress.saveFormulaFrenzyRun).toHaveBeenCalledWith({
+      runId: expect.any(String),
+      difficulty: 'normal',
+      score: 193,
+      level: 1,
+      averageTimeMs: 2500,
+      bestStreak: 1,
+      totalCorrect: 1,
+    });
+  });
+
   it('prompts guests to sign in before saving a leaderboard score', () => {
     account.user.mockReturnValue(null);
     component.startRun();
@@ -447,6 +481,15 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(leaderboard.storePendingRun).toHaveBeenCalledWith(
       'formula-frenzy',
       expect.objectContaining({ difficulty: 'normal', score: 0, level: 1, averageTimeMs: null }),
+    );
+    expect(progress.storePendingFormulaFrenzyRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: expect.any(String),
+        difficulty: 'normal',
+        score: 0,
+        level: 1,
+        averageTimeMs: null,
+      }),
     );
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Sign in or create an account',

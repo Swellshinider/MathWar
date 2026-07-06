@@ -19,6 +19,12 @@ import {
   validateUsername,
   verifyPasswordHash,
 } from '../account-auth.js';
+import {
+  AccountProgressRepository,
+  FormulaFrenzyRunInput,
+  isProgressDifficulty,
+  validateProgressRunId,
+} from '../account-progress-repository.js';
 import { AccountRecord, AccountRepository } from '../account-repository.js';
 import { UsernameAvailabilityCache } from '../account-username-cache.js';
 import {
@@ -51,6 +57,8 @@ const ACCOUNT_USERNAME_CHECK_RATE_LIMIT_MAX = 60;
 const ACCOUNT_USERNAME_CHECK_RATE_LIMIT_WINDOW = '1 minute';
 const LEADERBOARD_SAVE_RATE_LIMIT_MAX = 30;
 const LEADERBOARD_SAVE_RATE_LIMIT_WINDOW = '1 minute';
+const PROGRESS_SAVE_RATE_LIMIT_MAX = 60;
+const PROGRESS_SAVE_RATE_LIMIT_WINDOW = '1 minute';
 
 interface RegisterHttpRoutesOptions {
   readonly fastify: FastifyInstance;
@@ -64,6 +72,7 @@ interface RegisterHttpRoutesOptions {
       readonly refreshCookieSecure?: boolean;
     };
     readonly leaderboardRepository?: LeaderboardRepository;
+    readonly progressRepository?: AccountProgressRepository;
     readonly allowedOrigin: string;
     readonly staticRoot?: string;
     readonly browserConfig?: {
@@ -106,6 +115,7 @@ export async function registerHttpRoutes({
   const accountOptions = options.accounts;
   const accountRepository = accountOptions?.repository;
   const leaderboardRepository = options.leaderboardRepository;
+  const progressRepository = options.progressRepository;
   const usernameAvailabilityCache = accountOptions?.usernameAvailabilityCache;
   const accountTokenVerifier = accountOptions
     ? createAccountTokenVerifier(accountOptions.accessTokenSecret)
@@ -510,6 +520,91 @@ export async function registerHttpRoutes({
         .type(avatar.mimeType)
         .send(avatar.bytes);
     });
+
+    if (progressRepository) {
+      fastify.get('/api/account/progress', async (request, reply) => {
+        let account: AccountRecord;
+        try {
+          account = await requireAccount(request);
+        } catch (error) {
+          return reply.code(401).send({
+            message: error instanceof Error ? error.message : 'Account authentication is required.',
+          });
+        }
+        reply.header('cache-control', 'no-store');
+        return progressRepository.getProgress(account.id);
+      });
+
+      fastify.post<{
+        Body?: {
+          runId?: unknown;
+          difficulty?: unknown;
+          score?: unknown;
+          level?: unknown;
+          averageTimeMs?: unknown;
+          bestStreak?: unknown;
+          totalCorrect?: unknown;
+        };
+      }>(
+        '/api/account/progress/formula-frenzy/runs',
+        {
+          config: {
+            rateLimit: {
+              max: PROGRESS_SAVE_RATE_LIMIT_MAX,
+              timeWindow: PROGRESS_SAVE_RATE_LIMIT_WINDOW,
+            },
+          },
+        },
+        async (request, reply) => {
+          let account: AccountRecord;
+          try {
+            account = await requireAccount(request);
+          } catch (error) {
+            return reply.code(401).send({
+              message:
+                error instanceof Error ? error.message : 'Account authentication is required.',
+            });
+          }
+          try {
+            const difficulty =
+              typeof request.body?.difficulty === 'string' ? request.body.difficulty : 'normal';
+            if (!isProgressDifficulty(difficulty)) {
+              return reply.code(400).send({ message: 'Progress difficulty is invalid.' });
+            }
+            const run: FormulaFrenzyRunInput = {
+              accountId: account.id,
+              runId: validateProgressRunId(request.body?.runId),
+              difficulty,
+              score: parseBoundedInteger(request.body?.score, 'Score', 0, 1_000_000_000),
+              level: parseBoundedInteger(request.body?.level, 'Level', 1, 1_000),
+              averageTimeMs: parseNullableBoundedInteger(
+                request.body?.averageTimeMs,
+                'Average time',
+                0,
+                60 * 60 * 1000,
+              ),
+              bestStreak: parseBoundedInteger(
+                request.body?.bestStreak,
+                'Best streak',
+                0,
+                1_000_000,
+              ),
+              totalCorrect: parseBoundedInteger(
+                request.body?.totalCorrect,
+                'Total correct',
+                0,
+                1_000_000,
+              ),
+            };
+            return progressRepository.saveFormulaFrenzyRun(run);
+          } catch (error) {
+            return reply.code(400).send({
+              message: error instanceof Error ? error.message : 'Could not save progress.',
+            });
+          }
+        },
+      );
+    }
   }
 
   if (leaderboardRepository) {

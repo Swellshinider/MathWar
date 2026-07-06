@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-05
+
+- Added account-based Formula Frenzy progress tracking with private run history, aggregate stats,
+  and achievement unlocks for signed-in players.
+
 ### Changed - 2026-07-04
 
 - Rendered Formula Frenzy division prompts as fractions and multiplication prompts with the

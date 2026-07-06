@@ -136,6 +136,82 @@
           </div>
         </form>
       </section>
+
+      <section class="account-panel glass account-panel--wide">
+        <header>
+          <p class="eyebrow">Progress</p>
+          <h2>Formula Frenzy</h2>
+        </header>
+
+        @if (progressLoading()) {
+          <p class="loading">Loading progress…</p>
+        } @else if (progressError()) {
+          <p class="error" role="alert">{{ progressError() }}</p>
+        } @else if (!progress()?.stats?.length) {
+          <p class="loading">Finish a timed Formula Frenzy run to start tracking progress.</p>
+        } @else {
+          <div class="progress-grid">
+            @for (stat of progress()?.stats; track stat.difficulty) {
+              <article class="progress-summary">
+                <h3>{{ formatDifficulty(stat.difficulty) }}</h3>
+                <dl>
+                  <div>
+                    <dt>Runs</dt>
+                    <dd>{{ stat.runsCount }}</dd>
+                  </div>
+                  <div>
+                    <dt>Best score</dt>
+                    <dd>{{ stat.bestScore }}</dd>
+                  </div>
+                  <div>
+                    <dt>Best level</dt>
+                    <dd>{{ stat.bestLevel }}</dd>
+                  </div>
+                  <div>
+                    <dt>Best streak</dt>
+                    <dd>{{ stat.bestStreak }}</dd>
+                  </div>
+                  <div>
+                    <dt>Fastest average</dt>
+                    <dd>{{ formatAverage(stat.bestAverageTimeMs) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Total correct</dt>
+                    <dd>{{ stat.totalCorrect }}</dd>
+                  </div>
+                </dl>
+              </article>
+            }
+          </div>
+
+          @if (progress()?.achievements?.length) {
+            <section class="progress-section" aria-labelledby="achievements-title">
+              <h3 id="achievements-title">Achievements</h3>
+              <div class="achievement-list">
+                @for (achievement of progress()?.achievements; track achievement.id) {
+                  <span class="achievement">{{ achievementLabel(achievement) }}</span>
+                }
+              </div>
+            </section>
+          }
+
+          @if (progress()?.recentRuns?.length) {
+            <section class="progress-section" aria-labelledby="recent-runs-title">
+              <h3 id="recent-runs-title">Recent runs</h3>
+              <div class="recent-runs">
+                @for (run of progress()?.recentRuns; track run.runId) {
+                  <div class="recent-run">
+                    <span>{{ formatDifficulty(run.difficulty) }}</span>
+                    <strong>{{ run.score }}</strong>
+                    <span>Level {{ run.level }}</span>
+                    <span>{{ formatAverage(run.averageTimeMs) }}</span>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+        }
+      </section>
     </div>
   }
 </section>

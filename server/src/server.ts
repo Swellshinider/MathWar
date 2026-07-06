@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { Server as SocketServer } from 'socket.io';
 import { AuthenticatedUser } from '@math-war/game-engine';
+import { AccountProgressRepository } from './account-progress-repository.js';
 import { AccountRepository } from './account-repository.js';
 import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { TokenVerifier } from './auth.js';
@@ -25,6 +26,7 @@ export interface MultiplayerServerOptions {
     readonly refreshCookieSecure?: boolean;
   };
   readonly leaderboardRepository?: LeaderboardRepository;
+  readonly progressRepository?: AccountProgressRepository;
   readonly allowedOrigin: string;
   readonly reconnectWindowMs?: number;
   readonly sweepIntervalMs?: number;
@@ -54,6 +56,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   const repository = new InstrumentedMatchRepository(options.repository, metrics);
   const accountRepository = options.accounts?.repository;
   const leaderboardRepository = options.leaderboardRepository;
+  const progressRepository = options.progressRepository;
   const usernameAvailabilityCache = options.accounts?.usernameAvailabilityCache;
 
   await registerHttpRoutes({ fastify, metrics, options });
@@ -63,6 +66,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
   await repository.initialize();
   await accountRepository?.initialize();
   await leaderboardRepository?.initialize();
+  await progressRepository?.initialize();
   await usernameAvailabilityCache?.initialize();
   const sweep = socketRuntime.startSweep();
 
@@ -77,6 +81,7 @@ export async function createMultiplayerServer(options: MultiplayerServerOptions)
       await fastify.close();
       await socketRuntime.close();
       await usernameAvailabilityCache?.close();
+      await progressRepository?.close();
       await leaderboardRepository?.close();
       await accountRepository?.close();
       await repository.close();

@@ -2,6 +2,14 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AccountAuthService } from './account-auth.service';
+import {
+  AccountAchievement,
+  AccountGameRun,
+  AccountGameStats,
+  AccountProgress,
+  AccountProgressService,
+  AchievementId,
+} from './account-progress.service';
 
 @Component({
   selector: 'app-account-settings-page',
@@ -11,10 +19,15 @@ import { AccountAuthService } from './account-auth.service';
 })
 export class AccountSettingsPageComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly progressService = inject(AccountProgressService);
   private readonly router = inject(Router);
   readonly auth = inject(AccountAuthService);
   readonly avatarPreview = signal<string | null>(null);
   readonly status = signal<string | null>(null);
+  readonly progress = signal<AccountProgress | null>(null);
+  readonly progressLoading = signal(false);
+  readonly progressError = signal<string | null>(null);
+  private progressLoadedFor: string | null = null;
 
   readonly profileForm = this.fb.nonNullable.group({
     displayName: ['', [Validators.required, Validators.maxLength(15)]],
@@ -29,6 +42,10 @@ export class AccountSettingsPageComponent {
       const user = this.auth.user();
       if (user)
         this.profileForm.controls.displayName.setValue(user.displayName, { emitEvent: false });
+      if (this.auth.ready() && user && this.progressLoadedFor !== user.id) {
+        this.progressLoadedFor = user.id;
+        void this.loadProgress();
+      }
     });
   }
 
@@ -76,7 +93,40 @@ export class AccountSettingsPageComponent {
     await this.auth.logout();
     await this.router.navigateByUrl('/');
   }
+
+  formatDifficulty(value: AccountGameStats['difficulty'] | AccountGameRun['difficulty']): string {
+    return value === 'hardcore' ? 'Hardcore' : 'Normal';
+  }
+
+  formatAverage(value: number | null): string {
+    return value === null ? '0.0s' : `${(value / 1000).toFixed(1)}s`;
+  }
+
+  achievementLabel(achievement: AccountAchievement): string {
+    return ACHIEVEMENT_LABELS[achievement.id];
+  }
+
+  private async loadProgress(): Promise<void> {
+    this.progressLoading.set(true);
+    this.progressError.set(null);
+    try {
+      this.progress.set(await this.progressService.get());
+    } catch (error) {
+      this.progressError.set(error instanceof Error ? error.message : 'Could not load progress.');
+    } finally {
+      this.progressLoading.set(false);
+    }
+  }
 }
+
+const ACHIEVEMENT_LABELS: Record<AchievementId, string> = {
+  first_run: 'First run',
+  level_5: 'Level 5',
+  streak_10: '10 streak',
+  quick_solver: 'Quick solver',
+  hardcore_debut: 'Hardcore debut',
+  hardcore_level_5: 'Hardcore level 5',
+};
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
