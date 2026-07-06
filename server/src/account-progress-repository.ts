@@ -5,10 +5,17 @@ export type ProgressDifficulty = 'normal' | 'hardcore';
 export type AchievementId =
   | 'first_run'
   | 'level_5'
+  | 'level_10'
+  | 'legend_level'
+  | 'score_1000'
+  | 'score_5000'
   | 'streak_10'
+  | 'streak_25'
+  | 'twenty_correct'
   | 'quick_solver'
   | 'hardcore_debut'
-  | 'hardcore_level_5';
+  | 'hardcore_level_5'
+  | 'hardcore_level_10';
 
 export interface FormulaFrenzyRunInput {
   readonly accountId: string;
@@ -112,10 +119,17 @@ CREATE TABLE IF NOT EXISTS account_achievements (
 const ACHIEVEMENT_ORDER: readonly AchievementId[] = [
   'first_run',
   'level_5',
+  'level_10',
+  'legend_level',
+  'score_1000',
+  'score_5000',
   'streak_10',
+  'streak_25',
+  'twenty_correct',
   'quick_solver',
   'hardcore_debut',
   'hardcore_level_5',
+  'hardcore_level_10',
 ];
 
 export function isProgressDifficulty(value: string): value is ProgressDifficulty {
@@ -132,13 +146,20 @@ export function validateProgressRunId(value: unknown): string {
 function achievementsForRun(input: FormulaFrenzyRunInput): readonly AchievementId[] {
   const achievements: AchievementId[] = ['first_run'];
   if (input.level >= 5) achievements.push('level_5');
+  if (input.level >= 10) achievements.push('level_10');
+  if (input.level >= 25) achievements.push('legend_level');
+  if (input.score >= 1000) achievements.push('score_1000');
+  if (input.score >= 5000) achievements.push('score_5000');
   if (input.bestStreak >= 10) achievements.push('streak_10');
+  if (input.bestStreak >= 25) achievements.push('streak_25');
+  if (input.totalCorrect >= 20) achievements.push('twenty_correct');
   if (input.averageTimeMs !== null && input.averageTimeMs <= 3000 && input.totalCorrect >= 10) {
     achievements.push('quick_solver');
   }
   if (input.difficulty === 'hardcore') {
     achievements.push('hardcore_debut');
     if (input.level >= 5) achievements.push('hardcore_level_5');
+    if (input.level >= 10) achievements.push('hardcore_level_10');
   }
   return achievements;
 }

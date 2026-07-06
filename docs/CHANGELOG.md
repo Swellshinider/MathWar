@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added account-based Formula Frenzy progress tracking with private run history, aggregate stats,
   and achievement unlocks for signed-in players.
+- Added more Formula Frenzy achievements for score, level, streak, total-correct, and Hardcore
+  milestones.
+
+### Changed - 2026-07-05
+
+- Removed the Recent runs section from the account progress panel.
 
 ### Changed - 2026-07-04
 

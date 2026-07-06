@@ -4,7 +4,6 @@ import { Router, RouterLink } from '@angular/router';
 import { AccountAuthService } from './account-auth.service';
 import {
   AccountAchievement,
-  AccountGameRun,
   AccountGameStats,
   AccountProgress,
   AccountProgressService,
@@ -94,7 +93,7 @@ export class AccountSettingsPageComponent {
     await this.router.navigateByUrl('/');
   }
 
-  formatDifficulty(value: AccountGameStats['difficulty'] | AccountGameRun['difficulty']): string {
+  formatDifficulty(value: AccountGameStats['difficulty']): string {
     return value === 'hardcore' ? 'Hardcore' : 'Normal';
   }
 
@@ -122,10 +121,17 @@ export class AccountSettingsPageComponent {
 const ACHIEVEMENT_LABELS: Record<AchievementId, string> = {
   first_run: 'First run',
   level_5: 'Level 5',
+  level_10: 'Level 10',
+  legend_level: 'MathWar Legend',
+  score_1000: '1,000 score',
+  score_5000: '5,000 score',
   streak_10: '10 streak',
+  streak_25: '25 streak',
+  twenty_correct: '20 correct',
   quick_solver: 'Quick solver',
   hardcore_debut: 'Hardcore debut',
   hardcore_level_5: 'Hardcore level 5',
+  hardcore_level_10: 'Hardcore level 10',
 };
 
 function readFileAsDataUrl(file: File): Promise<string> {

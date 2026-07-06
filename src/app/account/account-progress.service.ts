@@ -6,10 +6,17 @@ export type ProgressDifficulty = 'normal' | 'hardcore';
 export type AchievementId =
   | 'first_run'
   | 'level_5'
+  | 'level_10'
+  | 'legend_level'
+  | 'score_1000'
+  | 'score_5000'
   | 'streak_10'
+  | 'streak_25'
+  | 'twenty_correct'
   | 'quick_solver'
   | 'hardcore_debut'
-  | 'hardcore_level_5';
+  | 'hardcore_level_5'
+  | 'hardcore_level_10';
 
 export interface FormulaFrenzyProgressRun {
   readonly runId: string;

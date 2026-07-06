@@ -194,22 +194,6 @@
               </div>
             </section>
           }
-
-          @if (progress()?.recentRuns?.length) {
-            <section class="progress-section" aria-labelledby="recent-runs-title">
-              <h3 id="recent-runs-title">Recent runs</h3>
-              <div class="recent-runs">
-                @for (run of progress()?.recentRuns; track run.runId) {
-                  <div class="recent-run">
-                    <span>{{ formatDifficulty(run.difficulty) }}</span>
-                    <strong>{{ run.score }}</strong>
-                    <span>Level {{ run.level }}</span>
-                    <span>{{ formatAverage(run.averageTimeMs) }}</span>
-                  </div>
-                }
-              </div>
-            </section>
-          }
         }
       </section>
     </div>

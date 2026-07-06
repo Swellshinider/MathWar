@@ -9,11 +9,11 @@ describe('InMemoryAccountProgressRepository', () => {
       accountId: 'account-1',
       runId: 'run-0001',
       difficulty: 'normal',
-      score: 500,
-      level: 5,
+      score: 6000,
+      level: 25,
       averageTimeMs: 2500,
-      bestStreak: 10,
-      totalCorrect: 10,
+      bestStreak: 25,
+      totalCorrect: 25,
     });
 
     expect(saved.stats).toEqual([
@@ -21,19 +21,25 @@ describe('InMemoryAccountProgressRepository', () => {
         gameId: 'formula-frenzy',
         difficulty: 'normal',
         runsCount: 1,
-        totalScore: 500,
-        bestScore: 500,
-        bestLevel: 5,
-        bestStreak: 10,
-        totalCorrect: 10,
+        totalScore: 6000,
+        bestScore: 6000,
+        bestLevel: 25,
+        bestStreak: 25,
+        totalCorrect: 25,
         bestAverageTimeMs: 2500,
       }),
     ]);
-    expect(saved.recentRuns).toEqual([expect.objectContaining({ runId: 'run-0001', score: 500 })]);
+    expect(saved.recentRuns).toEqual([expect.objectContaining({ runId: 'run-0001', score: 6000 })]);
     expect(saved.newlyUnlocked.map((achievement) => achievement.id)).toEqual([
       'first_run',
       'level_5',
+      'level_10',
+      'legend_level',
+      'score_1000',
+      'score_5000',
       'streak_10',
+      'streak_25',
+      'twenty_correct',
       'quick_solver',
     ]);
   });
@@ -66,8 +72,8 @@ describe('InMemoryAccountProgressRepository', () => {
       accountId: 'account-1',
       runId: 'hardcore-1',
       difficulty: 'hardcore',
-      score: 800,
-      level: 5,
+      score: 1200,
+      level: 10,
       averageTimeMs: 4000,
       bestStreak: 8,
       totalCorrect: 8,
@@ -81,8 +87,11 @@ describe('InMemoryAccountProgressRepository', () => {
     expect(progress.achievements.map((achievement) => achievement.id)).toEqual([
       'first_run',
       'level_5',
+      'level_10',
+      'score_1000',
       'hardcore_debut',
       'hardcore_level_5',
+      'hardcore_level_10',
     ]);
   });
 });
