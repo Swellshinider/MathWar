@@ -73,6 +73,12 @@ export function createFormulaProblem(
   return createFormulaProblemForLevel(levelForExperience(experience), random);
 }
 
+// Deterministic RNG for solo runs so the client and server generate the same
+// problem for a given (seed, experience). Mirrors the multiplayer randomFor.
+export function soloFormulaProblemRandom(seed: string, experience: number): () => number {
+  return createSeededRandom(`${seed}:solo:${experience}`);
+}
+
 export function createFormulaProblemForLevel(
   levelNumber: number,
   random: () => number = Math.random,

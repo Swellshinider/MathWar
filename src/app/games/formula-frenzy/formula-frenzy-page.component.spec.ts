@@ -9,6 +9,7 @@ import { MultiplayerSocketService } from '../../shared/multiplayer/multiplayer-s
 import { ToastService } from '../../shared/toast/toast.service';
 import { FormulaFrenzyPageComponent } from './formula-frenzy-page.component';
 import { FormulaFrenzyRunService } from './formula-frenzy-run.service';
+import { createFormulaProblem, soloFormulaProblemRandom } from './game/problem-generator';
 
 describe('FormulaFrenzyPageComponent', () => {
   let fixture: ComponentFixture<FormulaFrenzyPageComponent>;
@@ -230,6 +231,17 @@ describe('FormulaFrenzyPageComponent', () => {
       component.problem().prompt,
     );
     expect(document.activeElement).toBe(root.querySelector<HTMLInputElement>('#formula-answer'));
+  });
+
+  it('seeds its first problem from the server run so client and server agree', async () => {
+    component.startRun();
+    await Promise.resolve();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(component.problem()).toEqual(
+      createFormulaProblem(0, soloFormulaProblemRandom('test-seed', 0)),
+    );
   });
 
   it('renders division as a fraction and multiplication with a multiplication sign', () => {
@@ -781,6 +793,7 @@ function createMemoryStorage(): Storage {
 function mockRunState(overrides: Record<string, unknown> = {}) {
   return {
     runId: 'server-run',
+    seed: 'test-seed',
     difficulty: 'normal',
     status: 'active',
     score: 0,

@@ -2,12 +2,14 @@ import {
   FORMULA_LEVELS,
   FORMULA_INITIAL_HINTS,
   createFormulaFrenzyMatchState,
+  createFormulaProblem,
   createFormulaProblemForLevel,
   expireFormulaFrenzyPlayer,
   formulaProgress,
   requestFormulaFrenzyHint,
   resolveFormulaFrenzyAnswer,
   scoreFormulaAnswer,
+  soloFormulaProblemRandom,
   startFormulaFrenzyMatch,
 } from './index.js';
 import { describe, expect, it } from 'vitest';
@@ -466,5 +468,21 @@ describe('formula frenzy multiplayer simulation', () => {
 
       expect(problem.prompt).not.toMatch(/\((\d+) - \1\)/);
     }
+  });
+});
+
+describe('soloFormulaProblemRandom', () => {
+  it('produces identical problems for the same seed and experience', () => {
+    const first = createFormulaProblem(3, soloFormulaProblemRandom('run-abc', 3));
+    const second = createFormulaProblem(3, soloFormulaProblemRandom('run-abc', 3));
+
+    expect(second).toEqual(first);
+  });
+
+  it('produces different problems across seeds', () => {
+    const a = createFormulaProblem(0, soloFormulaProblemRandom('run-a', 0));
+    const b = createFormulaProblem(0, soloFormulaProblemRandom('run-b', 0));
+
+    expect(b).not.toEqual(a);
   });
 });

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveShot } from '@math-war/game-engine';
+import { createFormulaProblem, resolveShot, soloFormulaProblemRandom } from '@math-war/game-engine';
 import { Server as SocketServer } from 'socket.io';
 import { io as createClient, Socket } from 'socket.io-client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -13,7 +13,7 @@ import { UsernameAvailabilityCache } from './account-username-cache.js';
 import { createGuestTokenIssuer, createGuestTokenVerifier } from './auth.js';
 import { InMemoryLeaderboardRepository } from './leaderboard-repository.js';
 import { InMemoryMatchRepository } from './repository.js';
-import { issueRunCompletionToken } from './run-proof.js';
+import { issueRunCompletionToken, verifyRunCompletionToken } from './run-proof.js';
 import { createMultiplayerServer } from './server.js';
 
 interface Harness {
@@ -351,6 +351,55 @@ describe('multiplayer socket server', () => {
 
     const socket = await connect(harness, refreshed.json().accessToken);
     expect(socket.connected).toBe(true);
+  });
+
+  it('credits a correct answer and bakes the real score into a Formula Frenzy run token', async () => {
+    const repository = new InMemoryMatchRepository();
+    const server = await createMultiplayerServer({
+      repository,
+      verifyToken: createAccountTokenVerifier('account-access-secret-with-enough-length'),
+      accounts: {
+        repository: new InMemoryAccountRepository(),
+        accessTokenSecret: 'account-access-secret-with-enough-length',
+        refreshTokenSecret: 'account-refresh-secret-with-enough-length',
+        refreshCookieSecure: false,
+      },
+      allowedOrigin: '*',
+      sweepIntervalMs: 10,
+    });
+    harnesses.push({ repository, server, url: '', clients: [] });
+    const refreshSecret = 'account-refresh-secret-with-enough-length';
+
+    const started = await server.fastify.inject({
+      method: 'POST',
+      url: '/api/runs/formula-frenzy/start',
+      payload: { difficulty: 'normal' },
+    });
+    expect(started.statusCode).toBe(200);
+    const { runId, seed } = started.json();
+    // The client regenerates the same problem from the seed to know the answer.
+    const answer = createFormulaProblem(0, soloFormulaProblemRandom(seed, 0)).answer;
+
+    const answered = await server.fastify.inject({
+      method: 'POST',
+      url: `/api/runs/formula-frenzy/${runId}/answers`,
+      payload: { answer },
+    });
+    expect(answered.statusCode).toBe(200);
+    expect(answered.json().score).toBeGreaterThan(0);
+    expect(answered.json().totalCorrect).toBe(1);
+
+    const finished = await server.fastify.inject({
+      method: 'POST',
+      url: `/api/runs/formula-frenzy/${runId}/finish`,
+    });
+    expect(finished.statusCode).toBe(200);
+    const proof = await verifyRunCompletionToken(refreshSecret, finished.json().completionToken);
+    expect(proof.kind).toBe('formula-frenzy');
+    if (proof.kind === 'formula-frenzy') {
+      expect(proof.score).toBeGreaterThan(0);
+      expect(proof.totalCorrect).toBe(1);
+    }
   });
 
   it('saves and lists Formula Frenzy leaderboard scores', async () => {

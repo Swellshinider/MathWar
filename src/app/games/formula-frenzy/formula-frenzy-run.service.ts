@@ -14,6 +14,7 @@ export interface FormulaRunProblem {
 
 export interface FormulaRunState {
   readonly runId: string;
+  readonly seed?: string;
   readonly difficulty: LeaderboardDifficulty;
   readonly status: 'active' | 'ended';
   readonly score: number;

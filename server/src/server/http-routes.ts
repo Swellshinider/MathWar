@@ -9,6 +9,7 @@ import {
   createFormulaProblem,
   formulaProgress,
   scoreFormulaAnswer,
+  soloFormulaProblemRandom,
 } from '@math-war/game-engine';
 import { FastifyInstance } from 'fastify';
 import {
@@ -146,6 +147,7 @@ interface FormulaSoloRun {
 function publicFormulaRun(run: FormulaSoloRun) {
   return {
     runId: run.id,
+    seed: run.seed,
     difficulty: run.difficulty,
     status: run.status,
     score: run.score,
@@ -310,12 +312,13 @@ export async function registerHttpRoutes({
     account: AccountRecord | null,
   ): FormulaSoloRun {
     const startedAt = new Date().toISOString();
-    const problem = createFormulaProblem(0);
+    const seed = randomUUID();
+    const problem = createFormulaProblem(0, soloFormulaProblemRandom(seed, 0));
     return {
       id: randomUUID(),
       accountId: account?.id ?? null,
       difficulty,
-      seed: randomUUID(),
+      seed,
       startedAt,
       score: 0,
       experience: 0,
@@ -359,8 +362,14 @@ export async function registerHttpRoutes({
     return completed;
   }
 
-  function nextSoloProblem(experience: number): FormulaSoloRun['currentProblem'] {
-    return { ...createFormulaProblem(experience), startedAt: new Date().toISOString() };
+  function nextSoloProblem(
+    seed: string,
+    experience: number,
+  ): FormulaSoloRun['currentProblem'] {
+    return {
+      ...createFormulaProblem(experience, soloFormulaProblemRandom(seed, experience)),
+      startedAt: new Date().toISOString(),
+    };
   }
 
   async function createAccountSession(account: AccountRecord) {
@@ -768,7 +777,7 @@ export async function registerHttpRoutes({
           highestLevel: Math.max(run.highestLevel, progress.level),
           totalCorrect: run.totalCorrect + 1,
           totalSolveTimeMs: run.totalSolveTimeMs + solveTimeMs,
-          currentProblem: nextSoloProblem(experience),
+          currentProblem: nextSoloProblem(run.seed, experience),
         };
         formulaSoloRuns.set(run.id, next);
         return publicFormulaRun(next);

@@ -35,6 +35,7 @@ import {
   FormulaProblem,
   formulaProgress,
   scoreFormulaAnswer,
+  soloFormulaProblemRandom,
 } from './game/problem-generator';
 import { FormulaFrenzyRunService, FormulaRunState } from './formula-frenzy-run.service';
 
@@ -137,6 +138,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   private currentRunId = createProgressRunId();
   private savedProgressRunId: string | null = null;
   private currentCompletionToken: string | null = null;
+  private runSeed: string | null = null;
 
   constructor() {
     effect(() => {
@@ -268,6 +270,7 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.currentRunId = createProgressRunId();
     this.savedProgressRunId = null;
     this.currentCompletionToken = null;
+    this.runSeed = null;
     this.clearTimers();
     this.clearPulseTimers();
     this.timeRemainingMs.set(this.timedMode() ? this.problem().deadlineMs : 0);
@@ -304,6 +307,11 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
       const state = await this.runService.start(this.leaderboardDifficulty());
       this.currentRunId = state.runId;
       this.currentCompletionToken = state.completionToken ?? null;
+      // Re-derive problems from the server seed so client and server agree on
+      // every answer; otherwise the server credits none and the run saves as 0.
+      this.runSeed = state.seed ?? null;
+      this.problem.set(this.nextProblem());
+      this.startProblemTimer();
     } catch (error) {
       this.toast.show(error instanceof Error ? error.message : 'Could not start run.');
     }
@@ -634,7 +642,10 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
   }
 
   private nextProblem(): FormulaProblem {
-    return createFormulaProblem(this.experience());
+    const experience = this.experience();
+    return this.runSeed
+      ? createFormulaProblem(experience, soloFormulaProblemRandom(this.runSeed, experience))
+      : createFormulaProblem(experience);
   }
 
   private syncAnswerControl(): void {

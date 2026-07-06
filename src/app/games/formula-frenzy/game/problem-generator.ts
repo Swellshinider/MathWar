@@ -6,6 +6,7 @@ export {
   createFormulaProblemForLevel,
   formulaProgress,
   scoreFormulaAnswer,
+  soloFormulaProblemRandom,
   type FormulaLevelConfig,
   type FormulaOperation,
   type FormulaProblem,
