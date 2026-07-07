@@ -91,6 +91,52 @@ describe('MathCrossPageComponent', () => {
     );
   });
 
+  it('limits hints to three per puzzle', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(component.hintsRemaining()).toBe(3);
+    for (let index = 0; index < 3; index += 1) {
+      expect(component.revealHint()).toBe(true);
+    }
+    expect(component.hintsRemaining()).toBe(0);
+    expect(component.canRequestHint()).toBe(false);
+
+    const entriesBefore = { ...component.entries() };
+    expect(component.revealHint()).toBe(false);
+    expect(component.entries()).toEqual(entriesBefore);
+  });
+
+  it('refills hints when a new puzzle starts but not when clearing', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.revealHint();
+    component.revealHint();
+    expect(component.hintsRemaining()).toBe(1);
+
+    component.clearPuzzle();
+    expect(component.hintsRemaining()).toBe(1);
+
+    component.newPuzzle();
+    fixture.detectChanges();
+    expect(component.hintsRemaining()).toBe(3);
+  });
+
+  it('reveals a hint on the H key and ignores modified H', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.handleHintKey(new KeyboardEvent('keydown', { key: 'h' }));
+    expect(component.hintsRemaining()).toBe(2);
+
+    component.handleHintKey(new KeyboardEvent('keydown', { key: 'H', ctrlKey: true }));
+    expect(component.hintsRemaining()).toBe(2);
+  });
+
   it('clears player entries', () => {
     const fixture = TestBed.createComponent(MathCrossPageComponent);
     fixture.detectChanges();

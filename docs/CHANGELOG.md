@@ -19,11 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cells, and grid-only correctness colors.
 - Changed Math Cross to use the shared mini-game mode panel with a Single Player tab and compact
   level control.
+- Changed Math Cross hints to a per-puzzle limit of three, shown with a lightbulb icon and a
+  remaining counter plus an `H` keybinding, matching Formula Frenzy.
+- Changed the Math Cross level slider to sit on the right of the mode panel, matching Equation
+  Artillery.
 
 ### Fixed - 2026-07-07
 
 - Fixed Math Cross editable cells revealing hidden solutions through direct per-cell correctness
   colors; live feedback now comes from completed equations.
+- Fixed Math Cross occasionally generating equations that did not cross; generation now guarantees
+  a connected crossword and retries internally so every level has at least four calculations.
 
 ### Added - 2026-07-06
 

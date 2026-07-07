@@ -41,6 +41,17 @@ describe('Math Cross game logic', () => {
     expect(high.cells.some((cell) => cell.kind === 'block')).toBe(true);
   });
 
+  it('generates connected puzzles with at least four slots across levels', () => {
+    for (const level of [1, 4, 7, 10] as const) {
+      for (let seed = 0; seed < 12; seed += 1) {
+        const puzzle = generateMathCrossPuzzle(level, `connect-${level}-${seed}`);
+
+        expect(puzzle.slots.length).toBeGreaterThanOrEqual(4);
+        expect(slotGraphIsConnected(puzzle)).toBe(true);
+      }
+    }
+  });
+
   it('masks both number and operator cells', () => {
     const puzzle = generateMathCrossPuzzle(10, 'mixed-blanks');
     const blanks = puzzle.blankCellIds.map((cellId) => cell(puzzle, cellId).solution);
@@ -125,4 +136,31 @@ function cell(puzzle: MathCrossPuzzle, cellId: string) {
   const found = puzzle.cells.find((candidate) => candidate.id === cellId);
   if (!found) throw new Error(`Missing cell ${cellId}`);
   return found;
+}
+
+function slotGraphIsConnected(puzzle: MathCrossPuzzle): boolean {
+  const slots = puzzle.slots.map((slot) => [...slot.cellIds]);
+  if (slots.length <= 1) return true;
+  const adjacency = slots.map(() => new Set<number>());
+  for (let a = 0; a < slots.length; a += 1) {
+    const cells = new Set(slots[a]);
+    for (let b = a + 1; b < slots.length; b += 1) {
+      if (slots[b].some((cellId) => cells.has(cellId))) {
+        adjacency[a].add(b);
+        adjacency[b].add(a);
+      }
+    }
+  }
+  const visited = new Set<number>([0]);
+  const stack = [0];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    adjacency[node].forEach((neighbor) => {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        stack.push(neighbor);
+      }
+    });
+  }
+  return visited.size === slots.length;
 }

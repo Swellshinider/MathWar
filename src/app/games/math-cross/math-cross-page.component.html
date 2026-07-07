@@ -33,7 +33,16 @@
     }
 
     <div class="math-cross-actions">
-      <button class="btn btn--subtle" type="button" (click)="revealHint()">Hint</button>
+      <button
+        class="btn btn--subtle"
+        type="button"
+        [disabled]="!canRequestHint()"
+        aria-label="Request hint"
+        (click)="revealHint()"
+      >
+        <svg lucideLightbulb aria-hidden="true"></svg>
+        <span>{{ hintsRemaining() }}</span>
+      </button>
       <button class="btn btn--subtle" type="button" (click)="clearPuzzle()">Clear</button>
       <button class="btn btn--primary" type="button" (click)="newPuzzle()">New puzzle</button>
     </div>

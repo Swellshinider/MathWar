@@ -62,6 +62,10 @@ interface PlacedEquation {
 
 const BINARY_OPERATORS: readonly BinaryOperator[] = ['+', '-', '*', '/', '^'];
 const OPERATORS: readonly Operator[] = [...BINARY_OPERATORS, '√'];
+// ponytail: generous fixed cap. Strict crossings make a single placeEquations() pass fail
+// more often; retrying with deterministic sub-seeds keeps generation deterministic while
+// making an all-attempts-fail outcome effectively impossible. Raise if a level goes flaky.
+const MAX_GENERATION_ATTEMPTS = 120;
 
 const LEVEL_CONFIG: Record<MathCrossLevel, LevelConfig> = {
   1: {
@@ -161,30 +165,38 @@ export function generateMathCrossPuzzle(
   seed = `${Date.now()}`,
 ): MathCrossPuzzle {
   const config = LEVEL_CONFIG[level];
-  const random = createSeededRandom(`${seed}:level-${level}`);
-  const grid = createEmptyGrid(config.size);
-  const placed = placeEquations(grid, config, random);
-  const cells = cellsFromGrid(grid);
-  const blankIds = chooseBlankCells(cells, placed, config.blankRatio, random);
-  const puzzleCells = cells.map((cell) => ({
-    ...cell,
-    kind: blankIds.has(cell.id) ? 'blank' : cell.kind,
-    editable: blankIds.has(cell.id),
-  }));
+  for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
+    const random = createSeededRandom(`${seed}:level-${level}:attempt-${attempt}`);
+    const grid = createEmptyGrid(config.size);
+    let placed: readonly PlacedEquation[];
+    try {
+      placed = placeEquations(grid, config, random);
+    } catch {
+      continue;
+    }
+    const cells = cellsFromGrid(grid);
+    const blankIds = chooseBlankCells(cells, placed, config.blankRatio, random);
+    const puzzleCells = cells.map((cell) => ({
+      ...cell,
+      kind: blankIds.has(cell.id) ? 'blank' : cell.kind,
+      editable: blankIds.has(cell.id),
+    }));
 
-  return {
-    id: `level-${level}-${hashSeed(seed).toString(36)}`,
-    seed,
-    level,
-    size: config.size,
-    cells: puzzleCells,
-    slots: placed.map((equation, index) => ({
-      id: `slot-${index}`,
-      label: `Equation ${index + 1}`,
-      cellIds: equation.cellIds,
-    })),
-    blankCellIds: puzzleCells.filter((cell) => cell.editable).map((cell) => cell.id),
-  };
+    return {
+      id: `level-${level}-${hashSeed(seed).toString(36)}`,
+      seed,
+      level,
+      size: config.size,
+      cells: puzzleCells,
+      slots: placed.map((equation, index) => ({
+        id: `slot-${index}`,
+        label: `Equation ${index + 1}`,
+        cellIds: equation.cellIds,
+      })),
+      blankCellIds: puzzleCells.filter((cell) => cell.editable).map((cell) => cell.id),
+    };
+  }
+  throw new Error('Could not generate a Math Cross puzzle.');
 }
 
 export function validateMathCrossPuzzle(
@@ -270,7 +282,7 @@ function placeEquations(
 function findPlacement(
   grid: readonly (readonly (string | null)[])[],
   tokens: readonly string[],
-  preferCrossing: boolean,
+  requireCrossing: boolean,
   random: () => number,
 ): { readonly row: number; readonly col: number; readonly direction: Direction } | null {
   const candidates = shuffle(
@@ -279,12 +291,11 @@ function findPlacement(
     ),
     random,
   );
-  if (!preferCrossing) return candidates[0] ?? null;
-  return (
-    candidates.find((placement) => crossesExisting(grid, tokens, placement)) ??
-    candidates[0] ??
-    null
-  );
+  if (!requireCrossing) return candidates[0] ?? null;
+  // ponytail: every equation after the first must cross an existing one — no fallback to a
+  // parallel placement, otherwise the grid becomes disjoint rows/columns. placeEquations +
+  // generateMathCrossPuzzle's retry loop handle the resulting failures.
+  return candidates.find((placement) => crossesExisting(grid, tokens, placement)) ?? null;
 }
 
 function allPlacements(

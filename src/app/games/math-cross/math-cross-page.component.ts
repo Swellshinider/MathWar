@@ -2,10 +2,13 @@ import {
   AfterViewChecked,
   Component,
   ElementRef,
+  HostListener,
   ViewChild,
   computed,
   signal,
 } from '@angular/core';
+import { LucideLightbulb } from '@lucide/angular';
+import { preventBackspaceNavigation } from '../../shared/dom/prevent-backspace-navigation';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
 import {
   generateMathCrossPuzzle,
@@ -36,7 +39,7 @@ const COMPLETION_MESSAGES = [
 
 @Component({
   selector: 'app-math-cross-page',
-  imports: [GameFrameComponent],
+  imports: [GameFrameComponent, LucideLightbulb],
   templateUrl: './math-cross-page.component.html',
   styleUrl: './math-cross-page.component.scss',
 })
@@ -48,9 +51,13 @@ export class MathCrossPageComponent implements AfterViewChecked {
   readonly level = signal<MathCrossLevel>(1);
   readonly puzzle = signal(generateMathCrossPuzzle(1, this.newSeed()));
   readonly entries = signal<MathCrossEntries>({});
+  readonly hintsRemaining = signal(3);
   readonly completionMessage = signal<string | null>(null);
   readonly completionDialogDismissed = signal(false);
   readonly validation = computed(() => validateMathCrossPuzzle(this.puzzle(), this.entries()));
+  readonly canRequestHint = computed(
+    () => this.hintsRemaining() > 0 && !this.validation().complete,
+  );
   readonly rows = computed(() => {
     const puzzle = this.puzzle();
     return Array.from({ length: puzzle.size }, (_, row) =>
@@ -70,6 +77,7 @@ export class MathCrossPageComponent implements AfterViewChecked {
     this.resetCompletionDialog();
     this.puzzle.set(generateMathCrossPuzzle(this.level(), this.newSeed()));
     this.entries.set({});
+    this.hintsRemaining.set(3);
   }
 
   setLevel(value: string | number): void {
@@ -101,11 +109,23 @@ export class MathCrossPageComponent implements AfterViewChecked {
     this.entries.set({});
   }
 
-  revealHint(): void {
+  revealHint(): boolean {
+    if (!this.canRequestHint()) return false;
     const hint = nextMathCrossHint(this.puzzle(), this.entries());
-    if (!hint) return;
+    if (!hint) return false;
     this.entries.update((entries) => ({ ...entries, [hint.cellId]: hint.value }));
+    this.hintsRemaining.update((remaining) => remaining - 1);
     this.syncCompletionState();
+    return true;
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  handleHintKey(event: KeyboardEvent): void {
+    if (event.key.toLowerCase() === 'h' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (this.revealHint()) event.preventDefault();
+      return;
+    }
+    preventBackspaceNavigation(event);
   }
 
   entryFor(cell: MathCrossCell): string {
