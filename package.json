@@ -1,6 +1,6 @@
 {
   "name": "math-war",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "scripts": {
     "ng": "ng",
     "start": "npm run clean:angular-cache && npm run build:engine && ng serve",
