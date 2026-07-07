@@ -17,4 +17,12 @@ export const GAMES: readonly GameDefinition[] = [
     image: 'images/formula-frenzy.png',
     route: '/games/formula-frenzy',
   },
+  {
+    id: 'math-cross',
+    eyebrow: 'Equation crossword',
+    title: 'Math Cross',
+    summary: 'Fill number and operator blanks so every crossed equation works.',
+    image: 'images/math-cross.png',
+    route: '/games/math-cross',
+  },
 ];

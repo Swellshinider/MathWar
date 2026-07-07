@@ -1,0 +1,93 @@
+<app-game-frame
+  eyebrow="Arithmetic crossword"
+  title="Math Cross"
+  objective="Fill every blank so each row and column equation is correct."
+  [wide]="true"
+>
+  <section class="mode-panel math-cross-toolbar" aria-label="Math Cross controls">
+    <label class="level-control" for="math-cross-level">
+      <span>Level {{ level() }}</span>
+      <input
+        id="math-cross-level"
+        type="range"
+        min="1"
+        max="10"
+        step="1"
+        [value]="level()"
+        (input)="setLevel($any($event.target).value)"
+      />
+      <small>{{ levelSummary() }}</small>
+    </label>
+
+    <div class="level-scale" aria-hidden="true">
+      <span>1</span>
+      <span>10</span>
+    </div>
+
+    <div class="math-cross-toolbar__actions">
+      <button class="btn btn--subtle" type="button" (click)="revealHint()">Hint</button>
+      <button class="btn btn--subtle" type="button" (click)="clearPuzzle()">Clear</button>
+      <button class="btn btn--primary" type="button" (click)="newPuzzle()">New puzzle</button>
+    </div>
+  </section>
+
+  <section class="math-cross">
+    <div class="math-cross__board-wrap">
+      <div
+        class="math-cross__board"
+        [style.--math-cross-size]="puzzle().size"
+        role="grid"
+        aria-label="Math Cross puzzle board"
+      >
+        @for (row of rows(); track row[0].row) {
+          @for (cell of row; track cell.id) {
+            @if (cell.kind === 'block') {
+              <div class="math-cross__cell math-cross__cell--block" role="presentation"></div>
+            } @else if (cell.editable) {
+              <div
+                class="math-cross__cell math-cross__cell--blank"
+                [attr.data-status]="cellStatus(cell)"
+              >
+                <input
+                  [attr.aria-label]="
+                    'Blank cell row ' + (cell.row + 1) + ' column ' + (cell.col + 1)
+                  "
+                  [placeholder]="
+                    cell.solution === '+' ||
+                    cell.solution === '-' ||
+                    cell.solution === '*' ||
+                    cell.solution === '/' ||
+                    cell.solution === '^' ||
+                    cell.solution === '√'
+                      ? 'op'
+                      : '#'
+                  "
+                  [value]="entryFor(cell)"
+                  (input)="updateCell(cell, $any($event.target).value)"
+                  (keydown.escape)="clearCell(cell)"
+                  autocomplete="off"
+                  inputmode="text"
+                  maxlength="4"
+                />
+              </div>
+            } @else {
+              <div
+                class="math-cross__cell math-cross__cell--fixed"
+                [class.math-cross__cell--operator]="cell.kind === 'operator'"
+                [class.math-cross__cell--equals]="cell.kind === 'equals'"
+                role="gridcell"
+              >
+                {{ displayValue(cell) }}
+              </div>
+            }
+          }
+        }
+      </div>
+    </div>
+  </section>
+
+  <p gameHint>
+    Yellow cells are open, green cells match the solution, and red cells need another value.
+    Operator aliases like x, ×, sqrt, and ÷ are accepted.
+  </p>
+</app-game-frame>

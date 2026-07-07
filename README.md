@@ -24,6 +24,11 @@ that follow the resulting curve, and use function shape to hit targets.
 Formula Frenzy is a progression-based arithmetic sprint. Solve each formula before its timer expires,
 keep your streak alive, and watch the problems get harder as your score climbs.
 
+### Math Cross
+
+Math Cross is an equation-crossword puzzle. Fill number and operator blanks so every horizontal and
+vertical calculation is correct.
+
 ## Requirements
 
 - Node.js `22.22.3` or newer

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-07
+
+- Added Math Cross as a solo equation-crossword minigame with generated puzzles, difficulty
+  selection, hints, and per-equation validation.
+
+### Changed - 2026-07-07
+
+- Changed Math Cross to use a larger adaptive grid, level 1-10 difficulty slider, empty block
+  cells, and grid-only correctness colors.
+
 ### Added - 2026-07-06
 
 - Added more account achievements for Formula Frenzy milestones and Equation Artillery CPU level

@@ -68,6 +68,14 @@ describe('application routes', () => {
     expect(harness.routeNativeElement?.textContent).toContain('Solve fast');
   });
 
+  it('opens Math Cross at its direct route', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/games/math-cross');
+
+    expect(harness.routeNativeElement?.textContent).toContain('Math Cross');
+    expect(harness.routeNativeElement?.textContent).toContain('Fill every blank');
+  });
+
   it('opens the Formula Frenzy leaderboard at its direct route', async () => {
     vi.stubGlobal(
       'fetch',
