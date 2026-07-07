@@ -1,0 +1,118 @@
+<app-game-frame
+  eyebrow="Arithmetic crossword"
+  title="Math Cross"
+  objective="Fill every blank so each row and column equation is correct."
+  [wide]="true"
+>
+  <section class="mode-panel" aria-label="Math Cross mode">
+    <div class="mode-panel__tabs" role="tablist" aria-label="Math Cross modes">
+      <button
+        type="button"
+        class="mode-tab"
+        [class.mode-tab--active]="gameMode() === 'single-player'"
+        (click)="selectSinglePlayerMode()"
+      >
+        Single Player
+      </button>
+    </div>
+
+    @if (gameMode() === 'single-player') {
+      <div class="difficulty-control">
+        <label for="math-cross-level">Level</label>
+        <input
+          id="math-cross-level"
+          type="range"
+          min="1"
+          max="10"
+          step="1"
+          [value]="level()"
+          (input)="setLevel($any($event.target).value)"
+        />
+        <output for="math-cross-level">{{ level() }}</output>
+      </div>
+    }
+
+    <div class="math-cross-actions">
+      <button
+        class="btn btn--subtle"
+        type="button"
+        [disabled]="!canRequestHint()"
+        aria-label="Request hint"
+        (click)="revealHint()"
+      >
+        <svg lucideLightbulb aria-hidden="true"></svg>
+        <span>{{ hintsRemaining() }}</span>
+      </button>
+      <button class="btn btn--subtle" type="button" (click)="clearPuzzle()">Clear</button>
+      <button class="btn btn--primary" type="button" (click)="newPuzzle()">New puzzle</button>
+    </div>
+  </section>
+
+  <section class="math-cross">
+    <div class="math-cross__board-wrap">
+      <div
+        class="math-cross__board"
+        [style.--math-cross-size]="puzzle().size"
+        role="grid"
+        aria-label="Math Cross puzzle board"
+      >
+        @for (row of rows(); track row[0].row) {
+          @for (cell of row; track cell.id) {
+            @if (cell.kind === 'block') {
+              <div class="math-cross__cell math-cross__cell--block" role="presentation"></div>
+            } @else if (cell.editable) {
+              <div
+                class="math-cross__cell math-cross__cell--blank"
+                [attr.data-status]="cellStatus(cell)"
+              >
+                <input
+                  [attr.aria-label]="
+                    'Blank cell row ' + (cell.row + 1) + ' column ' + (cell.col + 1)
+                  "
+                  [placeholder]="
+                    cell.solution === '+' ||
+                    cell.solution === '-' ||
+                    cell.solution === '*' ||
+                    cell.solution === '/' ||
+                    cell.solution === '^' ||
+                    cell.solution === '√'
+                      ? 'op'
+                      : '#'
+                  "
+                  [value]="entryFor(cell)"
+                  (input)="updateCell(cell, $any($event.target).value)"
+                  (keydown.escape)="clearCell(cell)"
+                  autocomplete="off"
+                  inputmode="text"
+                  maxlength="4"
+                />
+              </div>
+            } @else {
+              <div
+                class="math-cross__cell math-cross__cell--fixed"
+                [class.math-cross__cell--operator]="cell.kind === 'operator'"
+                [class.math-cross__cell--equals]="cell.kind === 'equals'"
+                role="gridcell"
+              >
+                {{ displayValue(cell) }}
+              </div>
+            }
+          }
+        }
+      </div>
+    </div>
+  </section>
+
+  <p gameHint>
+    Yellow cells are open, green cells complete valid equations, and red cells conflict with a
+    completed equation. Operator aliases like x, ×, sqrt, and ÷ are accepted.
+  </p>
+
+  <dialog #completionDialog class="completion-dialog" aria-labelledby="math-cross-complete-title">
+    @if (completionMessage()) {
+      <h2 id="math-cross-complete-title">Puzzle complete</h2>
+      <p>{{ completionMessage() }}</p>
+      <button type="button" class="btn btn--primary" (click)="closeCompletionDialog()">OK</button>
+    }
+  </dialog>
+</app-game-frame>

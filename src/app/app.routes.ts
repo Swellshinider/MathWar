@@ -152,5 +152,22 @@ export const routes: Routes = [
         (module) => module.FormulaFrenzyMultiplayerPageComponent,
       ),
   },
+  {
+    path: 'games/math-cross',
+    pathMatch: 'full',
+    data: {
+      seo: {
+        title: 'Math Cross | MathWar equation crossword game',
+        description:
+          'Play Math Cross, a MathWar puzzle game where number and operator blanks complete crossed equations.',
+        image: '/images/math-cross.png',
+        schemaType: 'VideoGame',
+      },
+    },
+    loadComponent: () =>
+      import('./games/math-cross/math-cross-page.component').then(
+        (module) => module.MathCrossPageComponent,
+      ),
+  },
   { path: '**', redirectTo: '' },
 ];
