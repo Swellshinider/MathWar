@@ -4,27 +4,35 @@
   objective="Fill every blank so each row and column equation is correct."
   [wide]="true"
 >
-  <section class="mode-panel math-cross-toolbar" aria-label="Math Cross controls">
-    <label class="level-control" for="math-cross-level">
-      <span>Level {{ level() }}</span>
-      <input
-        id="math-cross-level"
-        type="range"
-        min="1"
-        max="10"
-        step="1"
-        [value]="level()"
-        (input)="setLevel($any($event.target).value)"
-      />
-      <small>{{ levelSummary() }}</small>
-    </label>
-
-    <div class="level-scale" aria-hidden="true">
-      <span>1</span>
-      <span>10</span>
+  <section class="mode-panel" aria-label="Math Cross mode">
+    <div class="mode-panel__tabs" role="tablist" aria-label="Math Cross modes">
+      <button
+        type="button"
+        class="mode-tab"
+        [class.mode-tab--active]="gameMode() === 'single-player'"
+        (click)="selectSinglePlayerMode()"
+      >
+        Single Player
+      </button>
     </div>
 
-    <div class="math-cross-toolbar__actions">
+    @if (gameMode() === 'single-player') {
+      <div class="difficulty-control">
+        <label for="math-cross-level">Level</label>
+        <input
+          id="math-cross-level"
+          type="range"
+          min="1"
+          max="10"
+          step="1"
+          [value]="level()"
+          (input)="setLevel($any($event.target).value)"
+        />
+        <output for="math-cross-level">{{ level() }}</output>
+      </div>
+    }
+
+    <div class="math-cross-actions">
       <button class="btn btn--subtle" type="button" (click)="revealHint()">Hint</button>
       <button class="btn btn--subtle" type="button" (click)="clearPuzzle()">Clear</button>
       <button class="btn btn--primary" type="button" (click)="newPuzzle()">New puzzle</button>
@@ -87,7 +95,15 @@
   </section>
 
   <p gameHint>
-    Yellow cells are open, green cells match the solution, and red cells need another value.
-    Operator aliases like x, ×, sqrt, and ÷ are accepted.
+    Yellow cells are open, green cells complete valid equations, and red cells conflict with a
+    completed equation. Operator aliases like x, ×, sqrt, and ÷ are accepted.
   </p>
+
+  <dialog #completionDialog class="completion-dialog" aria-labelledby="math-cross-complete-title">
+    @if (completionMessage()) {
+      <h2 id="math-cross-complete-title">Puzzle complete</h2>
+      <p>{{ completionMessage() }}</p>
+      <button type="button" class="btn btn--primary" (click)="closeCompletionDialog()">OK</button>
+    }
+  </dialog>
 </app-game-frame>

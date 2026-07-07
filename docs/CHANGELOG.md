@@ -11,11 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added Math Cross as a solo equation-crossword minigame with generated puzzles, difficulty
   selection, hints, and per-equation validation.
+- Added a randomized Math Cross completion dialog that celebrates solved puzzles.
 
 ### Changed - 2026-07-07
 
 - Changed Math Cross to use a larger adaptive grid, level 1-10 difficulty slider, empty block
   cells, and grid-only correctness colors.
+- Changed Math Cross to use the shared mini-game mode panel with a Single Player tab and compact
+  level control.
+
+### Fixed - 2026-07-07
+
+- Fixed Math Cross editable cells revealing hidden solutions through direct per-cell correctness
+  colors; live feedback now comes from completed equations.
 
 ### Added - 2026-07-06
 

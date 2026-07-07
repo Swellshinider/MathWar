@@ -11,12 +11,15 @@ describe('MathCrossPageComponent', () => {
   it('renders the puzzle board and controls', () => {
     const fixture = TestBed.createComponent(MathCrossPageComponent);
     fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
 
-    expect(fixture.nativeElement.textContent).toContain('Math Cross');
-    expect(fixture.nativeElement.textContent).toContain('New puzzle');
-    expect(
-      fixture.nativeElement.querySelectorAll('.math-cross__cell--blank').length,
-    ).toBeGreaterThan(0);
+    expect(root.textContent).toContain('Math Cross');
+    expect(root.textContent).toContain('Single Player');
+    expect(root.textContent).toContain('New puzzle');
+    expect(root.querySelector('.mode-tab--active')?.textContent?.trim()).toBe('Single Player');
+    expect(root.querySelector('.difficulty-control input[type="range"]')).not.toBeNull();
+    expect(root.textContent).not.toContain('Basic addition and subtraction');
+    expect(root.querySelectorAll('.math-cross__cell--blank').length).toBeGreaterThan(0);
   });
 
   it('creates a larger puzzle when the level changes', () => {
@@ -31,7 +34,48 @@ describe('MathCrossPageComponent', () => {
     expect(component.puzzle()).not.toEqual(firstPuzzle);
     expect(component.puzzle().level).toBe(10);
     expect(component.puzzle().size).toBe(11);
-    expect(fixture.nativeElement.textContent).toContain('Level 10');
+    expect(
+      fixture.nativeElement.querySelector('.difficulty-control output')?.textContent?.trim(),
+    ).toBe('10');
+  });
+
+  it('keeps exact single-cell guesses neutral while related equations are incomplete', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const cellId = component.puzzle().blankCellIds[0];
+    const cell = component.puzzle().cells.find((candidate) => candidate.id === cellId)!;
+
+    component.updateCell(cell, cell.solution);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement.querySelector(
+      `.math-cross__cell--blank input[aria-label="Blank cell row ${cell.row + 1} column ${
+        cell.col + 1
+      }"]`,
+    )?.parentElement as HTMLElement;
+    expect(element.getAttribute('data-status')).toBe('incomplete');
+  });
+
+  it('uses complete equation feedback instead of direct solution matching', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const entries = Object.fromEntries(
+      component
+        .puzzle()
+        .blankCellIds.map((cellId) => [
+          cellId,
+          component.puzzle().cells.find((cell) => cell.id === cellId)?.solution ?? '',
+        ]),
+    );
+    const wrongCellId = component.puzzle().blankCellIds[0];
+    const wrongCell = component.puzzle().cells.find((cell) => cell.id === wrongCellId)!;
+
+    component.entries.set({ ...entries, [wrongCellId]: '999' });
+    fixture.detectChanges();
+
+    expect(component.cellStatus(wrongCell)).toBe('incorrect');
   });
 
   it('reveals one hint at a time', () => {
@@ -84,4 +128,84 @@ describe('MathCrossPageComponent', () => {
       Array.from(blanks).every((element) => element.getAttribute('data-status') === 'correct'),
     ).toBe(true);
   });
+
+  it('opens a randomized completion dialog when the puzzle is solved', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    solvePuzzle(component);
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector(
+      'dialog.completion-dialog',
+    ) as HTMLDialogElement;
+    const message = component.completionMessage();
+
+    expect(component.completionMessages).toHaveLength(10);
+    expect(dialog.open).toBe(true);
+    expect(dialog.textContent).toContain('Puzzle complete');
+    expect(message).not.toBeNull();
+    expect(component.completionMessages).toContain(message!);
+    expect(dialog.textContent).toContain(message!);
+  });
+
+  it('closes the completion dialog with OK', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    solvePuzzle(component);
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const dialog = root.querySelector('dialog.completion-dialog') as HTMLDialogElement;
+    root.querySelector<HTMLButtonElement>('dialog.completion-dialog .btn')?.click();
+    fixture.detectChanges();
+
+    expect(component.completionDialogDismissed()).toBe(true);
+    expect(dialog.open).toBe(false);
+  });
+
+  it('resets the completion dialog when a new puzzle starts', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    solvePuzzle(component);
+    fixture.detectChanges();
+    fixture.detectChanges();
+    expect(component.completionMessage()).not.toBeNull();
+
+    component.newPuzzle();
+    fixture.detectChanges();
+
+    expect(component.completionMessage()).toBeNull();
+    expect(component.completionDialogDismissed()).toBe(false);
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLDialogElement>(
+        'dialog.completion-dialog',
+      )?.open,
+    ).toBe(false);
+  });
 });
+
+function solutionEntries(component: MathCrossPageComponent) {
+  return Object.fromEntries(
+    component
+      .puzzle()
+      .blankCellIds.map((cellId) => [
+        cellId,
+        component.puzzle().cells.find((cell) => cell.id === cellId)?.solution ?? '',
+      ]),
+  );
+}
+
+function solvePuzzle(component: MathCrossPageComponent): void {
+  for (const cellId of component.puzzle().blankCellIds) {
+    const cell = component.puzzle().cells.find((candidate) => candidate.id === cellId);
+    if (cell) component.updateCell(cell, cell.solution);
+  }
+}

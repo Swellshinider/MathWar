@@ -479,6 +479,7 @@ function chooseBlankCells(
   random: () => number,
 ): Set<string> {
   const usedIds = new Set(equations.flatMap((equation) => equation.cellIds));
+  const cellsById = new Map(cells.map((cell) => [cell.id, cell]));
   const candidates = shuffle(
     cells.filter(
       (cell) => usedIds.has(cell.id) && (cell.kind === 'number' || cell.kind === 'operator'),
@@ -487,6 +488,20 @@ function chooseBlankCells(
   );
   const count = Math.max(4, Math.round(candidates.length * ratio));
   const chosen = new Set<string>();
+
+  for (const equation of equations) {
+    const blankableIds = shuffle(
+      equation.cellIds.filter((cellId) => {
+        const cell = cellsById.get(cellId);
+        return cell?.kind === 'number' || cell?.kind === 'operator';
+      }),
+      random,
+    );
+    for (const cellId of blankableIds.slice(0, Math.min(2, blankableIds.length))) {
+      chosen.add(cellId);
+    }
+  }
+
   const operator = candidates.find((cell) => cell.kind === 'operator');
   const number = candidates.find((cell) => cell.kind === 'number');
   if (operator) chosen.add(operator.id);

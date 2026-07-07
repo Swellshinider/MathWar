@@ -49,6 +49,22 @@ describe('Math Cross game logic', () => {
     expect(blanks.some((value) => ['+', '-', '*', '/', '^', '√'].includes(value))).toBe(true);
   });
 
+  it('gives each equation at least two editable blanks when possible', () => {
+    for (const level of [1, 4, 7, 10] as const) {
+      const puzzle = generateMathCrossPuzzle(level, `multi-blank-${level}`);
+      const blankIds = new Set(puzzle.blankCellIds);
+
+      for (const slot of puzzle.slots) {
+        const blankableCount = slot.cellIds.filter((cellId) =>
+          ['number', 'operator'].includes(cell(puzzle, cellId).kind),
+        ).length;
+        const slotBlankCount = slot.cellIds.filter((cellId) => blankIds.has(cellId)).length;
+
+        expect(slotBlankCount).toBeGreaterThanOrEqual(Math.min(2, blankableCount));
+      }
+    }
+  });
+
   it('can generate advanced roots or powers at high levels', () => {
     const values = Array.from({ length: 12 }, (_, index) =>
       generateMathCrossPuzzle(10, `advanced-${index}`),

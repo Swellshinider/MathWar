@@ -2,48 +2,34 @@
   display: block;
 }
 
-.math-cross-toolbar {
-  display: grid;
-  grid-template-columns: minmax(16rem, 1fr) auto;
+.mode-panel {
   margin-bottom: var(--space-4);
 }
 
-.level-control {
+.difficulty-control {
   display: grid;
+  grid-template-columns: auto minmax(8rem, 12rem) 2ch;
   gap: var(--space-2);
-  min-width: 0;
+  align-items: center;
 }
 
-.level-control span {
-  color: var(--text-strong);
-  font-weight: var(--weight-black);
+.difficulty-control label,
+.difficulty-control output {
+  color: var(--text-2);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
-.level-control small {
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-}
-
-.level-control input {
-  width: min(100%, 34rem);
+.difficulty-control input {
   accent-color: var(--accent);
 }
 
-.level-control input:focus-visible {
+.difficulty-control input:focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
 }
 
-.level-scale {
-  display: flex;
-  justify-content: space-between;
-  width: min(100%, 34rem);
-  color: var(--text-subtle);
-  font-size: var(--fs-xs);
-  font-weight: var(--weight-bold);
-}
-
-.math-cross-toolbar__actions {
+.math-cross-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -161,13 +147,75 @@
   box-shadow: var(--ring-focus);
 }
 
+.completion-dialog {
+  display: grid;
+  width: min(28rem, calc(100% - 2rem));
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-3);
+  text-align: center;
+}
+
+.completion-dialog:not([open]) {
+  display: none;
+}
+
+.completion-dialog::backdrop {
+  background: rgb(2 8 15 / 75%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.completion-dialog[open] {
+  animation: completion-dialog-in var(--duration-base) var(--ease-out);
+}
+
+.completion-dialog h2,
+.completion-dialog p {
+  margin: 0;
+}
+
+.completion-dialog h2 {
+  color: var(--text-strong);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-tight);
+}
+
+.completion-dialog p {
+  color: var(--text-muted);
+  line-height: var(--lh-base);
+}
+
+.completion-dialog .btn {
+  justify-self: center;
+  min-width: 7rem;
+}
+
+@keyframes completion-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .completion-dialog[open] {
+    animation: none;
+  }
+}
+
 @media (max-width: 52rem) {
-  .math-cross-toolbar {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+  .difficulty-control {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) 2ch;
   }
 
-  .math-cross-toolbar__actions {
+  .math-cross-actions {
+    width: 100%;
     justify-content: flex-start;
   }
 }
@@ -185,7 +233,7 @@
     );
   }
 
-  .math-cross-toolbar__actions .btn {
+  .math-cross-actions .btn {
     flex: 1 1 8rem;
   }
 }
