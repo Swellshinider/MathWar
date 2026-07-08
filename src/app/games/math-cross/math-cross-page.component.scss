@@ -38,7 +38,40 @@
 }
 
 .math-cross {
+  position: relative;
   display: block;
+}
+
+.math-cross__board-actions {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: var(--z-raised);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.math-cross__hint-badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  min-width: 0.95rem;
+  height: 0.95rem;
+  padding: 0 0.2rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 0.62rem;
+  font-weight: var(--weight-black);
+  line-height: 0.95;
+  display: inline-grid;
+  place-items: center;
+}
+
+.board-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .math-cross__board-wrap {
@@ -62,19 +95,39 @@
     calc((72vh - 4rem) / var(--math-cross-size)),
     5.8rem
   );
+  --math-cross-gap: clamp(0.22rem, 0.7vw, 0.5rem);
+  --math-cross-pad: clamp(0.3rem, 1vw, 0.6rem);
 
+  position: relative;
   display: grid;
   grid-template-columns: repeat(var(--math-cross-size), var(--math-cross-cell));
   grid-auto-rows: var(--math-cross-cell);
-  gap: clamp(0.22rem, 0.7vw, 0.5rem);
+  gap: var(--math-cross-gap);
   width: max-content;
-  padding: clamp(0.3rem, 1vw, 0.6rem);
+  padding: var(--math-cross-pad);
   border: 1px solid rgb(72 211 179 / 0.3);
   border-radius: var(--radius-sm);
   background: #061018;
 }
 
+.math-cross__rail {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid var(--surface-hairline);
+  border-radius: var(--radius-sm);
+  background: rgb(120 145 173 / 0.08);
+  transition: var(--duration-fast) var(--ease-out);
+}
+
+.math-cross__rail--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0.9rem var(--accent-glow);
+}
+
 .math-cross__cell {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   min-width: 0;
@@ -122,6 +175,10 @@
 .math-cross__cell--blank[data-status='incorrect'] {
   border-color: var(--danger);
   background: rgb(244 91 105 / 0.2);
+}
+
+.math-cross__cell--active-run {
+  filter: brightness(1.08);
 }
 
 .math-cross__cell input {

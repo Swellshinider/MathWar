@@ -22,6 +22,22 @@ describe('MathCrossPageComponent', () => {
     expect(root.querySelectorAll('.math-cross__cell--blank').length).toBeGreaterThan(0);
   });
 
+  it('renders hint and help as floating board actions with tooltips', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    const actions = (fixture.nativeElement as HTMLElement).querySelector(
+      '.math-cross__board-actions',
+    );
+
+    expect(actions).not.toBeNull();
+    expect(actions?.querySelectorAll('.board-action').length).toBe(2);
+    expect(actions?.querySelectorAll('.board-action__tooltip').length).toBe(2);
+    expect(actions?.querySelector('.math-cross__hint-badge')?.textContent?.trim()).toBe(
+      String(component.hintsRemaining()),
+    );
+  });
+
   it('creates a larger puzzle when the level changes', () => {
     const fixture = TestBed.createComponent(MathCrossPageComponent);
     fixture.detectChanges();
@@ -235,6 +251,46 @@ describe('MathCrossPageComponent', () => {
         'dialog.completion-dialog',
       )?.open,
     ).toBe(false);
+  });
+
+  it('derives one run rail per equation slot with correct geometry', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    const puzzle = component.puzzle();
+    const rails = component.runRails();
+
+    expect(rails.length).toBe(puzzle.slots.length);
+    for (const rail of rails) {
+      const slot = puzzle.slots.find((candidate) => candidate.id === rail.slotId)!;
+      const cells = slot.cellIds.map((id) => puzzle.cells.find((cell) => cell.id === id)!);
+      const expectedDirection =
+        new Set(cells.map((cell) => cell.row)).size === 1 ? 'horizontal' : 'vertical';
+
+      expect(rail.span).toBe(slot.cellIds.length);
+      expect(rail.direction).toBe(expectedDirection);
+      expect(rail.row).toBe(Math.min(...cells.map((cell) => cell.row)));
+      expect(rail.col).toBe(Math.min(...cells.map((cell) => cell.col)));
+    }
+  });
+
+  it('highlights the equation run of the active cell and clears it', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    const blank = component
+      .puzzle()
+      .cells.find((cell) => cell.id === component.puzzle().blankCellIds[0])!;
+
+    expect(component.activeSlotIds().size).toBe(0);
+
+    component.activateCell(blank);
+    expect(component.activeSlotIds().size).toBeGreaterThan(0);
+    expect(component.isCellInActiveRun(blank)).toBe(true);
+
+    component.deactivateCell();
+    expect(component.activeSlotIds().size).toBe(0);
+    expect(component.isCellInActiveRun(blank)).toBe(false);
   });
 });
 

@@ -33,39 +33,73 @@
     }
 
     <div class="math-cross-actions">
-      <button
-        class="btn btn--subtle"
-        type="button"
-        [disabled]="!canRequestHint()"
-        aria-label="Request hint"
-        (click)="revealHint()"
-      >
-        <svg lucideLightbulb aria-hidden="true"></svg>
-        <span>{{ hintsRemaining() }}</span>
-      </button>
       <button class="btn btn--subtle" type="button" (click)="clearPuzzle()">Clear</button>
       <button class="btn btn--primary" type="button" (click)="newPuzzle()">New puzzle</button>
     </div>
   </section>
 
   <section class="math-cross">
+    <div class="math-cross__board-actions" aria-label="Board actions">
+      <button
+        type="button"
+        class="board-action"
+        [disabled]="!canRequestHint()"
+        [aria-label]="'Request hint, ' + hintsRemaining() + ' remaining'"
+        (click)="revealHint()"
+      >
+        <svg lucideLightbulb aria-hidden="true"></svg>
+        <span class="math-cross__hint-badge" aria-hidden="true">{{ hintsRemaining() }}</span>
+        <span class="board-action__tooltip" role="tooltip">Hint</span>
+      </button>
+      <button
+        type="button"
+        class="board-action"
+        aria-label="Open Math Cross help"
+        aria-haspopup="dialog"
+        (click)="helpDialog.open()"
+      >
+        <svg lucideCircleHelp aria-hidden="true"></svg>
+        <span class="board-action__tooltip" role="tooltip">How to play</span>
+      </button>
+    </div>
     <div class="math-cross__board-wrap">
       <div
         class="math-cross__board"
         [style.--math-cross-size]="puzzle().size"
+        (mouseleave)="deactivateCell()"
         role="grid"
         aria-label="Math Cross puzzle board"
       >
+        @for (rail of runRails(); track rail.slotId) {
+          <div
+            class="math-cross__rail"
+            [class.math-cross__rail--active]="isRailActive(rail)"
+            [style.top]="rail.top"
+            [style.left]="rail.left"
+            [style.width]="rail.width"
+            [style.height]="rail.height"
+            aria-hidden="true"
+          ></div>
+        }
         @for (row of rows(); track row[0].row) {
           @for (cell of row; track cell.id) {
             @if (cell.kind === 'block') {
-              <div class="math-cross__cell math-cross__cell--block" role="presentation"></div>
+              <div
+                class="math-cross__cell math-cross__cell--block"
+                [class.math-cross__cell--active-run]="isCellInActiveRun(cell)"
+                (mouseenter)="deactivateCell()"
+                role="presentation"
+              ></div>
             } @else if (cell.editable) {
               <div
                 class="math-cross__cell math-cross__cell--blank"
                 [attr.data-status]="cellStatus(cell)"
+                [class.math-cross__cell--active-run]="isCellInActiveRun(cell)"
+                (mouseenter)="activateCell(cell)"
               >
                 <input
+                  (focus)="activateCell(cell)"
+                  (blur)="deactivateCell()"
                   [attr.aria-label]="
                     'Blank cell row ' + (cell.row + 1) + ' column ' + (cell.col + 1)
                   "
@@ -92,6 +126,8 @@
                 class="math-cross__cell math-cross__cell--fixed"
                 [class.math-cross__cell--operator]="cell.kind === 'operator'"
                 [class.math-cross__cell--equals]="cell.kind === 'equals'"
+                [class.math-cross__cell--active-run]="isCellInActiveRun(cell)"
+                (mouseenter)="activateCell(cell)"
                 role="gridcell"
               >
                 {{ displayValue(cell) }}
@@ -115,4 +151,6 @@
       <button type="button" class="btn btn--primary" (click)="closeCompletionDialog()">OK</button>
     }
   </dialog>
+
+  <app-math-cross-help-dialog #helpDialog />
 </app-game-frame>

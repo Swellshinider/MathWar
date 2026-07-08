@@ -7,9 +7,10 @@ import {
   computed,
   signal,
 } from '@angular/core';
-import { LucideLightbulb } from '@lucide/angular';
+import { LucideCircleHelp, LucideLightbulb } from '@lucide/angular';
 import { preventBackspaceNavigation } from '../../shared/dom/prevent-backspace-navigation';
 import { GameFrameComponent } from '../../shared/game-frame/game-frame.component';
+import { MathCrossHelpDialogComponent } from './math-cross-help-dialog/math-cross-help-dialog.component';
 import {
   generateMathCrossPuzzle,
   mathCrossDisplayValue,
@@ -37,9 +38,21 @@ const COMPLETION_MESSAGES = [
   'Victory. The numbers and operators line up.',
 ] as const;
 
+interface RunRail {
+  readonly slotId: string;
+  readonly direction: 'horizontal' | 'vertical';
+  readonly row: number;
+  readonly col: number;
+  readonly span: number;
+  readonly top: string;
+  readonly left: string;
+  readonly width: string;
+  readonly height: string;
+}
+
 @Component({
   selector: 'app-math-cross-page',
-  imports: [GameFrameComponent, LucideLightbulb],
+  imports: [GameFrameComponent, LucideCircleHelp, LucideLightbulb, MathCrossHelpDialogComponent],
   templateUrl: './math-cross-page.component.html',
   styleUrl: './math-cross-page.component.scss',
 })
@@ -54,6 +67,7 @@ export class MathCrossPageComponent implements AfterViewChecked {
   readonly hintsRemaining = signal(3);
   readonly completionMessage = signal<string | null>(null);
   readonly completionDialogDismissed = signal(false);
+  readonly activeCellId = signal<string | null>(null);
   readonly validation = computed(() => validateMathCrossPuzzle(this.puzzle(), this.entries()));
   readonly canRequestHint = computed(
     () => this.hintsRemaining() > 0 && !this.validation().complete,
@@ -62,6 +76,60 @@ export class MathCrossPageComponent implements AfterViewChecked {
     const puzzle = this.puzzle();
     return Array.from({ length: puzzle.size }, (_, row) =>
       puzzle.cells.filter((cell) => cell.row === row),
+    );
+  });
+
+  readonly cellsById = computed(() => {
+    const map = new Map<string, MathCrossCell>();
+    for (const cell of this.puzzle().cells) map.set(cell.id, cell);
+    return map;
+  });
+
+  // One absolutely-positioned rail per equation slot. The rectangle covers the slot's cells and the
+  // gaps between them, so same-run cells read as a connected strip while unrelated gaps stay dark.
+  readonly runRails = computed<readonly RunRail[]>(() => {
+    const cells = this.cellsById();
+    const cellVar = 'var(--math-cross-cell)';
+    const gapVar = 'var(--math-cross-gap)';
+    const padVar = 'var(--math-cross-pad)';
+    const rails: RunRail[] = [];
+    for (const slot of this.puzzle().slots) {
+      const coords = slot.cellIds
+        .map((id) => cells.get(id))
+        .filter((value): value is MathCrossCell => Boolean(value));
+      if (!coords.length) continue; // ponytail: guard; the engine never emits empty slots
+      const direction = coords.every((value) => value.row === coords[0].row)
+        ? 'horizontal'
+        : 'vertical';
+      const row = Math.min(...coords.map((value) => value.row));
+      const col = Math.min(...coords.map((value) => value.col));
+      const span = coords.length; // contiguous run → span equals the cell count
+      const top = `calc(${padVar} + ${row}*(${cellVar} + ${gapVar}))`;
+      const left = `calc(${padVar} + ${col}*(${cellVar} + ${gapVar}))`;
+      const length = `calc(${span}*${cellVar} + ${span - 1}*${gapVar})`;
+      rails.push({
+        slotId: slot.id,
+        direction,
+        row,
+        col,
+        span,
+        top,
+        left,
+        width: direction === 'horizontal' ? length : cellVar,
+        height: direction === 'horizontal' ? cellVar : length,
+      });
+    }
+    return rails;
+  });
+
+  // Lights every slot the active cell belongs to (both crossing runs at a shared cell).
+  readonly activeSlotIds = computed<ReadonlySet<string>>(() => {
+    const id = this.activeCellId();
+    if (!id) return new Set();
+    return new Set(
+      this.puzzle()
+        .slots.filter((slot) => slot.cellIds.includes(id))
+        .map((slot) => slot.id),
     );
   });
 
@@ -102,6 +170,14 @@ export class MathCrossPageComponent implements AfterViewChecked {
       return next;
     });
     this.syncCompletionState();
+  }
+
+  activateCell(cell: MathCrossCell): void {
+    this.activeCellId.set(cell.id);
+  }
+
+  deactivateCell(): void {
+    this.activeCellId.set(null);
   }
 
   clearPuzzle(): void {
@@ -146,6 +222,16 @@ export class MathCrossPageComponent implements AfterViewChecked {
     );
     if (relatedSlots.some((result) => result.status === 'incomplete')) return 'incomplete';
     return relatedSlots.some((result) => result.status === 'incorrect') ? 'incorrect' : 'correct';
+  }
+
+  isRailActive(rail: RunRail): boolean {
+    return this.activeSlotIds().has(rail.slotId);
+  }
+
+  isCellInActiveRun(cell: MathCrossCell): boolean {
+    const ids = this.activeSlotIds();
+    if (!ids.size) return false;
+    return this.puzzle().slots.some((slot) => ids.has(slot.id) && slot.cellIds.includes(cell.id));
   }
 
   closeCompletionDialog(): void {

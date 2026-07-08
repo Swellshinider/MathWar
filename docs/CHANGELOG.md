@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-08
+
+- Added a How to Play help dialog to Math Cross, opened from a question-mark button, explaining the
+  rules, cell colors, and available operations with their aliases.
+
+### Changed - 2026-07-08
+
+- Changed Math Cross to group each equation into a connected run rail with capped ends, so each
+  calculation reads as one strip and its start and end are clearly bounded.
+- Changed Math Cross to highlight the full equation run on hover and keyboard focus, so players can
+  immediately see which cells form one calculation.
+
 ### Added - 2026-07-07
 
 - Added Math Cross as a solo equation-crossword minigame with generated puzzles, difficulty
