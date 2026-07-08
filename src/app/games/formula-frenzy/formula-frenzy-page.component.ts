@@ -624,6 +624,9 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
       levelName: state.currentProblem.levelName,
       deadlineMs: state.currentProblem.deadlineMs,
       hint: state.currentProblem.hint ?? undefined,
+      // ponytail: server strips the answer from the run payload (anti-cheat),
+      // so keep the answer the client derived locally from the run seed.
+      answer: this.problem().answer,
     });
     this.problemStartedAt = Date.parse(state.currentProblem.startedAt);
     this.gameOver.set(state.status === 'ended');
