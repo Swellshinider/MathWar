@@ -431,6 +431,26 @@ describe('FormulaFrenzyPageComponent', () => {
     expect(root.querySelector('dialog.game-over')?.textContent).toContain('Average 2.5s');
   });
 
+  it('still shows the correct answer once the server finishes the run', async () => {
+    component.startRun();
+    vi.advanceTimersByTime(2500);
+    component.answerControl.setValue(String(component.problem().answer));
+    component.submitAnswer();
+    component.hearts.set(1);
+    vi.advanceTimersByTime(component.problem().deadlineMs);
+    fixture.detectChanges();
+    // The server strips the answer from its run payload, so drain the finish
+    // response before asserting the dialog still shows the answer.
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const answer = component.problem().answer;
+    expect(answer).not.toBeUndefined();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('dialog.game-over')?.textContent,
+    ).toContain(`Answer ${answer}`);
+  });
+
   it('restarts the run from the game over screen', () => {
     component.startRun();
     component.hearts.set(1);

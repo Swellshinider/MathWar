@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed Math Cross to highlight the full equation run on hover and keyboard focus, so players can
   immediately see which cells form one calculation.
 
+### Fixed - 2026-07-08
+
+- Fixed Formula Frenzy hiding the correct answer on the game-over screen. The server omits the
+  answer from its run payload, and syncing the finished run was replacing the locally derived answer
+  with that stripped payload, blanking out the dialog. The client now keeps its own derived answer.
+
 ### Added - 2026-07-07
 
 - Added Math Cross as a solo equation-crossword minigame with generated puzzles, difficulty
