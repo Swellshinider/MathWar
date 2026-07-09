@@ -5,7 +5,7 @@ export type FormulaPromptPart =
   | { readonly kind: 'operator'; readonly value: string; readonly multiply: boolean }
   | { readonly kind: 'text'; readonly value: string };
 
-const TOKEN_PATTERN = /√\d+|∛\d+|\d+[²³]?|\?\?|[()+\-*/]/g;
+const TOKEN_PATTERN = /√\d+|∛\d+|\d+[²³]?[!%]?|\?\?|[()+\-*/]/g;
 
 @Component({
   selector: 'app-formula-prompt',

@@ -21,7 +21,13 @@ export const FORMULA_OPERATION_OPTIONS: readonly {
   { operation: 'division', label: 'Division' },
   { operation: 'power', label: 'Power' },
   { operation: 'root', label: 'Root' },
+  { operation: 'factorial', label: 'Factorial' },
+  { operation: 'percentage', label: 'Percentage' },
 ];
+
+// ponytail: percentage wraps a parenthesized term whose value is kept even, so 50%
+// always divides cleanly and the answer stays integer (the input field rejects decimals).
+const PERCENT_OPTIONS = [10, 20, 25, 50, 75] as const;
 
 export const FORMULA_LEVELS: readonly FormulaLevelConfig[] = [
   level(1, 'Number Scout', ['addition', 'subtraction'], 2),
@@ -31,8 +37,8 @@ export const FORMULA_LEVELS: readonly FormulaLevelConfig[] = [
   level(5, 'Quotient Climber', ['division'], 4),
   level(6, 'Bracket Bender', ['addition', 'subtraction', 'multiplication'], 4),
   level(7, 'Prime Tracker', ['addition', 'subtraction', 'multiplication'], 5),
-  level(8, 'Timesmith', ['multiplication', 'division'], 5),
-  level(9, 'Fraction Tamer', ['division', 'addition', 'subtraction'], 5),
+  level(8, 'Timesmith', ['multiplication', 'division', 'factorial'], 5),
+  level(9, 'Fraction Tamer', ['division', 'addition', 'subtraction', 'percentage'], 5),
   level(10, 'Pattern Pilot', ['addition', 'subtraction', 'multiplication', 'division'], 5),
   level(11, 'Exponent Spark', ['power', 'addition', 'subtraction'], 6),
   level(12, 'Radical Rookie', ['root', 'addition', 'subtraction'], 6),
@@ -42,26 +48,45 @@ export const FORMULA_LEVELS: readonly FormulaLevelConfig[] = [
   level(16, 'Order Keeper', ['addition', 'subtraction', 'multiplication', 'division'], 7),
   level(17, 'Integer Sage', ['addition', 'subtraction', 'multiplication', 'division'], 7),
   level(18, 'Algebra Ace', ['addition', 'subtraction', 'multiplication', 'division'], 7),
-  level(19, 'Variable Virtuoso', ['power', 'root', 'addition', 'subtraction'], 8),
-  level(20, 'Formula Expert', ['power', 'root', 'multiplication', 'division'], 8),
-  level(21, 'Proof Runner', ['addition', 'subtraction', 'multiplication', 'division', 'power'], 8),
+  level(19, 'Variable Virtuoso', ['power', 'root', 'addition', 'subtraction', 'factorial'], 8),
+  level(20, 'Formula Expert', ['power', 'root', 'multiplication', 'division', 'percentage'], 8),
+  level(
+    21,
+    'Proof Runner',
+    ['addition', 'subtraction', 'multiplication', 'division', 'power', 'factorial'],
+    8,
+  ),
   level(
     22,
     'Theorem Tactician',
-    ['addition', 'subtraction', 'multiplication', 'division', 'root'],
+    ['addition', 'subtraction', 'multiplication', 'division', 'root', 'percentage'],
     8,
   ),
-  level(23, 'Axiom Master', ['addition', 'subtraction', 'multiplication', 'division', 'power'], 9),
+  level(
+    23,
+    'Axiom Master',
+    ['addition', 'subtraction', 'multiplication', 'division', 'power', 'factorial'],
+    9,
+  ),
   level(
     24,
     'Frenzy Champion',
-    ['addition', 'subtraction', 'multiplication', 'division', 'root'],
+    ['addition', 'subtraction', 'multiplication', 'division', 'root', 'percentage'],
     9,
   ),
   level(
     25,
     'MathWar Legend',
-    ['addition', 'subtraction', 'multiplication', 'division', 'power', 'root'],
+    [
+      'addition',
+      'subtraction',
+      'multiplication',
+      'division',
+      'power',
+      'root',
+      'factorial',
+      'percentage',
+    ],
     0,
   ),
 ];
@@ -469,6 +494,8 @@ function problemForLevel(
   const operation = primaryOperationForLevel(config, random);
   const first = problemForOperation(operation, random, config.level);
   if (config.level < 6) return first;
+  // Percentage is already a full (expr) ± p% prompt; don't compound it further.
+  if (operation === 'percentage') return first;
 
   if (!config.allowParentheses) {
     return flatCompoundProblem(first, config, random);
@@ -504,12 +531,16 @@ function primaryOperationForLevel(
     config.allowedOperations[Math.floor(random() * config.allowedOperations.length)];
   if (!config.requirePrecedence) return operation;
 
+  // ponytail: factorial (postfix) and percentage are treated as precedence-bearing
+  // primaries so they can surface at advanced levels instead of being overridden.
   const precedenceOperations: FormulaOperation[] = config.allowedOperations.filter(
     (candidate) =>
       candidate === 'multiplication' ||
       candidate === 'division' ||
       candidate === 'power' ||
-      candidate === 'root',
+      candidate === 'root' ||
+      candidate === 'factorial' ||
+      candidate === 'percentage',
   );
   if (precedenceOperations.length === 0 || precedenceOperations.includes(operation)) {
     return operation;
@@ -525,7 +556,9 @@ function flatCompoundProblem(
   const min = minimumOperandForLevel(config.level);
   const max = Math.min(20 + config.level * 2, 80);
   const wantsSubtraction = random() >= 0.5;
-  const canSubtract = config.allowNegativeResults || first.answer! > 1;
+  // Only subtract when the primary value covers the min operand, otherwise the operand
+  // range can exceed it and produce a negative or tiny result.
+  const canSubtract = config.allowNegativeResults || first.answer! >= min;
   const operationSign = wantsSubtraction && canSubtract ? '-' : '+';
   const upperBound =
     operationSign === '-' && !config.allowNegativeResults ? Math.min(max, first.answer!) : max;
@@ -604,6 +637,34 @@ function problemForOperation(
       ? { prompt: `∛${answer ** 3}`, answer, hint: `${answer} * ${answer} * ${answer}` }
       : { prompt: `√${answer ** 2}`, answer, hint: `${answer} * ${answer}` };
   }
+  if (operation === 'factorial') {
+    const cap = levelNumber >= 21 ? 7 : levelNumber >= 11 ? 6 : 5;
+    // n >= 3 keeps the value (>= 6) large enough to compound without going tiny or negative.
+    const n = randomInt(random, 3, cap);
+    const factors: number[] = [];
+    for (let value = n; value >= 2; value -= 1) factors.push(value);
+    return { prompt: `${n}!`, answer: factorial(n), hint: factors.join(' * ') };
+  }
+  if (operation === 'percentage') {
+    const a = randomInt(random, 1, 4) * 2;
+    const b = randomInt(random, 2, 9);
+    const product = a * b;
+    const innerSubtract = random() < 0.5;
+    const maxAddend = innerSubtract ? Math.max(1, Math.min(10, Math.floor(product / 2))) : 10;
+    const addend = randomInt(random, 1, maxAddend) * 2;
+    const value = innerSubtract ? product - addend : product + addend;
+    const compatible = PERCENT_OPTIONS.filter((percent) => (value * percent) % 100 === 0);
+    const percent = compatible[Math.floor(random() * compatible.length)];
+    const delta = (value * percent) / 100;
+    const innerSign = innerSubtract ? '-' : '+';
+    const subtract = random() < 0.5;
+    const sign = subtract ? '-' : '+';
+    return {
+      prompt: `(${a} * ${b} ${innerSign} ${addend}) ${sign} ${percent}%`,
+      answer: subtract ? value - delta : value + delta,
+      hint: `${value} ${sign} ${delta}`,
+    };
+  }
 
   const left = randomInt(random, 1, max);
   const right = randomInt(random, 1, max);
@@ -672,6 +733,12 @@ function hintForAnswer(answer: number): string {
 
 function randomInt(random: () => number, min: number, max: number): number {
   return Math.floor(random() * (max - min + 1)) + min;
+}
+
+function factorial(n: number): number {
+  let result = 1;
+  for (let value = 2; value <= n; value += 1) result *= value;
+  return result;
 }
 
 function clamp(value: number, min: number, max: number): number {

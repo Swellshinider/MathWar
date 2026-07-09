@@ -81,7 +81,9 @@ export type FormulaOperation =
   | 'multiplication'
   | 'division'
   | 'power'
-  | 'root';
+  | 'root'
+  | 'factorial'
+  | 'percentage';
 
 export interface FormulaLevelConfig {
   readonly level: number;

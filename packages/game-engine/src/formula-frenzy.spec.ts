@@ -3,6 +3,7 @@ import {
   FORMULA_INITIAL_HINTS,
   createFormulaFrenzyMatchState,
   createFormulaProblem,
+  createFormulaPracticeProblem,
   createFormulaProblemForLevel,
   expireFormulaFrenzyPlayer,
   formulaProgress,
@@ -61,6 +62,56 @@ describe('formula frenzy multiplayer simulation', () => {
       expect(problem.level).toBe(config.level);
       expect(problem.levelName).toBe(config.name);
       expect(Number.isInteger(problem.answer)).toBe(true);
+    }
+  });
+
+  it('generates correct factorial problems', () => {
+    for (let seed = 1; seed <= 50; seed += 1) {
+      const problem = createFormulaPracticeProblem(['factorial'], seededRandom(seed));
+      const match = /^(?<n>\d+)!$/.exec(problem.prompt);
+      expect(match, problem.prompt).not.toBeNull();
+      const n = Number(match!.groups!.n);
+      let expected = 1;
+      for (let value = 2; value <= n; value += 1) expected *= value;
+
+      expect(problem.answer).toBe(expected);
+      expect(problem.answer).toBeGreaterThan(0);
+    }
+  });
+
+  it('generates correct calculator-style percentage problems', () => {
+    const innerPattern = /^(?<a>\d+) \* (?<b>\d+) (?<innerSign>[+-]) (?<c>\d+)$/;
+    const promptPattern = /^\((?<inner>.+)\) (?<sign>[+-]) (?<percent>\d+)%$/;
+    for (let seed = 1; seed <= 50; seed += 1) {
+      const problem = createFormulaPracticeProblem(['percentage'], seededRandom(seed));
+      const promptMatch = promptPattern.exec(problem.prompt);
+      expect(promptMatch, problem.prompt).not.toBeNull();
+      const inner = innerPattern.exec(promptMatch!.groups!.inner);
+      expect(inner, problem.prompt).not.toBeNull();
+      const a = Number(inner!.groups!.a);
+      const b = Number(inner!.groups!.b);
+      const c = Number(inner!.groups!.c);
+      const value = inner!.groups!.innerSign === '+' ? a * b + c : a * b - c;
+      const percent = Number(promptMatch!.groups!.percent);
+      const delta = (value * percent) / 100;
+      const expected = promptMatch!.groups!.sign === '+' ? value + delta : value - delta;
+
+      expect(problem.answer).toBe(expected);
+      expect(Number.isInteger(problem.answer)).toBe(true);
+      expect(problem.answer).toBeGreaterThanOrEqual(0);
+      expect(problem.prompt).toMatch(/^\(.+\) [+-] \d+%$/);
+    }
+  });
+
+  it('keeps new-operator answers integer at advanced levels', () => {
+    // Levels 17+ allow negative compound results, so only integer-ness is guaranteed.
+    for (const levelNumber of [19, 20, 21, 22, 23, 24, 25]) {
+      const random = seededRandom(levelNumber);
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        const problem = createFormulaProblemForLevel(levelNumber, random);
+
+        expect(Number.isInteger(problem.answer)).toBe(true);
+      }
     }
   });
 
@@ -422,9 +473,10 @@ describe('formula frenzy multiplayer simulation', () => {
     for (let attempt = 0; attempt < 25; attempt += 1) {
       const problem = createFormulaProblemForLevel(8, random);
 
-      expect(problem.prompt).toMatch(/[*/]/);
+      expect(problem.prompt).toMatch(/[*/!]/);
       expect(problem.prompt).toMatch(/ [+-] /);
-      expect(problem.prompt).not.toMatch(/(?<!\d)[123](?!\d)/);
+      // `!` legitimately suffixes small factorials (2!, 3!), so allow a digit before it.
+      expect(problem.prompt).not.toMatch(/(?<!\d)[123](?![!\d])/);
     }
   });
 
@@ -433,7 +485,11 @@ describe('formula frenzy multiplayer simulation', () => {
       const random = seededRandom(level);
 
       for (let attempt = 0; attempt < 25; attempt += 1) {
-        expect(createFormulaProblemForLevel(level, random).prompt).not.toContain('(');
+        const prompt = createFormulaProblemForLevel(level, random).prompt;
+        // Percentage deliberately wraps its first term in parentheses.
+        if (prompt.includes('%')) continue;
+
+        expect(prompt).not.toContain('(');
       }
     }
   });
