@@ -97,7 +97,6 @@ export interface FormulaLevelConfig {
   readonly requirePrecedence: boolean;
   readonly allowNegativeResults: boolean;
   readonly exactDivisionOnly: boolean;
-  readonly timeLimitSeconds: number;
   readonly xpRequired: number;
   readonly examples: readonly string[];
 }

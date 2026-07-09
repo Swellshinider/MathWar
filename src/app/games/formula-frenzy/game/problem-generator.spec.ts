@@ -5,12 +5,12 @@ import {
 } from './problem-generator';
 
 describe('createFormulaProblemForLevel', () => {
-  it('starts with addition or subtraction and a 10 second deadline', () => {
+  it('starts with addition or subtraction and a 9 second deadline', () => {
     const problem = createFormulaProblemForLevel(1, () => 0.1);
 
     expect(problem.level).toBe(1);
     expect(problem.levelName).toBe('Number Scout');
-    expect(problem.deadlineMs).toBe(10000);
+    expect(problem.deadlineMs).toBe(9000);
     expect(Number.isInteger(problem.answer)).toBe(true);
     expect(problem.prompt).toMatch(/^\d+ [+-] \d+$/);
   });
@@ -29,8 +29,13 @@ describe('createFormulaProblemForLevel', () => {
     expect(Number.isInteger(problem.answer)).toBe(true);
   });
 
-  it('uses each level timer from configuration', () => {
-    expect(createFormulaProblemForLevel(25).deadlineMs).toBe(4000);
+  it('grants more time as levels climb', () => {
+    const level1 = createFormulaProblemForLevel(1).deadlineMs;
+    const level25 = createFormulaProblemForLevel(25).deadlineMs;
+
+    expect(level1).toBe(9000);
+    expect(level25).toBe(21000);
+    expect(level25).toBeGreaterThan(level1);
   });
 
   it('creates integer power and root practice problems', () => {

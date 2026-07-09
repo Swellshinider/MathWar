@@ -208,7 +208,7 @@ describe('formula frenzy multiplayer simulation', () => {
 
     expect(result.ok).toBe(true);
     expect(result.state.formulaPlayers.find((player) => player.userId === 'left')).toMatchObject({
-      score: 198,
+      score: 196,
       experience: 1,
       xp: 1,
       streak: 1,
@@ -251,7 +251,7 @@ describe('formula frenzy multiplayer simulation', () => {
       currentHint: expect.any(String),
     });
     expect(answered.state.formulaPlayers[0]).toMatchObject({
-      score: 99,
+      score: 98,
       currentHint: null,
       totalCorrect: 1,
     });

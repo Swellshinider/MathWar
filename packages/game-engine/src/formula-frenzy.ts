@@ -114,7 +114,8 @@ export function createFormulaProblemForLevel(
     ...problem,
     level: config.level,
     levelName: config.name,
-    deadlineMs: Math.max(4000, 10000 - (config.level - 1) * 250),
+    // Time grows with level: harder formulas (more operands, powers, factorial) need more thinking room.
+    deadlineMs: 9000 + (config.level - 1) * 500,
   };
 }
 
@@ -763,7 +764,6 @@ function level(
     requirePrecedence: levelNumber >= 10,
     allowNegativeResults: levelNumber >= 17,
     exactDivisionOnly: true,
-    timeLimitSeconds: Math.max(4, 10 - Math.floor((levelNumber - 1) / 4)),
     xpRequired,
     examples: [],
   };
