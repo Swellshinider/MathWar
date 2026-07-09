@@ -5,12 +5,12 @@ import {
 } from './problem-generator';
 
 describe('createFormulaProblemForLevel', () => {
-  it('starts with addition or subtraction and a 10 second deadline', () => {
+  it('starts with addition or subtraction and a 9 second deadline', () => {
     const problem = createFormulaProblemForLevel(1, () => 0.1);
 
     expect(problem.level).toBe(1);
     expect(problem.levelName).toBe('Number Scout');
-    expect(problem.deadlineMs).toBe(10000);
+    expect(problem.deadlineMs).toBe(9000);
     expect(Number.isInteger(problem.answer)).toBe(true);
     expect(problem.prompt).toMatch(/^\d+ [+-] \d+$/);
   });
@@ -21,15 +21,21 @@ describe('createFormulaProblemForLevel', () => {
   });
 
   it('uses exact division when division is selected', () => {
-    const problem = createFormulaProblemForLevel(8, () => 0.99);
+    // Level 8 offers multiplication, division, and factorial; 0.5 lands on division.
+    const problem = createFormulaProblemForLevel(8, () => 0.5);
 
     expect(problem.level).toBe(8);
     expect(problem.prompt).toMatch(/\d+ \/ \d+/);
     expect(Number.isInteger(problem.answer)).toBe(true);
   });
 
-  it('uses each level timer from configuration', () => {
-    expect(createFormulaProblemForLevel(25).deadlineMs).toBe(4000);
+  it('grants more time as levels climb', () => {
+    const level1 = createFormulaProblemForLevel(1).deadlineMs;
+    const level25 = createFormulaProblemForLevel(25).deadlineMs;
+
+    expect(level1).toBe(9000);
+    expect(level25).toBe(21000);
+    expect(level25).toBeGreaterThan(level1);
   });
 
   it('creates integer power and root practice problems', () => {
@@ -70,6 +76,20 @@ describe('createFormulaProblemForLevel', () => {
 
     expect(problem.prompt).toBe('2 / 2');
     expect(problem.answer).toBe(1);
+    expect(Number.isInteger(problem.answer)).toBe(true);
+  });
+
+  it('creates factorial practice problems', () => {
+    const problem = createFormulaPracticeProblem(['factorial'], () => 0.5);
+
+    expect(problem.prompt).toBe('4!');
+    expect(problem.answer).toBe(24);
+  });
+
+  it('creates calculator-style percentage practice problems', () => {
+    const problem = createFormulaPracticeProblem(['percentage'], () => 0.5);
+
+    expect(problem.prompt).toMatch(/^\(.+\) [+-] \d+%$/);
     expect(Number.isInteger(problem.answer)).toBe(true);
   });
 

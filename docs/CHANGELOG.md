@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-07-09
+
+- Added factorial (`!`) and percentage (`%`) problem types to Formula Frenzy. Factorial is
+  introduced at level 8 with small values; percentage at level 9, always shown as a parenthesized
+  term plus a calculator-style percentage (for example `(6 * 6 + 12) + 50% = 72`). Both recur in the
+  later levels and are available in practice mode.
+
+### Changed - 2026-07-09
+
+- Changed Formula Frenzy so the per-question time limit now grows with level (from 9 seconds at level
+  1 to 21 seconds at level 25) instead of shrinking. Harder formulas need more thinking room, so the
+  upper levels are reachable. Applies to both Progression and Hardcore.
+
+### Fixed - 2026-07-09
+
+- Fixed Formula Frenzy compound problems occasionally producing negative or tiny-operand prompts
+  before negative results unlock, when a primary operation resolved to a value below the level's
+  minimum operand.
+
 ## [1.4.1] - 2026-07-08
 
 ### Added - 2026-07-08

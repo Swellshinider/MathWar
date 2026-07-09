@@ -424,7 +424,7 @@ describe('FormulaFrenzyPageComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector<HTMLDialogElement>('dialog.game-over')?.open).toBe(true);
-    expect(root.querySelector('dialog.game-over')?.textContent).toContain('Final score 193');
+    expect(root.querySelector('dialog.game-over')?.textContent).toContain('Final score 189');
     expect(root.querySelector('dialog.game-over')?.textContent).toContain(
       `Answer ${component.problem().answer}`,
     );
