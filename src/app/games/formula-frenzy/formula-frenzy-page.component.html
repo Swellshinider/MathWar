@@ -42,10 +42,14 @@
       </button>
     </div>
 
-    @if (timedMode() && !runStarted() && !gameOver()) {
+    @if (timedMode() && !runStarted()) {
       <div class="sprint-control">
-        <button type="button" class="btn btn--subtle start-button" (click)="startRun()">
-          Start run
+        <button
+          type="button"
+          class="btn btn--subtle start-button"
+          (click)="gameOver() ? restart() : startRun()"
+        >
+          {{ gameOver() ? 'Restart run' : 'Start run' }}
         </button>
       </div>
     } @else if (gameMode() === 'free-practice') {
@@ -229,7 +233,7 @@
         <p>Answer {{ problem().answer }}</p>
         <p>Average {{ averageSolveTime() }}</p>
         <p>Best streak {{ bestStreak() }}</p>
-        <button type="button" class="btn restart-button" (click)="restart()">Restart</button>
+        <button type="button" class="btn restart-button" (click)="dismissResult()">Okay</button>
         <button
           type="button"
           class="btn btn--primary save-leaderboard-button"

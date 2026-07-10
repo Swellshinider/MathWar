@@ -278,6 +278,10 @@ export class FormulaFrenzyPageComponent implements OnInit, AfterViewChecked, OnD
     this.syncAnswerControl();
   }
 
+  dismissResult(): void {
+    this.closeResultDialog(true);
+  }
+
   async startRun(): Promise<void> {
     if (!this.timedMode() || this.runStarted()) return;
     if (this.hardcoreMode() && !this.hardcoreWarningDismissed()) {

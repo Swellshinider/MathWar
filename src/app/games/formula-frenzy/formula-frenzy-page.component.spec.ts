@@ -457,15 +457,29 @@ describe('FormulaFrenzyPageComponent', () => {
     ).toContain(`Answer ${answer}`);
   });
 
-  it('restarts the run from the game over screen', () => {
+  it('dismisses the game over dialog without resetting the calculation', () => {
     component.startRun();
     component.hearts.set(1);
     vi.advanceTimersByTime(component.problem().deadlineMs);
     fixture.detectChanges();
 
-    (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.restart-button')
-      ?.click();
+    const problem = component.problem();
+    const score = component.score();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const resultButton = root.querySelector<HTMLButtonElement>('.restart-button');
+    expect(resultButton?.textContent).toContain('Okay');
+    resultButton?.click();
+    fixture.detectChanges();
+
+    expect(component.gameOver()).toBe(true);
+    expect(component.problem()).toEqual(problem);
+    expect(component.score()).toBe(score);
+    expect(root.querySelector<HTMLDialogElement>('dialog.game-over')?.open).toBe(false);
+
+    const restartButton = root.querySelector<HTMLButtonElement>('.start-button');
+    expect(restartButton?.textContent).toContain('Restart run');
+    restartButton?.click();
     fixture.detectChanges();
 
     expect(component.gameOver()).toBe(false);
