@@ -1,8 +1,10 @@
 <app-game-frame
+  gameId="math-cross"
   eyebrow="Arithmetic crossword"
   title="Math Cross"
   objective="Fill every blank so each row and column equation is correct."
   [wide]="true"
+  [playing]="!completionMessage()"
 >
   <section class="mode-panel" aria-label="Math Cross mode">
     <div class="mode-panel__tabs" role="tablist" aria-label="Math Cross modes">

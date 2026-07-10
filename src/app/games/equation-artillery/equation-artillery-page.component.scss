@@ -113,6 +113,9 @@ code {
   gap: var(--space-4);
   align-items: start;
   min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-2);
+  background: var(--surface-base);
 }
 
 .board-anchor {
@@ -136,6 +139,49 @@ app-equation-history {
   min-height: 0;
 }
 
+:host-context(.play-focus) {
+  height: 100%;
+}
+
+:host-context(.play-focus) .multiplayer-launch,
+:host-context(.play-focus) .mode-panel {
+  display: none;
+}
+
+:host-context(.play-focus) .game-layout {
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+:host-context(.play-focus) .play-layout {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+
+:host-context(.play-focus) .board-anchor,
+:host-context(.play-focus) app-board {
+  height: auto;
+  min-height: 0;
+}
+
+:host-context(.play-focus) .board-anchor {
+  display: grid;
+  align-self: stretch;
+}
+
+:host-context(.play-focus) .controls-row {
+  min-height: 0;
+}
+
+:host-context(.play-focus) app-equation-history {
+  height: auto;
+  min-height: 0;
+  align-self: stretch;
+  overflow: hidden;
+}
+
 @media (max-width: 56rem) {
   .game-layout {
     container-type: normal;
@@ -144,6 +190,11 @@ app-equation-history {
   .play-layout {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
+  }
+
+  :host-context(.play-focus) .play-layout {
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) auto;
   }
 
   .controls-row {
@@ -157,6 +208,10 @@ app-equation-history {
     max-height: 18rem;
   }
 
+  :host-context(.play-focus) app-equation-history {
+    display: none;
+  }
+
   .difficulty-control {
     width: 100%;
     grid-template-columns: auto minmax(0, 1fr) 2ch;
@@ -164,5 +219,11 @@ app-equation-history {
 
   .difficulty-control .btn {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-height: 45rem) and (min-width: 56.01rem) {
+  :host-context(.play-focus) .play-layout {
+    --history-width: 14rem;
   }
 }

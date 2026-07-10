@@ -1,4 +1,8 @@
-<article [class.wide]="wide()">
+<article
+  [class.wide]="wide()"
+  [class.game-frame--focused]="playFocus.active()"
+  [attr.data-game]="gameId()"
+>
   <header class="game-intro">
     <div>
       @if (eyebrow()) {

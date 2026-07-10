@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2026-07-10
+
+- Rebuilt the MathWar interface around an adaptive tactical plotting theme with locally bundled
+  typography, light and dark appearance controls, a trajectory-led game catalog, and refreshed
+  gameplay previews.
+- Added automatic play focus layouts that compact the site chrome and keep each active game with
+  its primary input inside the viewport on laptop and mobile screens. Players can expand the page
+  with Escape or the compact game rail.
+- Reworked mobile Math Cross, Formula Frenzy, Equation Artillery, multiplayer, account,
+  leaderboard, About, lobby, dialog, and utility layouts for clearer hierarchy and less page-level
+  scrolling.
+- Simplified the game catalog, reduced the page-grid contrast, separated Equation Artillery from
+  the site background, and constrained its focus-mode history panel to prevent history overflow
+  from stretching the play area.
+
 ### Added - 2026-07-09
 
 - Added factorial (`!`) and percentage (`%`) problem types to Formula Frenzy. Factorial is

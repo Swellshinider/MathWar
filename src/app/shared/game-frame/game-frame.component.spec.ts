@@ -1,11 +1,17 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { GameFrameComponent } from './game-frame.component';
+import { PlayFocusService } from './play-focus.service';
 
 @Component({
   imports: [GameFrameComponent],
   template: `
-    <app-game-frame eyebrow="Topic" title="Game" objective="Objective">
+    <app-game-frame
+      gameId="equation-artillery"
+      eyebrow="Topic"
+      title="Game"
+      objective="Objective"
+    >
       <button gameActions type="button">Help</button>
     </app-game-frame>
   `,
@@ -21,6 +27,7 @@ describe('GameFrameComponent', () => {
 
   function createFixture() {
     const fixture = TestBed.createComponent(GameFrameComponent);
+    fixture.componentRef.setInput('gameId', 'equation-artillery');
     fixture.componentRef.setInput('eyebrow', 'Functions and graphs');
     fixture.componentRef.setInput('title', 'Equation Artillery');
     fixture.componentRef.setInput('objective', 'Destroy every target.');
@@ -52,5 +59,21 @@ describe('GameFrameComponent', () => {
     expect(fixture.nativeElement.querySelector('.intro-actions button').textContent).toContain(
       'Help',
     );
+  });
+
+  it('automatically enters focus while gameplay is active and clears it on destroy', () => {
+    const fixture = createFixture();
+    const playFocus = TestBed.inject(PlayFocusService);
+
+    fixture.componentRef.setInput('playing', true);
+    fixture.detectChanges();
+
+    expect(playFocus.active()).toBe(true);
+    expect(fixture.nativeElement.querySelector('article').classList).toContain(
+      'game-frame--focused',
+    );
+
+    fixture.destroy();
+    expect(playFocus.active()).toBe(false);
   });
 });

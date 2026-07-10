@@ -5,7 +5,10 @@
 .about-page {
   width: min(var(--bp-2xl), calc(100% - 2rem));
   margin: 0 auto;
-  padding: clamp(3rem, 8vw, 6rem) 0;
+  padding: clamp(2rem, 6vw, 5rem);
+  border: 1px solid var(--border-2);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-2);
 }
 
 header {
@@ -14,7 +17,8 @@ header {
 
 .eyebrow {
   margin: 0 0 var(--space-2);
-  color: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-utility);
   font-size: var(--fs-sm);
   font-weight: var(--weight-black);
   letter-spacing: var(--tracking-caps);
@@ -24,6 +28,18 @@ header {
 h2,
 p {
   margin: 0;
+}
+
+h1 {
+  max-width: 12ch;
+  margin: var(--space-3) 0 0;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 0.82;
+  text-transform: uppercase;
 }
 
 article p {
@@ -48,9 +64,9 @@ header > p:last-child {
 
 .about-list li {
   display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr);
+  grid-template-columns: 1.25rem minmax(0, 1fr);
   gap: var(--space-4);
-  padding: var(--space-5) 0;
+  padding: var(--space-6) 0;
   border-top: 1px solid var(--border-2);
 }
 
@@ -59,11 +75,12 @@ header > p:last-child {
 }
 
 .about-list li::before {
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  font-weight: var(--weight-black);
-  content: counter(list-item, decimal-leading-zero);
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+  border: 1px solid var(--accent);
+  background: linear-gradient(135deg, transparent 42%, var(--accent) 43% 57%, transparent 58%);
+  content: '';
 }
 
 article {
@@ -72,7 +89,9 @@ article {
 
 h2 {
   color: var(--text-strong);
-  font-size: var(--fs-lg);
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  text-transform: uppercase;
   line-height: var(--lh-tight);
 }
 
@@ -104,7 +123,7 @@ a:focus-visible {
 
 @media (max-width: 40rem) {
   .about-list li {
-    grid-template-columns: 2.75rem minmax(0, 1fr);
+    grid-template-columns: 1rem minmax(0, 1fr);
     gap: var(--space-3);
   }
 }

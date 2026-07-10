@@ -1,12 +1,14 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
-<div class="site-shell">
+<div class="site-shell" [class.site-shell--focused]="playFocus.active()">
   <app-site-header />
 
   <main id="main-content">
     <router-outlet />
   </main>
 
-  <app-site-footer />
+  @if (!playFocus.active()) {
+    <app-site-footer />
+  }
 </div>
 
 <app-toast-container />

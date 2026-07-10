@@ -1,38 +1,49 @@
+@import '@fontsource/barlow-condensed/600.css';
+@import '@fontsource/barlow-condensed/700.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans/700.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/700.css';
+
 * {
   box-sizing: border-box;
 }
 
 :root {
-  /* surfaces - tiered for glassy depth */
-  --surface-base: #07111f; // board bg, app background anchor
-  --surface-1: #0b1725; // flat input baseline
-  --surface-2: rgb(13 27 42 / 82%); // glass: header, history, reference
-  --surface-3: rgb(17 38 58 / 78%); // raised glass: cards, dialog
-  --surface-hover-tint: rgb(248 193 92 / 0.04);
-  --surface-hairline: rgb(120 145 173 / 0.12);
+  --surface-base: #07151c;
+  --surface-1: #0c2028;
+  --surface-2: #12303a;
+  --surface-3: #183b45;
+  --surface-hover-tint: rgb(242 184 75 / 0.08);
+  --surface-hairline: rgb(126 168 174 / 0.18);
+  --page-grid: rgb(126 168 174 / 0.07);
 
   /* borders */
-  --border-1: #20364d;
-  --border-2: #29435f;
-  --border-3: #38516b;
+  --border-1: #25434c;
+  --border-2: #365963;
+  --border-3: #52757c;
 
   /* text */
-  --text-strong: #f7f9fc;
-  --text: #e6edf5;
-  --text-muted: #9fb1c4;
-  --text-subtle: #8295aa;
-  --text-faint: #708398;
-  --text-on-accent: #19202a;
+  --text-strong: #f4f5ee;
+  --text: #e7ece8;
+  --text-muted: #b5c7c7;
+  --text-subtle: #91aaad;
+  --text-faint: #738f93;
+  --text-on-accent: #152126;
+  --text-1: var(--text-strong);
+  --text-2: var(--text);
 
   /* accent gold + tints (brand) */
-  --accent: #f8c15c;
-  --accent-hover: #ffd27d;
-  --accent-soft: rgb(248 193 92 / 0.12);
-  --accent-glow: rgb(248 193 92 / 0.45);
+  --accent: #f2b84b;
+  --accent-hover: #ffd277;
+  --accent-ink: #f6c766;
+  --accent-soft: rgb(242 184 75 / 0.14);
+  --accent-glow: rgb(242 184 75 / 0.36);
 
   /* semantic (board + UI share) */
-  --success: #45d483;
-  --danger: #f45b69;
+  --success: #55d49a;
+  --danger: #ef5b63;
   --danger-border: #ffd3d7;
   --bullet: #fff0a6;
   --wall: #506b86;
@@ -51,20 +62,22 @@
   --space-8: 4rem;
 
   /* radius */
-  --radius-sm: 0.45rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 0.9rem;
+  --radius-sm: 0.3rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.7rem;
   --radius-pill: 9999rem;
 
   /* elevation */
-  --shadow-1: 0 0.25rem 0.75rem rgb(0 0 0 / 0.28);
-  --shadow-2: 0 1rem 3rem rgb(0 0 0 / 0.25);
-  --shadow-3: 0 1.5rem 5rem rgb(0 0 0 / 0.55);
+  --shadow-1: 0 0.3rem 0.8rem rgb(0 0 0 / 0.22);
+  --shadow-2: 0 0.8rem 2rem rgb(0 0 0 / 0.24);
+  --shadow-3: 0 1.5rem 4rem rgb(0 0 0 / 0.48);
   --ring-focus: 0 0 0 3px var(--accent-glow);
 
   /* typography */
-  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-utility: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-mono: var(--font-utility);
   --fs-xs: 0.75rem;
   --fs-sm: 0.875rem;
   --fs-base: 1rem;
@@ -96,6 +109,44 @@
   --bp-2xl: 72rem;
 }
 
+:root[data-theme='light'] {
+  --surface-base: #dfe8e4;
+  --surface-1: #eef2ed;
+  --surface-2: #f7f8f2;
+  --surface-3: #ffffff;
+  --surface-hover-tint: rgb(156 99 0 / 0.07);
+  --surface-hairline: rgb(19 36 43 / 0.1);
+  --page-grid: rgb(19 36 43 / 0.055);
+  --border-1: #bdcfce;
+  --border-2: #95b2b5;
+  --border-3: #6d9298;
+  --text-strong: #13242b;
+  --text: #21363d;
+  --text-muted: #486168;
+  --text-subtle: #60787e;
+  --text-faint: #768b8f;
+  --text-on-accent: #ffffff;
+  --accent: #9c6300;
+  --accent-hover: #7d4f00;
+  --accent-ink: #815200;
+  --accent-soft: rgb(156 99 0 / 0.12);
+  --accent-glow: rgb(156 99 0 / 0.25);
+  --success: #187a58;
+  --danger: #b83b46;
+  --danger-border: #8f2933;
+  --error: #a52d39;
+  --error-soft: rgb(184 59 70 / 0.08);
+  --shadow-1: 0 0.3rem 0.8rem rgb(31 58 62 / 0.12);
+  --shadow-2: 0 0.8rem 2rem rgb(31 58 62 / 0.13);
+  --shadow-3: 0 1.5rem 4rem rgb(31 58 62 / 0.2);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-fast: 0ms;
@@ -109,9 +160,24 @@ body {
   min-height: 100%;
 }
 
+html.play-focus,
+body.play-focus {
+  height: 100%;
+  overflow: hidden;
+}
+
+body.play-focus {
+  background-image: none;
+}
+
 body {
   margin: 0;
-  background: radial-gradient(circle at top, var(--surface-1) 0, var(--surface-base) 60%);
+  background-color: var(--surface-base);
+  background-image:
+    linear-gradient(var(--page-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--page-grid) 1px, transparent 1px),
+    radial-gradient(circle at 50% -20%, var(--surface-2), var(--surface-base) 58%);
+  background-size: 2rem 2rem, 2rem 2rem, auto;
   background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-sans);
@@ -158,8 +224,6 @@ input {
 
 .glass {
   background: var(--surface-2);
-  backdrop-filter: blur(0.75rem);
-  -webkit-backdrop-filter: blur(0.75rem);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-2);
@@ -478,7 +542,7 @@ input {
 
   .answer-keypad .answer-keypad__send {
     background: var(--accent);
-    color: var(--text-strong);
+    color: var(--text-on-accent);
   }
 }
 
@@ -491,8 +555,8 @@ input {
   padding: 0;
   border: 1px solid var(--border-3);
   border-radius: var(--radius-sm);
-  background: rgb(7 17 31 / 0.76);
-  color: var(--text);
+  background: rgb(7 21 28 / 0.84);
+  color: #f4f5ee;
   cursor: pointer;
   box-shadow: var(--shadow-1);
   backdrop-filter: blur(0.5rem);

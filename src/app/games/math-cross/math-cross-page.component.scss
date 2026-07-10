@@ -92,7 +92,7 @@
 .math-cross__board {
   --math-cross-cell: min(
     calc((94vw - 4rem) / var(--math-cross-size)),
-    calc((72vh - 4rem) / var(--math-cross-size)),
+    calc((100dvh - 13rem) / var(--math-cross-size)),
     5.8rem
   );
   --math-cross-gap: clamp(0.22rem, 0.7vw, 0.5rem);
@@ -108,6 +108,38 @@
   border: 1px solid rgb(72 211 179 / 0.3);
   border-radius: var(--radius-sm);
   background: #061018;
+}
+
+:host-context(.play-focus) {
+  display: block;
+  height: 100%;
+}
+
+:host-context(.play-focus) .mode-panel {
+  display: none;
+}
+
+:host-context(.play-focus) .math-cross,
+:host-context(.play-focus) .math-cross__board-wrap {
+  height: 100%;
+  min-height: 0;
+}
+
+:host-context(.play-focus) .math-cross__board-wrap {
+  padding: 3.5rem var(--space-2) var(--space-2);
+}
+
+:host-context(.play-focus) .math-cross__board-actions {
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+:host-context(.play-focus) .math-cross__board {
+  --math-cross-cell: min(
+    calc((100vw - 3rem) / var(--math-cross-size)),
+    calc((100dvh - 6.5rem) / var(--math-cross-size)),
+    5.8rem
+  );
 }
 
 .math-cross__rail {
@@ -286,7 +318,15 @@
   .math-cross__board {
     --math-cross-cell: min(
       calc((100vw - 3rem) / var(--math-cross-size)),
-      calc((64vh - 3rem) / var(--math-cross-size)),
+      calc((100dvh - 11rem) / var(--math-cross-size)),
+      4.2rem
+    );
+  }
+
+  :host-context(.play-focus) .math-cross__board {
+    --math-cross-cell: min(
+      calc((100vw - 2rem) / var(--math-cross-size)),
+      calc((100dvh - 6.5rem) / var(--math-cross-size)),
       4.2rem
     );
   }

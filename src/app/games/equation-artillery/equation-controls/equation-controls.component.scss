@@ -71,3 +71,25 @@ label {
     grid-column: 1 / -1;
   }
 }
+
+:host-context(.play-focus) {
+  margin-top: var(--space-2);
+}
+
+:host-context(.play-focus) label,
+:host-context(.play-focus) app-function-preview {
+  display: none;
+}
+
+:host-context(.play-focus) .status,
+:host-context(.play-focus) .error {
+  margin-top: var(--space-1);
+  min-height: 0;
+  font-size: var(--fs-xs);
+}
+
+:host-context(.play-focus) .field,
+:host-context(.play-focus) .btn {
+  min-height: 2.65rem;
+  padding-block: var(--space-2);
+}

@@ -1,5 +1,7 @@
+export type GameId = 'equation-artillery' | 'formula-frenzy' | 'math-cross';
+
 export interface GameDefinition {
-  readonly id: string;
+  readonly id: GameId;
   readonly eyebrow: string;
   readonly title: string;
   readonly summary: string;

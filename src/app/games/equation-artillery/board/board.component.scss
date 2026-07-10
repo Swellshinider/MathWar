@@ -4,6 +4,12 @@
   aspect-ratio: 8 / 5;
 }
 
+:host-context(.play-focus) {
+  height: auto;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
 .board-shell {
   position: relative;
   width: 100%;

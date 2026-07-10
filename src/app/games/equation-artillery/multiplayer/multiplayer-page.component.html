@@ -1,4 +1,9 @@
-<app-game-frame title="Equation Artillery Multiplayer" [wide]="true">
+<app-game-frame
+  gameId="equation-artillery"
+  title="Equation Artillery Multiplayer"
+  [wide]="true"
+  [playing]="state()?.status === 'active' || state()?.status === 'paused'"
+>
   @if (!state()) {
     <app-multiplayer-lobby [manageSocket]="false" (roomJoined)="onRoomJoined($event)" />
   } @else {

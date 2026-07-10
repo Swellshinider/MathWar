@@ -127,6 +127,47 @@ app-equation-history {
   color: var(--error);
 }
 
+:host-context(.play-focus) {
+  display: block;
+  height: 100%;
+}
+
+:host-context(.play-focus) .match-meta {
+  margin-bottom: var(--space-2);
+}
+
+:host-context(.play-focus) .game-layout,
+:host-context(.play-focus) .game-column {
+  height: 100%;
+  min-height: 0;
+}
+
+:host-context(.play-focus) .game-column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+:host-context(.play-focus) .play-layout {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+:host-context(.play-focus) .board-anchor,
+:host-context(.play-focus) app-board {
+  height: auto;
+  min-height: 0;
+}
+
+:host-context(.play-focus) .board-anchor {
+  display: grid;
+  align-self: stretch;
+}
+
+:host-context(.play-focus) .status {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-xs);
+}
+
 @media (max-width: 56rem) {
   .game-column {
     container-type: normal;
@@ -135,6 +176,10 @@ app-equation-history {
   .play-layout {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
+  }
+
+  :host-context(.play-focus) .play-layout {
+    grid-template-rows: minmax(0, 1fr) auto;
   }
 
   .controls {
@@ -146,6 +191,10 @@ app-equation-history {
     grid-row: 3;
     height: auto;
     max-height: 18rem;
+  }
+
+  :host-context(.play-focus) app-equation-history {
+    display: none;
   }
 }
 

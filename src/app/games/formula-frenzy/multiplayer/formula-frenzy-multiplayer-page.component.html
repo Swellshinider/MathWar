@@ -1,8 +1,10 @@
 <app-game-frame
+  gameId="formula-frenzy"
   eyebrow="Arithmetic sprint"
   title="Formula Frenzy Multiplayer"
   objective="Race side by side. Last player still solving wins."
   [wide]="true"
+  [playing]="state()?.status === 'active' || state()?.status === 'paused'"
 >
   @if (!state()) {
     <app-multiplayer-lobby

@@ -20,6 +20,21 @@ describe('MathCrossPageComponent', () => {
     expect(root.querySelector('.difficulty-control input[type="range"]')).not.toBeNull();
     expect(root.textContent).not.toContain('Basic addition and subtraction');
     expect(root.querySelectorAll('.math-cross__cell--blank').length).toBeGreaterThan(0);
+    expect(root.querySelector('app-game-frame article')?.classList).toContain(
+      'game-frame--focused',
+    );
+  });
+
+  it('leaves play focus when the puzzle is complete', () => {
+    const fixture = TestBed.createComponent(MathCrossPageComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.completionMessage.set('Solved.');
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('app-game-frame article')?.classList,
+    ).not.toContain('game-frame--focused');
   });
 
   it('renders hint and help as floating board actions with tooltips', () => {
