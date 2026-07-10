@@ -1,4 +1,13 @@
-<app-game-frame eyebrow="Functions and graphs" title="Equation Artillery" [wide]="true">
+<app-game-frame
+  gameId="equation-artillery"
+  eyebrow="Functions and graphs"
+  title="Equation Artillery"
+  [wide]="true"
+  [playing]="
+    gameMode() === 'free-practice' ||
+    (gameMode() === 'single-player' && singlePlayerState()?.status === 'active')
+  "
+>
   <div class="multiplayer-launch">
     <app-multiplayer-lobby (roomJoined)="enterMultiplayer()" />
   </div>

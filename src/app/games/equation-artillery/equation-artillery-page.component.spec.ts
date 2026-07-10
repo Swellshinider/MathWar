@@ -193,6 +193,9 @@ describe('EquationArtilleryPageComponent', () => {
 
     expect(component.singlePlayerState()).not.toBeNull();
     expect(component.status()).toBe('Your turn.');
+    expect(fixture.nativeElement.querySelector('app-game-frame article').classList).toContain(
+      'game-frame--focused',
+    );
   });
 
   it('orders offline modes as CPU vs. then Free Practice without the removed mode', () => {

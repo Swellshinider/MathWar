@@ -7,37 +7,32 @@ header {
   top: 0;
   z-index: var(--z-raised);
   border-bottom: 1px solid var(--border-1);
-  background: var(--surface-2);
-  backdrop-filter: blur(0.75rem) saturate(120%);
-  -webkit-backdrop-filter: blur(0.75rem) saturate(120%);
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  backdrop-filter: blur(0.8rem);
 }
 
 .header-content {
   display: flex;
-  min-height: 4.5rem;
-  padding-inline: clamp(1rem, 4vw, 2rem);
+  min-height: 4.25rem;
+  padding-inline: clamp(0.8rem, 3vw, 2rem);
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
 }
 
-.header-actions {
+.header--focused .header-content {
+  min-height: 3.35rem;
+}
+
+.header-actions,
+.brand,
+.rail-button {
   display: flex;
   align-items: center;
+}
+
+.header-actions {
   gap: var(--space-2);
-}
-
-a,
-button {
-  color: var(--accent);
-  transition: color var(--duration-fast) var(--ease-out);
-}
-
-a:hover,
-a:focus-visible,
-button:hover,
-button:focus-visible {
-  color: var(--accent-hover);
 }
 
 a {
@@ -45,114 +40,84 @@ a {
 }
 
 .brand {
-  display: inline-flex;
-  align-items: center;
+  min-width: 0;
   gap: var(--space-3);
   color: var(--text-strong);
-  font-size: 1.35rem;
-  font-weight: var(--weight-black);
-  letter-spacing: -0.03em;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .brand-logo {
-  width: 3rem;
-  height: 3rem;
-  border-radius: var(--radius-md);
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
   object-fit: cover;
-  box-shadow: var(--shadow-1);
 }
 
-.sound-menu {
-  position: relative;
+.brand--focused .brand-logo {
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
-.sound-menu__button {
-  width: calc(1em + 2 * var(--space-3));
-  padding-inline: var(--space-3);
-  color: var(--text-strong);
+.focus-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sound-menu__button svg {
+.rail-button {
+  min-height: 2.45rem;
+  gap: var(--space-2);
+  padding: 0.55rem 0.72rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+
+.rail-button:hover,
+.rail-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.rail-button--icon {
+  width: 2.45rem;
+  justify-content: center;
+  padding: 0;
+}
+
+.rail-button--accent {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.rail-button svg {
   width: 1rem;
   height: 1rem;
 }
 
-.sound-menu__button:hover,
-.sound-menu__button:focus-visible {
-  color: var(--text-strong);
+.sound-menu,
+.theme-menu {
+  position: relative;
 }
 
-.header-about {
-  color: var(--text);
-  border-color: var(--text-subtle);
-}
-
-.header-about:hover,
-.header-about:focus-visible {
-  border-color: var(--text-muted);
-  color: var(--text-strong);
-}
-
-.account-button {
-  display: inline-grid;
-  width: 3rem;
-  height: 3rem;
-  place-items: center;
-  color: var(--accent);
-}
-
-.account-button svg,
-.account-button__icon,
-.account-button__avatar {
-  width: 3rem;
-  height: 3rem;
-}
-
-.account-button__icon,
-.account-button__avatar {
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-  object-fit: cover;
-  box-shadow: var(--shadow-1);
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
-}
-
-.account-button__icon svg {
-  width: 1.35rem;
-  height: 1.35rem;
-}
-
-.account-button:hover .account-button__icon,
-.account-button:focus-visible .account-button__icon,
-.account-button:hover .account-button__avatar,
-.account-button:focus-visible .account-button__avatar {
-  border-color: var(--accent);
-  color: var(--accent-hover);
-}
-
-.account-button:focus-visible {
-  outline: none;
-}
-
-.account-button:active .account-button__icon,
-.account-button:active .account-button__avatar {
-  transform: translateY(1px);
-}
-
-.sound-menu__panel {
+.popover-panel {
   position: absolute;
-  top: 100%;
+  top: calc(100% + var(--space-2));
   right: 0;
   z-index: var(--z-raised);
-  display: grid;
   width: min(18rem, calc(100vw - 2rem));
-  gap: var(--space-4);
   padding: var(--space-4);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-md);
@@ -161,16 +126,15 @@ a {
   box-shadow: var(--shadow-3);
 }
 
-.sound-menu__panel[hidden] {
+.popover-panel[hidden] {
   display: none;
 }
 
+.sound-menu__panel,
 .sound-menu__toggle,
 .sound-menu__volume {
   display: grid;
-  gap: var(--space-2);
-  color: var(--text);
-  font-weight: var(--weight-bold);
+  gap: var(--space-3);
 }
 
 .sound-menu__toggle {
@@ -178,25 +142,112 @@ a {
   align-items: center;
 }
 
-.sound-menu input[type='checkbox'] {
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: var(--accent);
+.sound-menu__volume {
+  grid-template-columns: 1fr auto;
 }
 
-.sound-menu input[type='range'] {
+.sound-menu__volume input {
+  grid-column: 1 / -1;
   width: 100%;
   accent-color: var(--accent);
 }
 
-.sound-menu output {
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: var(--weight-bold);
+.sound-menu__toggle input {
+  accent-color: var(--accent);
 }
 
-@media (max-width: 30rem) {
+.theme-menu__panel {
+  display: grid;
+  width: 12rem;
+  gap: var(--space-2);
+}
+
+.theme-menu__panel p {
+  margin: 0 0 var(--space-1);
+  color: var(--text-subtle);
+  font-family: var(--font-utility);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.theme-menu__panel button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-menu__panel button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.theme-menu__panel svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.account-button,
+.account-button__icon,
+.account-button__avatar {
+  display: grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  place-items: center;
+}
+
+.account-button__icon,
+.account-button__avatar {
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--accent-ink);
+  object-fit: cover;
+}
+
+.account-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.account-button:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+@media (max-width: 40rem) {
   .brand {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
+  }
+
+  .header--focused .focus-title,
+  .header--focused .rail-button span,
+  .header-about {
+    display: none;
+  }
+
+  .header--focused .brand {
+    gap: 0;
+  }
+
+  .header--focused .rail-button {
+    width: 2.45rem;
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+@media (max-width: 25rem) {
+  .brand > span:not(.focus-title) {
+    display: none;
   }
 }

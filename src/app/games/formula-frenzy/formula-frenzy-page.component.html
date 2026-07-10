@@ -1,8 +1,10 @@
 <app-game-frame
+  gameId="formula-frenzy"
   eyebrow="Arithmetic sprint"
   title="Formula Frenzy"
   objective="Solve fast. Keep up as the formulas get harder."
   [wide]="true"
+  [playing]="runStarted() && !gameOver()"
 >
   <div class="multiplayer-launch">
     <app-multiplayer-lobby gameId="formula-frenzy" (roomJoined)="enterMultiplayer($event)" />

@@ -1,10 +1,30 @@
-<header>
+<header [class.header--focused]="playFocus.active()">
   <div class="header-content">
-    <a class="brand" routerLink="/" aria-label="MathWar home">
-      <img class="brand-logo" src="mathwar-logo.png" alt="" width="48" height="48" />
-      <span>MathWar</span>
-    </a>
+    @if (playFocus.active()) {
+      <a class="brand brand--focused" routerLink="/" aria-label="MathWar home">
+        <img class="brand-logo" src="mathwar-logo.png" alt="" width="48" height="48" />
+        <span class="focus-title">{{ playFocus.context()?.title }}</span>
+      </a>
+    } @else {
+      <a class="brand" routerLink="/" aria-label="MathWar home">
+        <img class="brand-logo" src="mathwar-logo.png" alt="" width="48" height="48" />
+        <span>MathWar</span>
+      </a>
+    }
+
     <div class="header-actions">
+      @if (playFocus.active()) {
+        <a class="rail-button" routerLink="/" aria-label="Return to games">
+          <svg lucideHome aria-hidden="true"></svg>
+          <span>Games</span>
+        </a>
+      } @else if (playFocus.canResume()) {
+        <button type="button" class="rail-button rail-button--accent" (click)="playFocus.resume()">
+          <svg lucideMaximize2 aria-hidden="true"></svg>
+          <span>Focus game</span>
+        </button>
+      }
+
       <div
         class="sound-menu"
         (mouseenter)="openSoundMenu()"
@@ -12,7 +32,7 @@
       >
         <button
           type="button"
-          class="btn btn--subtle sound-menu__button"
+          class="rail-button rail-button--icon"
           aria-label="Sound settings"
           aria-controls="sound-settings-menu"
           [attr.aria-expanded]="soundMenuOpen()"
@@ -24,7 +44,7 @@
 
         <div
           id="sound-settings-menu"
-          class="sound-menu__panel"
+          class="popover-panel sound-menu__panel"
           role="group"
           aria-label="Sound settings"
           [hidden]="!soundMenuOpen()"
@@ -50,17 +70,84 @@
         </div>
       </div>
 
-      <a class="btn btn--subtle header-about" routerLink="/about">About</a>
+      <div class="theme-menu">
+        <button
+          type="button"
+          class="rail-button rail-button--icon"
+          aria-label="Appearance settings"
+          aria-controls="theme-settings-menu"
+          [attr.aria-expanded]="themeMenuOpen()"
+          (click)="toggleThemeMenu()"
+        >
+          @switch (theme.resolvedTheme()) {
+            @case ('light') {
+              <svg lucideSun aria-hidden="true"></svg>
+            }
+            @default {
+              <svg lucideMoon aria-hidden="true"></svg>
+            }
+          }
+        </button>
+        <div
+          id="theme-settings-menu"
+          class="popover-panel theme-menu__panel"
+          role="group"
+          aria-label="Appearance"
+          [hidden]="!themeMenuOpen()"
+        >
+          <p>Appearance</p>
+          <button
+            type="button"
+            [class.active]="theme.preference() === 'system'"
+            [attr.aria-pressed]="theme.preference() === 'system'"
+            (click)="setTheme('system')"
+          >
+            <svg lucideMonitor aria-hidden="true"></svg>
+            System
+          </button>
+          <button
+            type="button"
+            [class.active]="theme.preference() === 'light'"
+            [attr.aria-pressed]="theme.preference() === 'light'"
+            (click)="setTheme('light')"
+          >
+            <svg lucideSun aria-hidden="true"></svg>
+            Light
+          </button>
+          <button
+            type="button"
+            [class.active]="theme.preference() === 'dark'"
+            [attr.aria-pressed]="theme.preference() === 'dark'"
+            (click)="setTheme('dark')"
+          >
+            <svg lucideMoon aria-hidden="true"></svg>
+            Dark
+          </button>
+        </div>
+      </div>
 
-      <a class="account-button" routerLink="/account/settings" aria-label="Account settings">
-        @if (account.avatarUrl()) {
-          <img class="account-button__avatar" [src]="account.avatarUrl()" alt="" />
-        } @else {
-          <span class="account-button__icon">
-            <svg lucideUser aria-hidden="true"></svg>
-          </span>
-        }
-      </a>
+      @if (playFocus.active()) {
+        <button
+          type="button"
+          class="rail-button rail-button--accent"
+          aria-label="Expand page"
+          (click)="playFocus.suspend()"
+        >
+          <svg lucideMaximize2 aria-hidden="true"></svg>
+          <span>Expand</span>
+        </button>
+      } @else {
+        <a class="rail-button header-about" routerLink="/about">About</a>
+        <a class="account-button" routerLink="/account/settings" aria-label="Account settings">
+          @if (account.avatarUrl()) {
+            <img class="account-button__avatar" [src]="account.avatarUrl()" alt="" />
+          } @else {
+            <span class="account-button__icon">
+              <svg lucideUser aria-hidden="true"></svg>
+            </span>
+          }
+        </a>
+      }
     </div>
   </div>
 </header>

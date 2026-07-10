@@ -101,16 +101,16 @@
           <tbody>
             @for (entry of data()?.entries ?? []; track entry.id) {
               <tr>
-                <td>{{ entry.rank }}</td>
-                <td>{{ entry.username }}</td>
-                <td>{{ entry.score }}</td>
-                <td>{{ entry.level }}</td>
-                <td>{{ formatAverage(entry) }}</td>
-                <td>{{ entry.bestStreak }}</td>
+                <td data-label="Rank">{{ entry.rank }}</td>
+                <td data-label="Username">{{ entry.username }}</td>
+                <td data-label="Score">{{ entry.score }}</td>
+                <td data-label="Level">{{ entry.level }}</td>
+                <td data-label="Average time">{{ formatAverage(entry) }}</td>
+                <td data-label="Best streak">{{ entry.bestStreak }}</td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="6">
+                <td class="empty-row" colspan="6">
                   @if (loading()) {
                     Loading leaderboard...
                   } @else {

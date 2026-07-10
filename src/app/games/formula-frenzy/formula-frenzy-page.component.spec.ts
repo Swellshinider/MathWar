@@ -219,6 +219,9 @@ describe('FormulaFrenzyPageComponent', () => {
 
     expect(component.gameOver()).toBe(false);
     expect(component.runStarted()).toBe(false);
+    expect(root.querySelector('app-game-frame article')?.classList).not.toContain(
+      'game-frame--focused',
+    );
     expect(root.querySelector<HTMLInputElement>('#formula-answer')?.disabled).toBe(true);
     expect(root.querySelector('.mode-panel .start-button')).not.toBeNull();
     expect(root.querySelector('.problem-panel .start-button')).toBeNull();
@@ -227,6 +230,9 @@ describe('FormulaFrenzyPageComponent', () => {
     fixture.detectChanges();
 
     expect(component.runStarted()).toBe(true);
+    expect(root.querySelector('app-game-frame article')?.classList).toContain(
+      'game-frame--focused',
+    );
     expect(root.querySelector('.problem-prompt .formula-prompt')?.getAttribute('aria-label')).toBe(
       component.problem().prompt,
     );

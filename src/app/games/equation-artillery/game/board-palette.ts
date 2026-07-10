@@ -4,14 +4,14 @@
  * glow tints are applied via `shadowColor`/`shadowBlur` in the renderer.
  */
 export const BOARD_PALETTE = {
-  background: '#07111f',
-  gridMinor: 'rgba(120, 145, 173, 0.1)',
-  gridAxis: '#7891ad',
-  gridLabel: '#8295aa',
-  trail: '#f8c15c',
-  trailGlow: 'rgba(248, 193, 92, 0.45)',
-  previewTrail: 'rgba(248, 193, 92, 0.62)',
-  player: '#45d483',
+  background: '#07151c',
+  gridMinor: 'rgba(126, 168, 174, 0.12)',
+  gridAxis: '#7ea8ae',
+  gridLabel: '#91aaad',
+  trail: '#f2b84b',
+  trailGlow: 'rgba(242, 184, 75, 0.42)',
+  previewTrail: 'rgba(242, 184, 75, 0.65)',
+  player: '#55d49a',
   characterColors: ['#2dd4bf', '#38bdf8', '#818cf8', '#fb7185', '#f97316', '#facc15'],
   characterGlows: [
     'rgba(45, 212, 191, 0.9)',
@@ -27,7 +27,7 @@ export const BOARD_PALETTE = {
   playerGlow: 'rgba(69, 212, 131, 0.62)',
   functionText: '#fff0a6',
   functionTextBackground: 'rgba(7, 17, 31, 0.78)',
-  target: '#f45b69',
+  target: '#ef5b63',
   targetBorder: '#ffd3d7',
   wall: '#506b86',
   wallBorder: '#9db1c5',

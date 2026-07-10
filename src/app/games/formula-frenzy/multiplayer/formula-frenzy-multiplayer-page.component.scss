@@ -244,6 +244,27 @@ input,
   color: var(--error);
 }
 
+:host-context(.play-focus) {
+  display: block;
+  height: 100%;
+}
+
+:host-context(.play-focus) .match-meta {
+  margin-bottom: var(--space-2);
+}
+
+:host-context(.play-focus) .duel {
+  height: calc(100% - 3rem);
+  min-height: 0;
+}
+
+:host-context(.play-focus) .player-panel {
+  min-height: 0;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  overflow: auto;
+}
+
 @media (max-width: 48rem) {
   .match-meta,
   .duel {
@@ -252,6 +273,42 @@ input,
 
   .match-toolbar {
     justify-content: flex-start;
+  }
+
+  :host-context(.play-focus) .match-meta {
+    display: none;
+  }
+
+  :host-context(.play-focus) .duel {
+    display: grid;
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: var(--space-2);
+  }
+
+  :host-context(.play-focus) .player-panel--local {
+    overflow: auto;
+  }
+
+  :host-context(.play-focus) .player-panel--opponent {
+    display: flex;
+    min-height: 0;
+    padding: var(--space-2) var(--space-3);
+    align-items: center;
+    justify-content: space-between;
+    overflow: visible;
+  }
+
+  :host-context(.play-focus) .player-panel--opponent .run-meta,
+  :host-context(.play-focus) .player-panel--opponent .problem-prompt,
+  :host-context(.play-focus) .player-panel--opponent .opponent-answer,
+  :host-context(.play-focus) .player-panel--opponent .hud-level,
+  :host-context(.play-focus) .player-panel--opponent .score-meta {
+    display: none;
+  }
+
+  :host-context(.play-focus) .player-panel--opponent .hud {
+    display: block;
   }
 }
 

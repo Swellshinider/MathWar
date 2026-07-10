@@ -1,17 +1,25 @@
 <section class="catalog">
-  <header>
-    <p class="eyebrow">Math minigames</p>
-    <p>Practice mathematical ideas through short, focused games.</p>
+  <header class="catalog-intro">
+    <p class="eyebrow">Math mini-games</p>
+    <h1>Choose a game</h1>
+    <p>
+      Short, focused rounds for graphing, arithmetic, and equation building. Pick a discipline and
+      start playing.
+    </p>
+    <a class="btn btn--ghost" routerLink="/leaderboard/formula-frenzy">View leaderboard</a>
   </header>
-
-  <div class="catalog-actions">
-    <a class="btn btn--primary" routerLink="/leaderboard/formula-frenzy">Leaderboard</a>
-  </div>
 
   <div class="game-grid">
     @for (game of games; track game.id) {
-      <a class="game-card" [routerLink]="game.route" [attr.aria-label]="'Play ' + game.title">
-        <div class="game-card__media">
+      <a
+        class="game-entry game-card"
+        [class.game-entry--artillery]="game.id === 'equation-artillery'"
+        [class.game-entry--frenzy]="game.id === 'formula-frenzy'"
+        [class.game-entry--cross]="game.id === 'math-cross'"
+        [routerLink]="game.route"
+        [attr.aria-label]="'Play ' + game.title"
+      >
+        <div class="game-entry__media">
           <img
             class="game-card__preview"
             [src]="game.image"
@@ -20,11 +28,11 @@
             (error)="$any($event.target).style.display = 'none'"
           />
         </div>
-        <div class="game-card__body">
-          <p class="game-topic">{{ game.eyebrow }}</p>
+        <div class="game-entry__body">
+          <span class="game-entry__topic">{{ game.eyebrow }}</span>
           <h2>{{ game.title }}</h2>
-          <p class="game-card__summary">{{ game.summary }}</p>
-          <span class="game-card__cta">Play {{ game.title }} →</span>
+          <p>{{ game.summary }}</p>
+          <span class="game-entry__cta">Play game <span aria-hidden="true">→</span></span>
         </div>
       </a>
     }

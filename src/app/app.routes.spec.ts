@@ -21,7 +21,7 @@ describe('application routes', () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/');
 
-    expect(harness.routeNativeElement?.textContent).toContain('Practice mathematical ideas');
+    expect(harness.routeNativeElement?.textContent).toContain('Choose a game');
   });
 
   it('opens the About page at its direct route', async () => {
@@ -124,6 +124,6 @@ describe('application routes', () => {
     await harness.navigateByUrl('/missing-game');
 
     expect(router.url).toBe('/');
-    expect(harness.routeNativeElement?.textContent).toContain('Practice mathematical ideas');
+    expect(harness.routeNativeElement?.textContent).toContain('Choose a game');
   });
 });
