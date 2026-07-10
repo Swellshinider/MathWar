@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the site background, and constrained its focus-mode history panel to prevent history overflow
   from stretching the play area.
 
+### Fixed - 2026-07-10
+
+- Fixed Formula Frenzy's game-over acknowledgment resetting the completed calculation. The dialog
+  now closes with an Okay action while leaving the final formula visible on the game screen; a
+  separate Restart run action begins a new game when wanted.
+
 ### Added - 2026-07-09
 
 - Added factorial (`!`) and percentage (`%`) problem types to Formula Frenzy. Factorial is
