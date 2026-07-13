@@ -167,24 +167,36 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
 
   afterEach(() => fixture.componentInstance.ngOnDestroy());
 
-  it('lets the host start a waiting match and focuses the answer input', async () => {
-    const started = activeState({ version: 3 });
+  it('lets the host start a waiting match with the countdown active', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-28T12:00:00.000Z'));
+    const startsAt = new Date(Date.now() + 3_500).toISOString();
+    const started = activeState({
+      version: 3,
+      formulaPlayers: activeState().formulaPlayers.map((player) => ({
+        ...player,
+        currentProblem: { ...player.currentProblem, startedAt: startsAt },
+      })),
+    });
     socket.startFormula.mockResolvedValue({ ok: true, data: started });
     const root = fixture.nativeElement as HTMLElement;
 
     handlers.state(formulaState());
     fixture.detectChanges();
-    root.querySelector<HTMLButtonElement>('.start-button')?.click();
-    await fixture.whenStable();
+    expect(root.querySelector<HTMLButtonElement>('.start-button')).not.toBeNull();
+    await fixture.componentInstance.startRun();
     fixture.detectChanges();
 
     expect(socket.startFormula).toHaveBeenCalledWith({
       commandId: expect.any(String),
       expectedVersion: 2,
     });
-    expect(document.activeElement).toBe(
+    expect(root.querySelector('.match-countdown')?.textContent).toContain('3');
+    expect(fixture.componentInstance.answerControl.disabled).toBe(true);
+    expect(document.activeElement).not.toBe(
       root.querySelector<HTMLInputElement>('#formula-multiplayer-answer'),
     );
+    vi.useRealTimers();
   });
 
   it('shows restart after a result and starts a new run', async () => {
@@ -224,6 +236,46 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
 
     expect(root.querySelector<HTMLButtonElement>('.restart-button')).toBeNull();
     expect(socket.startFormula).not.toHaveBeenCalled();
+    expect(root.querySelector('.restart-wait-message')?.textContent).toContain(
+      'Wait for the host to restart the match.',
+    );
+  });
+
+  it('shows an animated countdown before enabling a restarted run', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-28T12:00:00.000Z'));
+    const futureStart = new Date(Date.now() + 3_500).toISOString();
+    const restarted = activeState({
+      version: 4,
+      formulaPlayers: activeState().formulaPlayers.map((player) => ({
+        ...player,
+        currentProblem: { ...player.currentProblem, startedAt: futureStart },
+      })),
+    });
+
+    handlers.state(restarted);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.match-countdown')?.textContent).toContain('3');
+    expect(fixture.componentInstance.answerControl.disabled).toBe(true);
+    expect(fixture.componentInstance.canRequestHint()).toBe(false);
+
+    vi.advanceTimersByTime(1_100);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.match-countdown')?.textContent).toContain('2');
+
+    vi.advanceTimersByTime(1_000);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.match-countdown')?.textContent).toContain('1');
+
+    vi.advanceTimersByTime(1_000);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.match-countdown')?.textContent).toContain('Go');
+
+    vi.advanceTimersByTime(500);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.match-countdown')).toBeNull();
+    expect(fixture.componentInstance.answerControl.enabled).toBe(true);
+    vi.useRealTimers();
   });
 
   it('enters answers from the mobile keypad and sends typing updates', () => {

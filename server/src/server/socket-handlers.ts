@@ -321,6 +321,75 @@ export function registerSocketHandlers({
       acknowledge({ ok: true, data: result.state as MatchState });
     });
 
+    socket.on('match:restart', async (command: VersionedCommand, ack: Ack<MatchState>) => {
+      if (!acceptSocketCommand('match:restart')) {
+        return ack({ ok: false, code: 'RATE_LIMITED', error: 'Too many match commands.' });
+      }
+      const acknowledge = observedAck('match:restart', nowSeconds(), ack, 'equation-artillery');
+      if (!isVersionedCommand(command))
+        return acknowledge({
+          ok: false,
+          code: 'INVALID_COMMAND',
+          error: 'Invalid restart command.',
+        });
+      const matchId = socket.data.matchId;
+      if (!matchId)
+        return acknowledge({ ok: false, code: 'NOT_IN_MATCH', error: 'Join a match first.' });
+      const match = await repository.findById(matchId);
+      if (!match) return acknowledge({ ok: false, code: 'MISSING', error: 'Match not found.' });
+      if (!isMatchPlayer(match, socket.data.user.id))
+        return acknowledge({ ok: false, code: 'FORBIDDEN', error: 'Not a match player.' });
+      if (stateGameId(match) !== 'equation-artillery')
+        return acknowledge({
+          ok: false,
+          code: 'WRONG_GAME',
+          error: 'This room is not Equation Artillery.',
+        });
+      if (match.players[0]?.userId !== socket.data.user.id)
+        return acknowledge({
+          ok: false,
+          code: 'OUT_OF_TURN',
+          error: 'Only the host can restart.',
+        });
+      if (match.status !== 'ended' || match.players.length < 2)
+        return acknowledge({
+          ok: false,
+          code: 'NOT_READY',
+          error: 'The match is not ready to restart.',
+        });
+      const result = await repository.update(
+        match.id,
+        command.expectedVersion,
+        command.commandId,
+        (state) => {
+          const now = new Date();
+          const restarted = createMatchState(
+            state.id,
+            state.roomCode,
+            randomBytes(32).toString('hex'),
+            state.players[0],
+            state.players[1],
+            now,
+          );
+          return {
+            ...restarted,
+            version: state.version + 1,
+            createdAt: state.createdAt,
+            updatedAt: now.toISOString(),
+          };
+        },
+      );
+      if (!result.ok)
+        return acknowledge({
+          ok: false,
+          code: result.reason.toUpperCase(),
+          error: `Restart rejected: ${result.reason}.`,
+        });
+      io.to(roomName(result.state.id)).emit('match:started', publicState(result.state));
+      await emitState(result.state);
+      acknowledge({ ok: true, data: result.state as MatchState });
+    });
+
     socket.on(
       'formula:start',
       async (command: VersionedCommand, ack: Ack<FormulaFrenzyMatchState>) => {
@@ -369,6 +438,8 @@ export function registerSocketHandlers({
             error: 'The match is already active.',
           });
         const formulaStart = nowSeconds();
+        const startsAt = new Date(Date.now() + 3_500);
+        const nextSeed = match.status === 'ended' ? randomBytes(32).toString('hex') : match.seed;
         const result = await repository.update(
           match.id,
           command.expectedVersion,
@@ -376,7 +447,10 @@ export function registerSocketHandlers({
           (state) => {
             const next =
               stateGameId(state) === 'formula-frenzy'
-                ? startFormulaFrenzyMatch(state as FormulaFrenzyMatchState)
+                ? startFormulaFrenzyMatch(
+                    { ...(state as FormulaFrenzyMatchState), seed: nextSeed },
+                    startsAt,
+                  )
                 : state;
             metrics.observeGameOperation(
               'formula-frenzy',
@@ -431,6 +505,14 @@ export function registerSocketHandlers({
             ok: false,
             code: 'NOT_ACTIVE',
             error: 'The match is not active.',
+          });
+        const startsAt = (match as FormulaFrenzyMatchState).formulaPlayers[0]?.currentProblem
+          .startedAt;
+        if (startsAt && new Date(startsAt).getTime() > Date.now())
+          return acknowledge({
+            ok: false,
+            code: 'NOT_READY',
+            error: 'The countdown is still running.',
           });
         const answerStart = nowSeconds();
         const resolved = resolveFormulaFrenzyAnswer(
@@ -523,6 +605,14 @@ export function registerSocketHandlers({
             ok: false,
             code: 'NOT_ACTIVE',
             error: 'The match is not active.',
+          });
+        const startsAt = (match as FormulaFrenzyMatchState).formulaPlayers[0]?.currentProblem
+          .startedAt;
+        if (startsAt && new Date(startsAt).getTime() > Date.now())
+          return acknowledge({
+            ok: false,
+            code: 'NOT_READY',
+            error: 'The countdown is still running.',
           });
         const hintStart = nowSeconds();
         const now = new Date();

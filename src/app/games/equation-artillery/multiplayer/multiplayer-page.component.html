@@ -70,6 +70,17 @@
             [equations]="equationHistory()"
             (selectEquation)="equation.set($event)"
           />
+          @if (state()?.status === 'ended') {
+            <div class="rematch-actions">
+              @if (isHost()) {
+                <button type="button" class="btn btn--primary restart-button" (click)="restart()">
+                  Play again
+                </button>
+              } @else {
+                <p>Waiting for the host to start a new match.</p>
+              }
+            </div>
+          }
         </div>
         <p class="status" aria-live="polite">{{ status() }}</p>
       </div>

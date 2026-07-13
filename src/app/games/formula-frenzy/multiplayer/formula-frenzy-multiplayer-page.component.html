@@ -225,6 +225,12 @@
       </article>
     </section>
 
+    @if (countdownLabel(); as countdown) {
+      <div class="match-countdown" role="status" aria-live="assertive">
+        <span class="match-countdown__value" [attr.data-value]="countdown">{{ countdown }}</span>
+      </div>
+    }
+
     <dialog #resultDialog class="game-over" aria-labelledby="formula-multiplayer-result-title">
       @if (state()?.status === 'ended') {
         <h2 id="formula-multiplayer-result-title">{{ resultTitle() }}</h2>
@@ -236,6 +242,9 @@
         <p>Total correct {{ me()?.totalCorrect ?? 0 }}</p>
         <p>Average {{ averageSolveTime() }}</p>
         <p>Best streak {{ me()?.bestStreak ?? 0 }}</p>
+        @if (hasLost() && !isHost()) {
+          <p class="restart-wait-message">Wait for the host to restart the match.</p>
+        }
         @if (isHost()) {
           <button type="button" class="btn btn--primary restart-button" (click)="startRun()">
             Restart

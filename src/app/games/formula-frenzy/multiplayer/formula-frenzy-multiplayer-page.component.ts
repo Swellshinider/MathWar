@@ -112,10 +112,30 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
   readonly resultTitle = computed(() =>
     this.state()?.winnerUserId === this.userId() ? 'You won' : 'Game over',
   );
+  readonly hasLost = computed(
+    () => this.state()?.status === 'ended' && this.state()?.winnerUserId !== this.userId(),
+  );
+  readonly countdownLabel = computed<string | null>(() => {
+    const state = this.state();
+    const startsAt = this.me()?.currentProblem.startedAt;
+    if (state?.status !== 'active' || !startsAt) return null;
+    const remainingMs = new Date(startsAt).getTime() - this.now();
+    if (remainingMs <= 0) return null;
+    if (remainingMs > 2_500) return '3';
+    if (remainingMs > 1_500) return '2';
+    if (remainingMs > 500) return '1';
+    return 'Go';
+  });
   readonly canRequestHint = computed(() => {
     const state = this.state();
     const me = this.me();
-    return state?.status === 'active' && !!me && me.hintsRemaining > 0 && me.currentHint === null;
+    return (
+      state?.status === 'active' &&
+      this.countdownLabel() === null &&
+      !!me &&
+      me.hintsRemaining > 0 &&
+      me.currentHint === null
+    );
   });
 
   constructor() {
@@ -215,7 +235,7 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
     }
     this.closeResultDialog();
     this.receiveState(response.data);
-    this.answerInput?.nativeElement.focus();
+    if (!this.countdownLabel()) this.answerInput?.nativeElement.focus();
   }
 
   async requestHint(event?: Event): Promise<void> {
@@ -366,8 +386,8 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
     this.answerRejected.set(false);
     this.error.set(null);
     if (state.status === 'active') {
-      this.answerControl.enable({ emitEvent: false });
       this.startCountdown();
+      this.syncAnswerControl();
     } else {
       this.answerControl.disable({ emitEvent: false });
       this.stopCountdown();
@@ -378,7 +398,22 @@ export class FormulaFrenzyMultiplayerPageComponent implements AfterViewChecked, 
   private startCountdown(): void {
     if (this.tickId) return;
     this.now.set(Date.now());
-    this.tickId = setInterval(() => this.now.set(Date.now()), 100);
+    this.tickId = setInterval(() => {
+      const hadCountdown = this.countdownLabel() !== null;
+      this.now.set(Date.now());
+      this.syncAnswerControl();
+      if (hadCountdown && this.countdownLabel() === null) {
+        this.answerInput?.nativeElement.focus();
+      }
+    }, 100);
+  }
+
+  private syncAnswerControl(): void {
+    if (this.state()?.status === 'active' && this.countdownLabel() === null) {
+      this.answerControl.enable({ emitEvent: false });
+    } else {
+      this.answerControl.disable({ emitEvent: false });
+    }
   }
 
   private stopCountdown(): void {
