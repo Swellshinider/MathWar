@@ -22,6 +22,59 @@
   gap: var(--space-4);
 }
 
+.match-countdown {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(2 8 15 / 78%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.match-countdown__value {
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: clamp(6rem, 24vw, 15rem);
+  font-weight: var(--weight-black);
+  line-height: 1;
+  text-shadow: 0 0 2rem color-mix(in srgb, var(--accent) 65%, transparent);
+  animation: countdown-pop 500ms var(--ease-spring) both;
+}
+
+.match-countdown__value[data-value='Go'] {
+  font-size: clamp(4rem, 18vw, 11rem);
+}
+
+.restart-wait-message {
+  color: var(--accent);
+  font-weight: var(--weight-bold);
+}
+
+@keyframes countdown-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.45) rotate(-4deg);
+  }
+
+  65% {
+    opacity: 1;
+    transform: scale(1.12) rotate(1deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-countdown__value {
+    animation: none;
+  }
+}
+
 .player-panel {
   display: grid;
   min-height: 30rem;

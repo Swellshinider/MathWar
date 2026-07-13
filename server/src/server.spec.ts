@@ -1078,6 +1078,65 @@ describe('multiplayer socket server', () => {
     expect(rejected.data.gameId ?? 'equation-artillery').toBe('equation-artillery');
   });
 
+  it('lets the Equation Artillery host restart an ended match in the same room', async () => {
+    const harness = await createHarness();
+    const left = await connect(harness, 'left');
+    const right = await connect(harness, 'right');
+    const created = await emit<{ ok: true; data: { roomCode: string } }>(left, 'room:create', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+    });
+    await emit(right, 'room:join', {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      roomCode: created.data.roomCode,
+    });
+    const active = await harness.repository.findByCode(created.data.roomCode);
+    const ended = await harness.repository.update(
+      active!.id,
+      active!.version,
+      randomUUID(),
+      (state) => ({
+        ...state,
+        version: state.version + 1,
+        status: 'ended',
+        winnerUserId: 'left',
+        endReason: 'hit',
+        turnUserId: null,
+        turnCharacterId: null,
+      }),
+    );
+    expect(ended.ok).toBe(true);
+    if (!ended.ok) return;
+
+    const guestRestart = await emit<{ ok: false; code: string }>(right, 'match:restart', {
+      commandId: randomUUID(),
+      expectedVersion: ended.state.version,
+    });
+    expect(guestRestart.code).toBe('OUT_OF_TURN');
+
+    const startedPromise = once<{ version: number; roomCode: string }>(right, 'match:started');
+    const restarted = await emit<{
+      ok: true;
+      data: { version: number; roomCode: string; status: string; seed: string; equationHistory: [] };
+    }>(left, 'match:restart', {
+      commandId: randomUUID(),
+      expectedVersion: ended.state.version,
+    });
+    expect(restarted.ok).toBe(true);
+    expect(restarted.data).toMatchObject({
+      version: ended.state.version + 1,
+      roomCode: created.data.roomCode,
+      status: 'active',
+      equationHistory: [],
+    });
+    expect(restarted.data.seed).not.toBe(active!.seed);
+    await expect(startedPromise).resolves.toMatchObject({
+      version: restarted.data.version,
+      roomCode: created.data.roomCode,
+    });
+  });
+
   it('runs a formula frenzy room with answers and opponent typing', async () => {
     const harness = await createHarness();
     const left = await connect(harness, 'left');
@@ -1293,7 +1352,15 @@ describe('multiplayer socket server', () => {
       expectedVersion: endedState!.version,
     });
     expect(rejectedRestart.code).toBe('OUT_OF_TURN');
-    const restarted = await emit<{ ok: true; data: { status: string; formulaPlayers: unknown[] } }>(
+    const restartRequestedAt = Date.now();
+    const restarted = await emit<{
+      ok: true;
+      data: {
+        status: string;
+        version: number;
+        formulaPlayers: { currentProblem: { startedAt: string } }[];
+      };
+    }>(
       left,
       'formula:start',
       {
@@ -1304,6 +1371,15 @@ describe('multiplayer socket server', () => {
     expect(restarted.ok).toBe(true);
     expect(restarted.data.status).toBe('active');
     expect(restarted.data.formulaPlayers).toHaveLength(2);
+    expect(new Date(restarted.data.formulaPlayers[0].currentProblem.startedAt).getTime()).toBeGreaterThanOrEqual(
+      restartRequestedAt + 3_000,
+    );
+    const earlyAnswer = await emit<{ ok: false; code: string }>(left, 'formula:answer', {
+      commandId: randomUUID(),
+      expectedVersion: restarted.data.version,
+      answer: 0,
+    });
+    expect(earlyAnswer.code).toBe('NOT_READY');
   });
 
   it('accepts canonical, lowercase, and compact room codes when joining', async () => {

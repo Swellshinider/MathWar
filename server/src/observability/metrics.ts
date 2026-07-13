@@ -12,6 +12,7 @@ export type SocketCommand =
   | 'room:create'
   | 'room:join'
   | 'match:fire'
+  | 'match:restart'
   | 'formula:start'
   | 'formula:answer'
   | 'formula:hint'

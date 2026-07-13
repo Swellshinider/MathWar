@@ -97,6 +97,10 @@ export class MultiplayerSocketService {
     return this.emit('match:fire', command);
   }
 
+  restartMatch(command: VersionedCommand): Promise<CommandAck<MatchState>> {
+    return this.emit('match:restart', command);
+  }
+
   leave(command: VersionedCommand): Promise<CommandAck<MultiplayerMatchState>> {
     return this.emit('match:leave', command);
   }

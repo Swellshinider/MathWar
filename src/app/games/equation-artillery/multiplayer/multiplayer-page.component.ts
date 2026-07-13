@@ -91,6 +91,7 @@ export class MultiplayerPageComponent implements OnDestroy {
   readonly opponent = computed(
     () => this.state()?.players.find((player) => player.userId !== this.userId()) ?? null,
   );
+  readonly isHost = computed(() => this.state()?.players[0]?.userId === this.userId());
   readonly opponentTarget = computed<readonly Target[]>(() => {
     if (this.state()?.characters?.length) return [];
     const opponent = this.opponent();
@@ -256,6 +257,22 @@ export class MultiplayerPageComponent implements OnDestroy {
       return;
     }
     this.scrollBoardIntoView();
+  }
+
+  async restart(): Promise<void> {
+    const state = this.state();
+    if (!state || state.status !== 'ended' || !this.isHost()) return;
+    const response = await this.socket.restartMatch({
+      commandId: crypto.randomUUID(),
+      expectedVersion: state.version,
+    });
+    if (!response.ok || !response.data) {
+      this.error.set(response.error ?? 'Could not restart the match.');
+      return;
+    }
+    this.resetRoundPresentation();
+    this.setState(response.data);
+    this.error.set(null);
   }
 
   async leave(): Promise<void> {
@@ -428,8 +445,20 @@ export class MultiplayerPageComponent implements OnDestroy {
   }
 
   private setState(state: MatchState): void {
+    if (this.state()?.status === 'ended' && state.status === 'active') {
+      this.resetRoundPresentation();
+    }
     this.state.set(state);
     if (state.status === 'ended') this.queueOrPlayMatchResult(state);
+  }
+
+  private resetRoundPresentation(): void {
+    this.pendingState = null;
+    this.pendingMatchResult = null;
+    this.pendingLocalShotCommandIds.clear();
+    this.lastEndedSoundKey = null;
+    this.lastShotLabel.set(null);
+    this.equation.set('0');
   }
 
   private queueOrPlayMatchResult(event: MatchState | MatchEndedEvent): void {

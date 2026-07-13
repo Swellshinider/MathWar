@@ -142,6 +142,7 @@ describe('MultiplayerPageComponent', () => {
     create: vi.fn(),
     join: vi.fn(),
     fire: vi.fn(),
+    restartMatch: vi.fn(),
     leave: vi.fn(),
   };
   const router = {
@@ -235,6 +236,54 @@ describe('MultiplayerPageComponent', () => {
       expectedVersion: state.version,
     });
     expect(router.navigate).toHaveBeenCalledWith(['/games/equation-artillery']);
+  });
+
+  it('lets the host restart an ended match in the same room', async () => {
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    const ended = matchState({
+      version: 8,
+      status: 'ended',
+      winnerUserId: 'left',
+      endReason: 'hit',
+      turnUserId: null,
+      turnCharacterId: null,
+    });
+    const restarted = matchState({ version: 9, seed: 'new-seed' });
+    socket.restartMatch.mockResolvedValue({ ok: true, data: restarted });
+    handlers.state(ended);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.restart-button')?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(socket.restartMatch).toHaveBeenCalledWith({
+      commandId: expect.any(String),
+      expectedVersion: ended.version,
+    });
+    expect(fixture.componentInstance.state()).toEqual(restarted);
+    expect(fixture.nativeElement.textContent).toContain('Your turn.');
+  });
+
+  it('tells an Equation Artillery guest to wait for the host after a match', () => {
+    auth.session.set({
+      token: 'token',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+      user: { id: 'right', displayName: 'Right' },
+    });
+    const fixture = TestBed.createComponent(MultiplayerPageComponent);
+    fixture.detectChanges();
+    handlers.state(
+      matchState({ status: 'ended', winnerUserId: 'left', endReason: 'hit', turnUserId: null }),
+    );
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.restart-button')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Waiting for the host to start a new match.',
+    );
   });
 
   it('shows Help and Equation history without technical server messages', () => {
