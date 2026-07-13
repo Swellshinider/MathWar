@@ -777,6 +777,7 @@ async function setupMatch(
     );
     if (!started.ok || !started.data) throw new Error(started.error ?? 'formula:start failed');
     tracker.update(started.data);
+    match.nextFormulaAnswerAt = Date.now() + 3_500;
   }
 
   if (index / options.matches < options.reconnectRatio) match.reconnectTargets.push(match.guest);
@@ -796,7 +797,10 @@ async function exerciseFormula(
       'formula:start',
       versionedPayload(match.tracker),
     );
-    if (restarted.data) match.tracker.update(restarted.data);
+    if (restarted.data) {
+      match.tracker.update(restarted.data);
+      match.nextFormulaAnswerAt = now + 3_500;
+    }
   }
 
   const typingInterval = rateIntervalMs(options.formulaTypingRatePerPlayerPerSecond);

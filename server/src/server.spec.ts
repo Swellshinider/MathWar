@@ -1196,9 +1196,10 @@ describe('multiplayer socket server', () => {
       gameId: 'formula-frenzy';
       formulaPlayers: {
         userId: string;
-        currentProblem: { prompt: string; answer?: number };
+        currentProblem: { prompt: string; answer?: number; startedAt: string };
       }[];
     }>(right, 'match:started');
+    const startRequestedAt = Date.now();
     const startedResponse = await emit<{
       ok: true;
       data: {
@@ -1206,7 +1207,7 @@ describe('multiplayer socket server', () => {
         version: number;
         formulaPlayers: {
           userId: string;
-          currentProblem: { prompt: string; answer?: number };
+          currentProblem: { prompt: string; answer?: number; startedAt: string };
         }[];
       };
     }>(left, 'formula:start', {
@@ -1217,13 +1218,43 @@ describe('multiplayer socket server', () => {
     expect(startedResponse.data.status).toBe('active');
     const started = await startedPromise;
     expect(started.formulaPlayers[0].currentProblem.answer).toBeUndefined();
+    expect(new Date(started.formulaPlayers[0].currentProblem.startedAt).getTime()).toBeGreaterThanOrEqual(
+      startRequestedAt + 3_000,
+    );
+    const earlyAnswer = await emit<{ ok: false; code: string }>(left, 'formula:answer', {
+      commandId: randomUUID(),
+      expectedVersion: startedResponse.data.version,
+      answer: 0,
+    });
+    expect(earlyAnswer.code).toBe('NOT_READY');
     let legacyFormulaStateEmitted = false;
     right.once('formula:state', () => {
       legacyFormulaStateEmitted = true;
     });
 
     const persisted = await harness.repository.findByCode(created.data.roomCode);
-    const leftAnswer = persisted!.formulaPlayers.find((player) => player.userId === 'left')!
+    const ready = await harness.repository.update(
+      persisted!.id,
+      persisted!.version,
+      randomUUID(),
+      (state) => ({
+        ...state,
+        version: state.version + 1,
+        formulaPlayers:
+          state.gameId === 'formula-frenzy'
+            ? state.formulaPlayers.map((player) => ({
+                ...player,
+                currentProblem: {
+                  ...player.currentProblem,
+                  startedAt: new Date(Date.now() - 1_000).toISOString(),
+                },
+              }))
+            : [],
+      }),
+    );
+    expect(ready.ok).toBe(true);
+    if (!ready.ok) return;
+    const leftAnswer = ready.state.formulaPlayers.find((player) => player.userId === 'left')!
       .currentProblem.answer;
     const typingPromise = once<{ userId: string; input: string }>(right, 'formula:typing');
     left.emit('formula:typing', { input: String(leftAnswer).slice(0, 1) });
@@ -1246,7 +1277,7 @@ describe('multiplayer socket server', () => {
       };
     }>(left, 'formula:answer', {
       commandId: randomUUID(),
-      expectedVersion: startedResponse.data.version,
+      expectedVersion: ready.state.version,
       answer: 999999,
     });
     expect(missed.code).toBe('WRONG_ANSWER');
@@ -1358,6 +1389,7 @@ describe('multiplayer socket server', () => {
       data: {
         status: string;
         version: number;
+        seed: string;
         formulaPlayers: { currentProblem: { startedAt: string } }[];
       };
     }>(
@@ -1371,6 +1403,7 @@ describe('multiplayer socket server', () => {
     expect(restarted.ok).toBe(true);
     expect(restarted.data.status).toBe('active');
     expect(restarted.data.formulaPlayers).toHaveLength(2);
+    expect(restarted.data.seed).not.toBe(endedState!.seed);
     expect(new Date(restarted.data.formulaPlayers[0].currentProblem.startedAt).getTime()).toBeGreaterThanOrEqual(
       restartRequestedAt + 3_000,
     );

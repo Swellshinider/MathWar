@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added host-controlled Equation Artillery rematches so both players can play again without leaving
   their room.
-- Added a synchronized animated countdown before Formula Frenzy rematches and told losing guests to
-  wait for the host to restart the match.
+- Added a synchronized animated countdown before Formula Frenzy starts and rematches, randomized
+  the problem sequence for every rematch, and told losing guests to wait for the host to restart.
 
 ### Changed - 2026-07-10
 

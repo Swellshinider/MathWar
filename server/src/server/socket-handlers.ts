@@ -438,7 +438,8 @@ export function registerSocketHandlers({
             error: 'The match is already active.',
           });
         const formulaStart = nowSeconds();
-        const startsAt = new Date(Date.now() + (match.status === 'ended' ? 3_500 : 0));
+        const startsAt = new Date(Date.now() + 3_500);
+        const nextSeed = match.status === 'ended' ? randomBytes(32).toString('hex') : match.seed;
         const result = await repository.update(
           match.id,
           command.expectedVersion,
@@ -446,7 +447,10 @@ export function registerSocketHandlers({
           (state) => {
             const next =
               stateGameId(state) === 'formula-frenzy'
-                ? startFormulaFrenzyMatch(state as FormulaFrenzyMatchState, startsAt)
+                ? startFormulaFrenzyMatch(
+                    { ...(state as FormulaFrenzyMatchState), seed: nextSeed },
+                    startsAt,
+                  )
                 : state;
             metrics.observeGameOperation(
               'formula-frenzy',

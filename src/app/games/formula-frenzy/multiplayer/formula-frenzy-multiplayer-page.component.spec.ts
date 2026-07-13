@@ -167,24 +167,36 @@ describe('FormulaFrenzyMultiplayerPageComponent', () => {
 
   afterEach(() => fixture.componentInstance.ngOnDestroy());
 
-  it('lets the host start a waiting match and focuses the answer input', async () => {
-    const started = activeState({ version: 3 });
+  it('lets the host start a waiting match with the countdown active', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-28T12:00:00.000Z'));
+    const startsAt = new Date(Date.now() + 3_500).toISOString();
+    const started = activeState({
+      version: 3,
+      formulaPlayers: activeState().formulaPlayers.map((player) => ({
+        ...player,
+        currentProblem: { ...player.currentProblem, startedAt: startsAt },
+      })),
+    });
     socket.startFormula.mockResolvedValue({ ok: true, data: started });
     const root = fixture.nativeElement as HTMLElement;
 
     handlers.state(formulaState());
     fixture.detectChanges();
-    root.querySelector<HTMLButtonElement>('.start-button')?.click();
-    await fixture.whenStable();
+    expect(root.querySelector<HTMLButtonElement>('.start-button')).not.toBeNull();
+    await fixture.componentInstance.startRun();
     fixture.detectChanges();
 
     expect(socket.startFormula).toHaveBeenCalledWith({
       commandId: expect.any(String),
       expectedVersion: 2,
     });
-    expect(document.activeElement).toBe(
+    expect(root.querySelector('.match-countdown')?.textContent).toContain('3');
+    expect(fixture.componentInstance.answerControl.disabled).toBe(true);
+    expect(document.activeElement).not.toBe(
       root.querySelector<HTMLInputElement>('#formula-multiplayer-answer'),
     );
+    vi.useRealTimers();
   });
 
   it('shows restart after a result and starts a new run', async () => {
